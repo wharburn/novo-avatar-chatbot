@@ -1,14 +1,20 @@
 import { getHumeAccessToken } from './lib/getHumeAccessToken';
 import ClientChat from './components/Chat/ClientChat';
 
+// Force dynamic rendering to ensure fresh token on each request
+export const dynamic = 'force-dynamic';
+
 export default async function Page() {
   let accessToken: string | null = null;
   let error: string | null = null;
 
+  console.log('[Page] Starting page render...');
+
   try {
     accessToken = await getHumeAccessToken();
+    console.log('[Page] Access token obtained successfully');
   } catch (err) {
-    console.error('Failed to get access token:', err);
+    console.error('[Page] Failed to get access token:', err);
     error = err instanceof Error ? err.message : 'Failed to authenticate with Hume AI';
   }
 

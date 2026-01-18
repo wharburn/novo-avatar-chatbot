@@ -24,12 +24,28 @@ export default function ChatControls({ accessToken, configId }: ChatControlsProp
 
   const handleConnect = async () => {
     try {
+      console.log('Attempting to connect to Hume EVI...');
+      console.log('Access token present:', !!accessToken, 'length:', accessToken?.length || 0);
+      console.log('Config ID:', configId);
+      
+      if (!accessToken) {
+        console.error('No access token available - check HUME_API_KEY and HUME_SECRET_KEY env vars');
+        return;
+      }
+      
+      if (!configId) {
+        console.error('No config ID available - check NEXT_PUBLIC_HUME_CONFIG_ID env var');
+        return;
+      }
+      
       await connect({
         auth: { type: 'accessToken', value: accessToken },
         configId: configId,
       });
+      console.log('Connection initiated successfully');
     } catch (err) {
       console.error('Failed to connect:', err);
+      console.error('Error details:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
     }
   };
 

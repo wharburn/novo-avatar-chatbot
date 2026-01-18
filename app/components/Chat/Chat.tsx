@@ -494,6 +494,13 @@ export default function Chat({ accessToken, configId }: ChatProps) {
 
   const handleError = (error: unknown) => {
     console.error('Hume error:', error);
+    // Log detailed error info for debugging WebSocket issues
+    if (error && typeof error === 'object') {
+      const err = error as { type?: string; reason?: string; message?: string };
+      console.error('Error type:', err.type);
+      console.error('Error reason:', err.reason);
+      console.error('Error message:', err.message);
+    }
   };
 
   return (
