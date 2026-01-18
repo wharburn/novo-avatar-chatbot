@@ -42,7 +42,7 @@ export default function ChatControls({ accessToken, configId }: ChatControlsProp
   };
 
   return (
-    <div className="absolute bottom-4 left-4 flex gap-2">
+    <div className="absolute bottom-4 left-4 flex gap-2 z-50">
       {/* Connect/Disconnect button */}
       {isConnected ? (
         <button
