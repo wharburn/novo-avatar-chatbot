@@ -1,7 +1,6 @@
 services:
-  # Production (main branch)
   - type: web
-    name: novo-avatar-prod
+    name: novo-avatar-chatbot
     env: node
     region: oregon
     plan: starter
@@ -22,36 +21,6 @@ services:
         sync: false
       - key: NEXT_PUBLIC_APP_ENV
         value: production
-      - key: UPSTASH_REDIS_REST_URL
-        sync: false
-      - key: UPSTASH_REDIS_REST_TOKEN
-        sync: false
-      - key: ADMIN_PIN
-        sync: false
-
-  # Staging (develop branch)
-  - type: web
-    name: novo-avatar-staging
-    env: node
-    region: oregon
-    plan: starter
-    branch: develop
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    healthCheckPath: /api/health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: NEXT_PUBLIC_APP_ENV
-        value: staging
-      - key: HUME_API_KEY
-        sync: false
-      - key: HUME_SECRET_KEY
-        sync: false
-      - key: NEXT_PUBLIC_HUME_CONFIG_ID
-        sync: false
-      - key: NEXT_PUBLIC_APP_URL
-        sync: false
       - key: UPSTASH_REDIS_REST_URL
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN
