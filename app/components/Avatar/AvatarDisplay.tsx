@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
 import { 
   getRandomGreeting, 
   findPhraseVideo,
@@ -44,13 +43,20 @@ export default function AvatarDisplay({
   // Video sources
   const [greetingVideo, setGreetingVideo] = useState<PhraseVideo | null>(null);
   const [phraseVideo, setPhraseVideo] = useState<PhraseVideo | null>(null);
-  // Waiting video is now a single file, no need for state
+  
+  // Track video ready states
+  const [videosReady, setVideosReady] = useState({
+    waiting: false,
+    listening: false,
+    talking: false,
+  });
   
   // Refs
   const greetingVideoRef = useRef<HTMLVideoElement>(null);
   const phraseVideoRef = useRef<HTMLVideoElement>(null);
   const talkingVideoRef = useRef<HTMLVideoElement>(null);
   const waitingVideoRef = useRef<HTMLVideoElement>(null);
+  const listeningVideoRef = useRef<HTMLVideoElement>(null);
   
   // Track if initial greeting has been played
   const hasPlayedGreeting = useRef(false);
@@ -93,12 +99,6 @@ export default function AvatarDisplay({
     }
   };
 
-  // Handle waiting video end - loop it
-  const handleWaitingEnded = () => {
-    // Video will loop automatically, but we can log for debugging
-    console.log(`🎬 Waiting video ended, looping`);
-  };
-
   // Check for phrase match when spoken text changes
   useEffect(() => {
     if (!spokenText || spokenText === lastSpokenText.current) return;
@@ -132,18 +132,76 @@ export default function AvatarDisplay({
     }
   }, [isSpeaking, isListening, mode]);
 
+  // Common video styles
+  const baseVideoStyle = "absolute inset-0 w-full h-full object-cover transition-opacity duration-300";
+
   return (
     <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-b from-blue-100 to-blue-50">
       <div className="relative w-full max-w-md aspect-square overflow-hidden">
         
-        {/* GREETING VIDEO - with audio */}
-        {mode === 'greeting' && greetingVideo && (
+        {/* WAITING VIDEO - Always mounted as background fallback */}
+        <video
+          ref={waitingVideoRef}
+          src={WAITING_VIDEO}
+          className={baseVideoStyle}
+          style={{ 
+            filter: videoFilter,
+            opacity: mode === 'waiting' ? 1 : 0,
+            zIndex: mode === 'waiting' ? 10 : 1,
+          }}
+          autoPlay
+          loop
+          muted
+          playsInline
+          onCanPlay={() => setVideosReady(prev => ({ ...prev, waiting: true }))}
+        />
+
+        {/* LISTENING VIDEO - Always mounted */}
+        <video
+          ref={listeningVideoRef}
+          src={LISTENING_VIDEO}
+          className={baseVideoStyle}
+          style={{ 
+            filter: videoFilter,
+            opacity: mode === 'listening' ? 1 : 0,
+            zIndex: mode === 'listening' ? 10 : 2,
+          }}
+          autoPlay
+          loop
+          muted
+          playsInline
+          onCanPlay={() => setVideosReady(prev => ({ ...prev, listening: true }))}
+        />
+
+        {/* TALKING VIDEO - Always mounted */}
+        <video
+          ref={talkingVideoRef}
+          src={TALKING_VIDEO}
+          className={baseVideoStyle}
+          style={{ 
+            filter: talkingVideoFilter,
+            opacity: mode === 'talking' ? 1 : 0,
+            zIndex: mode === 'talking' ? 10 : 3,
+          }}
+          autoPlay
+          loop
+          muted
+          playsInline
+          onCanPlay={() => setVideosReady(prev => ({ ...prev, talking: true }))}
+        />
+
+        {/* GREETING VIDEO - Mounted only when needed, highest z-index */}
+        {greetingVideo && (
           <video
             ref={greetingVideoRef}
             key={greetingVideo.id}
             src={greetingVideo.videoPath}
-            className="w-full h-full object-cover"
-            style={{ filter: videoFilter }}
+            className={baseVideoStyle}
+            style={{ 
+              filter: videoFilter,
+              opacity: mode === 'greeting' ? 1 : 0,
+              zIndex: 20,
+            }}
             autoPlay
             playsInline
             onEnded={handleGreetingEnded}
@@ -154,14 +212,18 @@ export default function AvatarDisplay({
           />
         )}
 
-        {/* PHRASE VIDEO - with audio */}
-        {mode === 'phrase' && phraseVideo && (
+        {/* PHRASE VIDEO - Mounted only when needed, highest z-index */}
+        {phraseVideo && (
           <video
             ref={phraseVideoRef}
             key={phraseVideo.id}
             src={phraseVideo.videoPath}
-            className="w-full h-full object-cover"
-            style={{ filter: videoFilter }}
+            className={baseVideoStyle}
+            style={{ 
+              filter: videoFilter,
+              opacity: mode === 'phrase' ? 1 : 0,
+              zIndex: 20,
+            }}
             autoPlay
             playsInline
             onEnded={handlePhraseEnded}
@@ -172,49 +234,8 @@ export default function AvatarDisplay({
           />
         )}
 
-        {/* TALKING VIDEO - muted loop, Hume provides audio */}
-        {mode === 'talking' && (
-          <video
-            ref={talkingVideoRef}
-            src={TALKING_VIDEO}
-            className="w-full h-full object-cover"
-            style={{ filter: talkingVideoFilter }}
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-        )}
-
-        {/* LISTENING VIDEO - muted loop, user is speaking */}
-        {mode === 'listening' && (
-          <video
-            src={LISTENING_VIDEO}
-            className="w-full h-full object-cover"
-            style={{ filter: videoFilter }}
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-        )}
-
-        {/* WAITING VIDEO - muted loop, initial state & inactivity */}
-        {mode === 'waiting' && (
-          <video
-            ref={waitingVideoRef}
-            src={WAITING_VIDEO}
-            className="w-full h-full object-cover"
-            style={{ filter: videoFilter }}
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-        )}
-
         {/* Status indicator */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30">
           {isSpeaking && (
             <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium animate-pulse">
               Speaking
@@ -228,7 +249,7 @@ export default function AvatarDisplay({
         </div>
 
         {/* Debug mode indicator */}
-        <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs">
+        <div className="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs z-30">
           {mode}
         </div>
       </div>
