@@ -414,8 +414,8 @@ function ChatInner({ accessToken, configId }: ChatProps) {
 
       {/* Avatar Section - Dynamic Height */}
       <div
-        className={`relative flex-1 transition-all duration-300 ease-in-out ${
-          transcriptVisible ? 'h-[70vh]' : 'h-full'
+        className={`relative transition-all duration-300 ease-in-out ${
+          transcriptVisible ? 'h-[55vh]' : 'flex-1'
         }`}
       >
         <AvatarDisplay
@@ -432,8 +432,8 @@ function ChatInner({ accessToken, configId }: ChatProps) {
 
       {/* Transcript Section - Collapsible */}
       <div
-        className={`bg-white border-t-2 border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${
-          transcriptVisible ? 'h-[30vh] min-h-[180px] opacity-100' : 'h-0 opacity-0'
+        className={`bg-white border-t-2 border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex-1 ${
+          transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
         {/* Header */}

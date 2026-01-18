@@ -136,7 +136,7 @@ export default function AvatarDisplay({
   const baseVideoStyle = "absolute inset-0 w-full h-full object-cover transition-opacity duration-300";
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-gradient-to-b from-blue-100 to-blue-50">
+    <div className="relative w-full h-full flex items-start justify-center bg-gradient-to-b from-blue-100 to-blue-50">
       <div className="relative w-full max-w-md aspect-square overflow-hidden">
         
         {/* WAITING VIDEO - Always mounted as background fallback */}
