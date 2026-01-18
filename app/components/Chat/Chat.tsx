@@ -432,12 +432,12 @@ function ChatInner({ accessToken, configId }: ChatProps) {
 
       {/* Transcript Section - Collapsible */}
       <div
-        className={`bg-white border-t-2 border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex-1 ${
+        className={`bg-white border-t-2 border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
           transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-gray-600" />
             <h3 className="text-sm font-medium text-gray-700">Conversation</h3>
