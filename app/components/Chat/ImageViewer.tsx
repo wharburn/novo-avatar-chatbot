@@ -20,8 +20,6 @@ export default function ImageViewer({
   source = 'other',
   timestamp,
 }: ImageViewerProps) {
-  console.log('🖼️ ImageViewer rendered!', { source, imageUrl: imageUrl.substring(0, 50) + '...' });
-
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
