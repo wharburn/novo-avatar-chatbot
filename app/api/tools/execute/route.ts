@@ -1,4 +1,5 @@
 import { checkWhatsAppNumber, sendWhatsAppMessage } from '@/app/lib/greenapi';
+import { sendConversationSummary } from '@/app/lib/resend-email';
 import { OpenBrowserParams, SendWhatsAppParams, ToolExecutionResult } from '@/app/types/tools';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -30,6 +31,10 @@ export async function POST(request: NextRequest) {
 
       case 'send_whatsapp':
         result = await executeSendWhatsApp(parameters);
+        break;
+
+      case 'send_email_summary':
+        result = await executeSendEmailSummary(parameters);
         break;
 
       default:
@@ -236,6 +241,55 @@ async function executeSendWhatsApp(params: SendWhatsAppParams): Promise<ToolExec
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to send WhatsApp message',
+    };
+  }
+}
+
+/**
+ * Execute send_email_summary tool
+ * Sends a conversation summary email via Resend
+ */
+async function executeSendEmailSummary(params: {
+  email: string;
+  user_name?: string;
+}): Promise<ToolExecutionResult> {
+  try {
+    const { email, user_name } = params;
+
+    if (!email || !email.includes('@')) {
+      return {
+        success: false,
+        error: 'Please provide a valid email address',
+      };
+    }
+
+    // For now, we'll send a simple confirmation
+    // In production, you'd get the actual conversation messages from the session
+    const result = await sendConversationSummary({
+      email,
+      messages: [], // TODO: Get actual messages from session
+      userName: user_name,
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || 'Failed to send email summary',
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        messageId: result.messageId,
+        email,
+        message: `Email summary sent successfully to ${email}`,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send email summary',
     };
   }
 }

@@ -27,6 +27,13 @@
       "parameters": "{ \"type\": \"object\", \"properties\": { \"phoneNumber\": { \"type\": \"string\", \"description\": \"Phone number in international format without + symbol. Examples: 79876543210 (Russia), 14155551234 (USA), 447700900123 (UK). Remove all spaces, dashes, and special characters.\" }, \"message\": { \"type\": \"string\", \"description\": \"The message text to send via WhatsApp. Can include emojis and formatting.\" } }, \"required\": [\"phoneNumber\", \"message\"] }",
       "fallback_content": "I'm sorry, I couldn't send that WhatsApp message. Please check the phone number format and try again. The number should be in international format without the + symbol.",
       "version_description": "Sends WhatsApp messages via Green API integration"
+    },
+    {
+      "name": "send_email_summary",
+      "description": "Sends a conversation summary email to the user. Use this when the user asks to email them a summary, send them a recap, or wants to receive their conversation history via email.",
+      "parameters": "{ \"type\": \"object\", \"properties\": { \"email\": { \"type\": \"string\", \"description\": \"User's email address where the summary will be sent\" }, \"user_name\": { \"type\": \"string\", \"description\": \"User's name for personalization (optional)\" } }, \"required\": [\"email\"] }",
+      "fallback_content": "I'm sorry, I couldn't send the email summary. Please check the email address and try again.",
+      "version_description": "Sends conversation summary via Resend email service"
     }
   ],
   "instructions": {
@@ -75,6 +82,13 @@
         "Text 79876543210 on WhatsApp and say I'll be late",
         "Message my friend at 447700900123 saying see you soon",
         "WhatsApp 14155551234 with the message 'Meeting at 3pm'"
+      ],
+      "send_email_summary_examples": [
+        "Email me a summary of our conversation",
+        "Send me a recap to john@example.com",
+        "Can you email me what we talked about?",
+        "Send a summary to my email: sarah@company.com",
+        "Email me our conversation history"
       ]
     }
   },
@@ -117,6 +131,12 @@
         "description": "Your Green API token",
         "example": "abc123def456...",
         "get_from": "https://green-api.com/ → Console → Instance → API Token"
+      },
+      {
+        "name": "RESEND_API_KEY",
+        "description": "Your Resend API key for sending emails",
+        "example": "re_abc123def456...",
+        "get_from": "https://resend.com/ → API Keys"
       }
     ],
     "optional": [
