@@ -637,11 +637,23 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     return () => clearInterval(pollInterval);
   }, [isConnected]);
 
+  // Track if we've sent session variables for this connection
+  const sessionVariablesSentRef = useRef(false);
+
   // Send user context to Hume AI when connected
   // IMPORTANT: Always send variables (even empty) to avoid Hume error W0106
+  // This effect runs when:
+  // 1. Connection is established (isConnected becomes true)
+  // 2. User profile is loaded (userProfile changes from null to object)
   useEffect(() => {
     if (!isConnected || !sendSessionSettings) return;
-    if (identityConfirmedRef.current) return; // Already handled
+    
+    // Reset the ref when disconnected (handled by the cleanup or connection state)
+    // Send variables if we haven't sent them yet, OR if profile just loaded and we only sent defaults before
+    const shouldSend = !sessionVariablesSentRef.current || 
+      (userProfile?.name && !identityConfirmedRef.current);
+    
+    if (!shouldSend) return;
 
     // Build context variables - always include all variables with defaults
     const contextVariables: Record<string, string> = {
@@ -653,8 +665,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
     if (userProfile?.isReturningUser && userProfile?.name) {
       console.log(`👤 Returning user detected: ${userProfile.name} (visit #${userProfile.visitCount})`);
+      identityConfirmedRef.current = true;
     } else {
-      console.log('👤 New user - sending default session variables');
+      console.log('👤 New user or profile not loaded - sending session variables');
     }
 
     // Send session settings with user context (or defaults)
@@ -663,12 +676,19 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         variables: contextVariables,
       });
       console.log('👤 Sent session variables to Hume AI:', contextVariables);
+      sessionVariablesSentRef.current = true;
     } catch (error) {
       console.error('Failed to send session settings:', error);
     }
-    
-    identityConfirmedRef.current = true;
   }, [isConnected, userProfile, sendSessionSettings]);
+
+  // Reset session tracking when disconnected
+  useEffect(() => {
+    if (!isConnected) {
+      sessionVariablesSentRef.current = false;
+      identityConfirmedRef.current = false;
+    }
+  }, [isConnected]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
