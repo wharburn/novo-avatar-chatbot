@@ -160,17 +160,19 @@ export default function AvatarDisplay({
   const volumeLevel = calculateVolumeLevel(micFft);
 
   return (
-    <div className="relative w-full h-full flex items-start justify-center bg-gradient-to-b from-blue-100 to-blue-50">
-      <div className="relative w-full max-w-md aspect-square overflow-hidden">
-        
-        {/* VOLUME INDICATOR BAR - Shows microphone input level */}
+    <div className="relative w-full h-full flex flex-col items-center bg-gradient-to-b from-blue-100 to-blue-50">
+      {/* VOLUME INDICATOR BAR - Shows microphone input level (outside avatar container) */}
+      <div className="w-full max-w-md h-[5px] bg-gray-200 relative">
         <div 
-          className="absolute top-0 left-0 h-[5px] bg-green-500 transition-all duration-75 z-50"
+          className="absolute top-0 left-0 h-full bg-green-500 transition-all duration-75"
           style={{ 
-            width: `${volumeLevel * 100}%`,
-            opacity: isListening ? 1 : 0.3,
+            width: `${Math.max(volumeLevel * 100, 2)}%`,
+            opacity: isListening ? 1 : 0.5,
           }}
         />
+      </div>
+      
+      <div className="relative w-full max-w-md aspect-square overflow-hidden">
         
         {/* WAITING VIDEO - Always mounted as background fallback */}
         <video
