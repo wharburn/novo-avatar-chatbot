@@ -55,15 +55,18 @@
     }
   ],
   "setup_instructions": {
-    "step_1_create_take_picture": {
-      "title": "Create take_picture (Custom Tool)",
+    "step_1_enable_take_picture": {
+      "title": "Enable take_picture (Built-in Tool)",
       "instructions": [
         "1. Go to https://platform.hume.ai/",
-        "2. Navigate to EVI → Tools",
-        "3. Click 'Create Tool'",
-        "4. Fill in the form with the values from the take_picture tool above"
+        "2. Navigate to EVI → Configs",
+        "3. Select your config",
+        "4. Click 'Edit'",
+        "5. In the 'Tools' section, find 'take_picture' in the built-in tools list",
+        "6. Enable it by checking the box",
+        "7. Click 'Save'"
       ],
-      "note": "take_picture is a CUSTOM tool - you need to create it in Hume AI Tools section"
+      "note": "take_picture is already built into Hume AI - you don't need to create it!"
     },
     "step_2_create_send_picture_email": {
       "title": "Create send_picture_email (Custom Tool)",

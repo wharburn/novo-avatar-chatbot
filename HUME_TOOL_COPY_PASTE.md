@@ -11,7 +11,7 @@ You need to create **2 custom tools** in Hume AI:
 
 ## Step 1: Create `take_picture` Tool
 
-1. Go to https://platform.hume.ai/ → **EVI** → **Tools**
+1. Go to <https://platform.hume.ai/> → **EVI** → **Tools**
 2. Click **"Create Tool"**
 3. Copy and paste the values below into each field:
 
@@ -29,17 +29,10 @@ Takes a picture using the device camera (phone camera, tablet camera, or laptop 
 
 ### **Parameters:**
 
-```json
-{
-  "type": "object",
-  "properties": {
-    "camera_type": {
-      "type": "string",
-      "description": "Optional: 'front' or 'back' camera. Defaults to 'front' on mobile devices.",
-      "enum": ["front", "back"]
-    }
-  }
-}
+Copy this EXACT text (single line):
+
+```
+{ "type": "object", "properties": { "camera_type": { "type": "string", "description": "Optional: 'front' or 'back' camera. Defaults to 'front' on mobile devices.", "enum": ["front", "back"] } } }
 ```
 
 ### **Fallback Content:**
@@ -54,7 +47,7 @@ I'm sorry, I couldn't access the camera. Please make sure you've granted camera 
 Captures photos from device camera - works on phones, tablets, and laptops
 ```
 
-4. Click **"Save"**
+1. Click **"Save"**
 
 **Done!** ✅
 
@@ -62,7 +55,7 @@ Captures photos from device camera - works on phones, tablets, and laptops
 
 ## Step 2: Create `send_picture_email` Tool
 
-1. Go to https://platform.hume.ai/ → **EVI** → **Tools**
+1. Go to <https://platform.hume.ai/> → **EVI** → **Tools**
 2. Click **"Create Tool"**
 3. Copy and paste the values below into each field:
 
@@ -80,26 +73,10 @@ Sends a picture via email after the user has taken a photo using the take_pictur
 
 ### **Parameters:**
 
-```json
-{
-  "type": "object",
-  "properties": {
-    "email": {
-      "type": "string",
-      "description": "User's confirmed email address in valid format (e.g., john@example.com)"
-    },
-    "user_name": { "type": "string", "description": "User's full name. REQUIRED." },
-    "image_url": {
-      "type": "string",
-      "description": "The URL of the image from the take_picture tool. This is provided by the take_picture tool response."
-    },
-    "caption": {
-      "type": "string",
-      "description": "Optional caption or message to include with the picture"
-    }
-  },
-  "required": ["email", "user_name", "image_url"]
-}
+Copy this EXACT text (single line):
+
+```
+{ "type": "object", "properties": { "email": { "type": "string", "description": "User's confirmed email address in valid format (e.g., john@example.com)" }, "user_name": { "type": "string", "description": "User's full name. REQUIRED." }, "image_url": { "type": "string", "description": "The URL of the image from the take_picture tool. This is provided by the take_picture tool response." }, "caption": { "type": "string", "description": "Optional caption or message to include with the picture" } }, "required": ["email", "user_name", "image_url"] }
 ```
 
 ### **Fallback Content:**
@@ -114,7 +91,7 @@ I'm sorry, I couldn't send the picture via email. Please make sure you've taken 
 Sends pictures via email using Resend - works with take_picture tool
 ```
 
-4. Click **"Save"**
+1. Click **"Save"**
 
 **Done!** ✅
 
@@ -134,13 +111,13 @@ Sends pictures via email using Resend - works with take_picture tool
 
 ---
 
-## 🧪 Test It!
+## 🧪 Test It
 
 Say to NoVo:
 
 - "Take a picture"
 - "Can you take a photo and email it to me?"
-- "Take a picture and send it to john@example.com"
+- "Take a picture and send it to <john@example.com>"
 
 NoVo will:
 
