@@ -42,8 +42,13 @@ export async function POST(request: NextRequest) {
         result = await executeTakePicture(parameters);
         break;
 
+      case 'send_email_picture':
+        result = await executeSendEmailPicture(parameters);
+        break;
+
+      // Legacy name support
       case 'send_picture_email':
-        result = await executeSendPictureEmail(parameters);
+        result = await executeSendEmailPicture(parameters);
         break;
 
       default:
