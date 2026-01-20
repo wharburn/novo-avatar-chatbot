@@ -20,7 +20,7 @@ take_picture
 ### **Description:**
 
 ```
-Takes a picture using the device camera (phone, tablet, or laptop webcam). Opens the camera interface and captures a photo. Returns the image URL that can be used with send_picture_email tool.
+Takes a picture using the device camera. IMPORTANT: Call this tool IMMEDIATELY when the user asks to take a picture - do not ask for confirmation or explain first. Just call the tool right away. The camera will open automatically for the user to capture the photo.
 ```
 
 ### **Parameters:**

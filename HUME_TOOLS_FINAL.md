@@ -12,17 +12,20 @@ You need to create **3 CUSTOM TOOLS**:
 
 ## 1️⃣ take_picture
 
-### Name:
+### Name
+
 ```
 take_picture
 ```
 
-### Description:
+### Description
+
 ```
-Takes a picture using the device camera (phone, tablet, or laptop webcam). Opens the camera interface and captures a photo. Returns the image URL that can be used with send_email_picture tool.
+Takes a picture using the device camera. IMPORTANT: Call this tool IMMEDIATELY when the user asks to take a picture - do not ask for confirmation or explain first. Just call the tool right away. The camera will open automatically for the user to capture the photo.
 ```
 
-### Parameters:
+### Parameters
+
 ```json
 {
   "type": "object",
@@ -31,12 +34,14 @@ Takes a picture using the device camera (phone, tablet, or laptop webcam). Opens
 }
 ```
 
-### Fallback Content:
+### Fallback Content
+
 ```
 I'll take a picture for you now. Please allow camera access when prompted.
 ```
 
-### Version Description:
+### Version Description
+
 ```
 Initial version - captures photos from device camera
 ```
@@ -45,17 +50,20 @@ Initial version - captures photos from device camera
 
 ## 2️⃣ send_email_summary
 
-### Name:
+### Name
+
 ```
 send_email_summary
 ```
 
-### Description:
+### Description
+
 ```
 Sends a summary of the conversation via email. IMPORTANT: You MUST ask for and confirm BOTH the user's full name AND email address before calling this tool. Ask 'What is your email address?' and 'What is your name?' to collect the required information.
 ```
 
-### Parameters:
+### Parameters
+
 ```json
 {
   "type": "object",
@@ -73,12 +81,14 @@ Sends a summary of the conversation via email. IMPORTANT: You MUST ask for and c
 }
 ```
 
-### Fallback Content:
+### Fallback Content
+
 ```
 I'm sorry, I couldn't send the email summary. Please make sure you've provided your email address and name.
 ```
 
-### Version Description:
+### Version Description
+
 ```
 Sends conversation summaries via email using Resend
 ```
@@ -87,17 +97,20 @@ Sends conversation summaries via email using Resend
 
 ## 3️⃣ send_email_picture
 
-### Name:
+### Name
+
 ```
 send_email_picture
 ```
 
-### Description:
+### Description
+
 ```
 Sends a picture via email after the user has taken a photo using the take_picture tool. IMPORTANT: You MUST ask for and confirm BOTH the user's full name AND email address before calling this tool. This tool should only be called AFTER a picture has been taken with the take_picture tool. Ask 'What is your email address?' and 'What is your name?' to collect the required information.
 ```
 
-### Parameters:
+### Parameters
+
 ```json
 {
   "type": "object",
@@ -123,12 +136,14 @@ Sends a picture via email after the user has taken a photo using the take_pictur
 }
 ```
 
-### Fallback Content:
+### Fallback Content
+
 ```
 I'm sorry, I couldn't send the picture via email. Please make sure you've taken a picture first and provided your email address.
 ```
 
-### Version Description:
+### Version Description
+
 ```
 Sends pictures via email using Resend - works with take_picture tool
 ```
@@ -137,7 +152,7 @@ Sends pictures via email using Resend - works with take_picture tool
 
 ## 📋 Setup Steps
 
-1. Go to https://platform.hume.ai/
+1. Go to <https://platform.hume.ai/>
 2. Click **"EVI"** → **"Tools"**
 3. Click **"Create Tool"** for each tool above
 4. Copy-paste the values from this document
@@ -153,6 +168,7 @@ Sends pictures via email using Resend - works with take_picture tool
 ## ✅ After Setup
 
 NoVo will be able to:
+
 - 📸 Take pictures using device camera
 - 📧 Email conversation summaries
 - 🖼️ Email captured pictures
@@ -160,4 +176,3 @@ NoVo will be able to:
 ---
 
 **All 3 tools ready to copy-paste!** 🚀
-
