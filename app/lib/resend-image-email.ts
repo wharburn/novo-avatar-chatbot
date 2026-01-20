@@ -104,19 +104,24 @@ export async function sendImageEmail(
     let imageBase64 = '';
     let imageMimeType = 'image/jpeg';
 
+    console.log('📸 Processing image URL:', imageUrl);
+
     try {
       if (imageUrl.startsWith('data:')) {
         // Already base64
+        console.log('📸 Image is base64 data URL');
         const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
         if (matches) {
           imageMimeType = matches[1];
           imageBase64 = matches[2];
+          console.log('📸 Extracted base64, length:', imageBase64.length);
         }
       } else if (
         imageUrl.startsWith('http://localhost') ||
-        imageUrl.startsWith('http://127.0.0.1')
+        imageUrl.startsWith('http://127.0.0.1') ||
+        imageUrl.includes('/uploads/') // Handle our own uploads
       ) {
-        // Local URL - fetch from filesystem
+        // Local URL or our own uploads - fetch from filesystem
         const fs = await import('fs/promises');
         const path = await import('path');
 
@@ -124,26 +129,52 @@ export async function sendImageEmail(
         const urlPath = new URL(imageUrl).pathname;
         const filePath = path.join(process.cwd(), 'public', urlPath);
 
-        console.log('📸 Reading image from:', filePath);
-        const imageBuffer = await fs.readFile(filePath);
-        imageBase64 = imageBuffer.toString('base64');
+        console.log('📸 Reading image from filesystem:', filePath);
+        
+        try {
+          const imageBuffer = await fs.readFile(filePath);
+          imageBase64 = imageBuffer.toString('base64');
+          console.log('📸 Read image successfully, base64 length:', imageBase64.length);
+        } catch (fsError) {
+          console.error('📸 Failed to read from filesystem, trying HTTP fetch:', fsError);
+          // Fallback to HTTP fetch
+          const response = await fetch(imageUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            imageBase64 = buffer.toString('base64');
+            console.log('📸 Fetched via HTTP, base64 length:', imageBase64.length);
+          } else {
+            console.error('📸 HTTP fetch failed:', response.status, response.statusText);
+          }
+        }
       } else {
         // External URL - fetch it
+        console.log('📸 Fetching external URL:', imageUrl);
         const response = await fetch(imageUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        imageBase64 = buffer.toString('base64');
+        
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          imageBase64 = buffer.toString('base64');
+          console.log('📸 Fetched successfully, base64 length:', imageBase64.length);
 
-        // Try to get mime type from response
-        const contentType = response.headers.get('content-type');
-        if (contentType) {
-          imageMimeType = contentType;
+          // Try to get mime type from response
+          const contentType = response.headers.get('content-type');
+          if (contentType) {
+            imageMimeType = contentType;
+          }
+        } else {
+          console.error('📸 Failed to fetch image:', response.status, response.statusText);
         }
       }
     } catch (error) {
-      console.error('Failed to fetch image:', error);
+      console.error('📸 Failed to process image:', error);
       // Continue anyway - email will be sent without image
     }
+
+    console.log('📸 Final imageBase64 length:', imageBase64.length);
+    console.log('📸 Will attach image:', imageBase64.length > 0);
 
     const result = await resend.emails.send({
       from: 'NoVo <novo@novocomai.online>',

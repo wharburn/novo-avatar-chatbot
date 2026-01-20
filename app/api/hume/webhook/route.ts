@@ -53,6 +53,17 @@ export async function POST(request: NextRequest) {
     console.log('[Hume Webhook] Tool result:', result);
 
     // Return the response in Hume AI webhook format
+    // IMPORTANT: For take_picture, we DON'T return a tool_response here
+    // The client will send the response after the camera captures the image
+    if (name === 'take_picture') {
+      console.log('[Hume Webhook] take_picture - NOT sending response, client will handle it');
+      // Return 200 OK but no tool_response - client will send it
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Tool call received, client will handle response' 
+      });
+    }
+
     if (response_required) {
       return NextResponse.json({
         type: 'tool_response',

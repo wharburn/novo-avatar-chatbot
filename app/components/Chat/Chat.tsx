@@ -588,13 +588,22 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }, 5000);
 
     // Send tool response back to Hume AI
+    // The response should include the image_url so Hume knows where the image is
+    const toolResponseContent = JSON.stringify({
+      status: 'captured',
+      image_url: lastCapturedImageRef.current,
+      message: 'Picture captured successfully! The image is ready to be emailed.',
+    });
+
+    console.log('📸 Sending tool response with image URL:', lastCapturedImageRef.current);
+
     // Try the new onToolCall send function first
     if (pendingToolCallSendRef.current) {
       try {
         pendingToolCallSendRef.current.success({
           status: 'captured',
           image_url: lastCapturedImageRef.current,
-          message: `Picture captured successfully! Image URL: ${lastCapturedImageRef.current}`,
+          message: 'Picture captured successfully! The image is ready to be emailed.',
         });
         console.log('📸 Tool response sent via onToolCall handler');
       } catch (error) {
@@ -602,22 +611,24 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       }
       pendingToolCallSendRef.current = null;
     }
-    // Fallback to old method
+    // Fallback to sendToolMessage
     else if (pendingToolCallIdRef.current && sendToolMessage) {
       try {
-        // Send tool response with the image URL
+        // Send tool response with the image URL as JSON
         sendToolMessage({
           type: 'tool_response',
           toolCallId: pendingToolCallIdRef.current,
-          content: `Picture captured successfully! Image URL: ${lastCapturedImageRef.current}`,
+          content: toolResponseContent,
         } as any);
 
-        console.log('📸 Tool response sent with image URL (legacy)');
+        console.log('📸 Tool response sent via sendToolMessage');
       } catch (error) {
         console.error('Failed to send tool response:', error);
       }
 
       pendingToolCallIdRef.current = null;
+    } else {
+      console.warn('📸 No way to send tool response! pendingToolCallIdRef:', pendingToolCallIdRef.current, 'sendToolMessage:', !!sendToolMessage);
     }
 
     // Make NoVo ask about retaking the photo
