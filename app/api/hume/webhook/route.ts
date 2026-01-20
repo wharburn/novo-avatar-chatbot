@@ -19,10 +19,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract tool call information from the correct structure
-    const { tool_call_message } = body;
+    const { tool_call_message, chat_id } = body;
     const { name, parameters, tool_call_id, response_required } = tool_call_message;
 
-    console.log('[Hume Webhook] Tool call:', { name, parameters, tool_call_id });
+    console.log('[Hume Webhook] Tool call:', { name, parameters, tool_call_id, chat_id });
 
     // Parse parameters (they come as a JSON string)
     const params = typeof parameters === 'string' ? JSON.parse(parameters) : parameters;
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
     switch (name) {
       case 'take_picture':
-        result = await handleTakePicture(params);
+        result = await handleTakePicture(params, chat_id, tool_call_id);
         break;
 
       case 'send_email_picture':
@@ -76,13 +76,31 @@ export async function POST(request: NextRequest) {
 /**
  * Handle take_picture tool call
  * NOTE: The actual camera capture happens client-side in Chat.tsx
- * This webhook acknowledges the intent to take a picture
+ * This webhook notifies the client to open the camera
  */
-async function handleTakePicture(parameters: any) {
+async function handleTakePicture(parameters: any, chatId: string, toolCallId: string) {
   console.log('[Hume Webhook] Handling take_picture with params:', parameters);
+  console.log('[Hume Webhook] Chat ID:', chatId, 'Tool Call ID:', toolCallId);
+
+  // Notify the client about this tool call via the tool-calls API
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://novo-avatar-chatbot.onrender.com';
+    await fetch(`${appUrl}/api/tool-calls`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chatId: chatId || 'default',
+        toolCallId,
+        name: 'take_picture',
+        parameters,
+      }),
+    });
+    console.log('[Hume Webhook] Notified client about take_picture tool call');
+  } catch (error) {
+    console.error('[Hume Webhook] Failed to notify client:', error);
+  }
 
   // The take_picture tool is handled client-side (opens camera)
-  // The client will open the camera and send the actual tool response
   // We return a pending status here - the real result comes from the client
   return {
     success: true,

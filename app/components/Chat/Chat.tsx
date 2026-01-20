@@ -469,6 +469,33 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     error: (e: { error: string; code: string; level: string; content: string }) => unknown;
   } | null>(null);
 
+  // Poll for pending tool calls from webhook (bridge between server and client)
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch('/api/tool-calls?chatId=default');
+        const data = await response.json();
+        
+        if (data.hasPending && data.toolCall) {
+          console.log('🔧 Received pending tool call from webhook:', data.toolCall.name);
+          
+          // Handle take_picture
+          if (data.toolCall.name === 'take_picture') {
+            console.log('📸 Opening camera from webhook notification...');
+            pendingToolCallIdRef.current = data.toolCall.toolCallId;
+            setShowCamera(true);
+          }
+        }
+      } catch (error) {
+        // Silently ignore polling errors
+      }
+    }, 1000); // Poll every second
+
+    return () => clearInterval(pollInterval);
+  }, [isConnected]);
+
   // Send user context to Hume AI when connected and we have a returning user
   useEffect(() => {
     if (!isConnected || !userProfile || !sendAssistantInput) return;
@@ -1357,8 +1384,36 @@ export default function Chat({ accessToken, configId }: ChatProps) {
   } | null>(null);
 
   const handleMessage = (message: unknown) => {
-    const msg = message as { type?: string };
+    const msg = message as { type?: string; name?: string; toolCallId?: string; parameters?: string };
     console.log(`Hume message [${msg.type}]:`, message);
+    
+    // Check if this is a tool_call message
+    if (msg.type === 'tool_call') {
+      console.log('🔧🔧🔧 TOOL CALL detected in onMessage! 🔧🔧🔧');
+      console.log('🔧 Tool name:', msg.name);
+      console.log('🔧 Tool call ID:', msg.toolCallId);
+      console.log('🔧 Full message:', JSON.stringify(msg, null, 2));
+      
+      // Handle take_picture by setting state
+      if (msg.name === 'take_picture') {
+        console.log('📸 Setting pending tool call for camera...');
+        setPendingToolCall({
+          name: msg.name || '',
+          toolCallId: msg.toolCallId || '',
+          parameters: msg.parameters || '{}',
+          send: {
+            success: (content) => {
+              console.log('📸 Tool success (from onMessage):', content);
+              return content;
+            },
+            error: (e) => {
+              console.error('📸 Tool error (from onMessage):', e);
+              return e;
+            },
+          },
+        });
+      }
+    }
   };
 
   const handleError = (error: unknown) => {
