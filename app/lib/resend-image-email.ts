@@ -57,9 +57,9 @@ export async function sendImageEmail(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;">
-  
+
   <div style="max-width: 600px; margin: 0 auto; background-color: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-    
+
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px; text-align: center;">
       <h1 style="color: white; margin: 0; font-size: 28px;">📸 Picture from NoVo</h1>
@@ -68,7 +68,7 @@ export async function sendImageEmail(
 
     <!-- Content -->
     <div style="padding: 30px 20px;">
-      
+
       <!-- Greeting -->
       <p style="font-size: 16px; margin: 0 0 20px 0;">Hi ${userName}! 👋</p>
       <p style="font-size: 14px; color: #666; margin: 0 0 24px 0;">${caption}</p>
@@ -91,7 +91,7 @@ export async function sendImageEmail(
     <!-- Footer -->
     <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
       <p style="margin: 0; color: #666; font-size: 12px;">This picture was sent by <strong>NoVo</strong></p>
-      <p style="margin: 8px 0 0 0; color: #999; font-size: 11px;">Your empathetic AI companion</p>
+      <p style="margin: 8px 0 0 0; color: #999; font-size: 11px;">Your empathetic AI assistant</p>
     </div>
 
   </div>
@@ -119,4 +119,3 @@ export async function sendImageEmail(
     };
   }
 }
-

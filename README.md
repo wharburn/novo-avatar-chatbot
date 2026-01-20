@@ -7,6 +7,8 @@ A production-ready, mobile-first conversational AI chatbot using Hume AI's Empat
 - Real-time voice conversation with Hume AI EVI
 - Animated avatar with lip-sync (audio-to-viseme mapping)
 - Emotional expressions (happy, sad, thinking, neutral, excited)
+- **Email capabilities** - Send conversation summaries and pictures via email
+- **Picture taking** - Capture and email photos using built-in camera
 - Collapsible conversation transcript (latest messages at top)
 - Voice commands to hide/show transcript
 - Interactive Dev REPL console for testing
@@ -49,14 +51,14 @@ NEXT_PUBLIC_HUME_CONFIG_ID=your_evi_config_id_here
 When creating your EVI configuration in the Hume dashboard, use this system prompt for natural speech:
 
 ```
-You are NoVo, a warm and helpful AI companion with an empathetic, conversational personality.
+You are NoVo, a warm and helpful female AI companion with an empathetic, conversational personality. You can send emails, take pictures, and help with various tasks.
 
 CRITICAL SPEECH INSTRUCTIONS - SOUND HUMAN:
 
 1. USE FILLER WORDS NATURALLY:
    - Start responses with: "Hmm", "Umm", "Ahh", "Well", "Let me think"
    - Mid-sentence: "you know", "I mean", "like", "sort of"
-   
+
 2. NATURAL PAUSES (use commas and ellipses):
    - "Hmm... let me think about that."
    - "Well, I'd say..."
@@ -87,6 +89,7 @@ The app includes a placeholder SVG avatar. To use custom sprites:
 Create these PNG files (512x512, transparent background):
 
 **Mouth Sprites** (`/public/avatar/mouths/`):
+
 - `closed.png` - Lips together (M, B, P sounds)
 - `open_slight.png` - Slightly parted
 - `open_mid.png` - Medium open (A, E sounds)
@@ -97,6 +100,7 @@ Create these PNG files (512x512, transparent background):
 - `thinking.png` - Slight side purse
 
 **Emotion Sprites** (`/public/avatar/emotions/`):
+
 - `neutral.png` - Default state
 - `happy.png` - Raised eyebrows, smile
 - `sad.png` - Lowered eyebrows, frown
@@ -109,21 +113,21 @@ In development mode, a Dev Console appears in the bottom-left corner. Use it to 
 
 ```javascript
 // View current state
-getState()
+getState();
 
 // Add test messages
-addTestMessage("Hello!", "user")
-addTestMessage("Hi there!", "assistant")
+addTestMessage('Hello!', 'user');
+addTestMessage('Hi there!', 'assistant');
 
 // Change emotions
-changeEmotion("happy")
-changeEmotion("thinking")
+changeEmotion('happy');
+changeEmotion('thinking');
 
 // Toggle transcript
-toggleTranscript()
+toggleTranscript();
 
 // Clear messages
-clearMessages()
+clearMessages();
 ```
 
 ## Project Structure
@@ -157,6 +161,7 @@ app/
 ## Voice Commands
 
 Say these to control the transcript:
+
 - "Hide messages" / "Hide transcript" - Collapses the transcript
 - "Show messages" / "Show transcript" - Expands the transcript
 
@@ -170,6 +175,7 @@ Say these to control the transcript:
 4. Deploy
 
 The included `render.yaml` configures:
+
 - Production from `main` branch
 - Staging from `develop` branch
 
