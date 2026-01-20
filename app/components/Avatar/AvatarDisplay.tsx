@@ -17,8 +17,8 @@ interface AvatarDisplayProps {
   onGreetingComplete?: () => void;
   /** Current text being spoken (for phrase video matching) */
   spokenText?: string;
-  /** Microphone FFT data for volume indicator */
-  micFft?: number[];
+  /** Microphone volume level (0-1) for volume indicator */
+  micVolume?: number;
 }
 
 /**
@@ -33,34 +33,14 @@ interface AvatarDisplayProps {
  */
 type DisplayMode = 'greeting' | 'phrase' | 'talking' | 'listening' | 'waiting';
 
-// Calculate volume level from FFT data (0-1 range)
-function calculateVolumeLevel(fft: number[]): number {
-  if (!fft || fft.length === 0) return 0;
-  
-  // Get the maximum value from all FFT bins (most responsive)
-  const maxVal = Math.max(...fft);
-  
-  // Also calculate average for comparison
-  const avg = fft.reduce((a, b) => a + b, 0) / fft.length;
-  
-  // Hume FFT values seem to be 0-1 range, so multiply to get better range
-  // Use max value for more responsive indicator
-  const normalized = Math.min(1, maxVal * 2);
-  
-  // Debug logging - log every time there's meaningful data
-  if (maxVal > 0.01) {
-    console.log(`🎤 Mic FFT: len=${fft.length}, max=${maxVal.toFixed(3)}, avg=${avg.toFixed(3)}, normalized=${normalized.toFixed(2)}`);
-  }
-  
-  return normalized;
-}
+
 
 export default function AvatarDisplay({
   isSpeaking,
   isListening,
   onGreetingComplete,
   spokenText = '',
-  micFft = [],
+  micVolume = 0,
 }: AvatarDisplayProps) {
   // Current display mode
   const [mode, setMode] = useState<DisplayMode>('waiting');
@@ -160,27 +140,14 @@ export default function AvatarDisplay({
   // Common video styles
   const baseVideoStyle = "absolute inset-0 w-full h-full object-cover transition-opacity duration-300";
 
-  // Calculate current volume level
-  const volumeLevel = calculateVolumeLevel(micFft);
-  
-  // Debug: log when micFft has data
-  useEffect(() => {
-    if (micFft && micFft.length > 0) {
-      const maxVal = Math.max(...micFft);
-      if (maxVal > 0) {
-        console.log(`🎤 AvatarDisplay received micFft: length=${micFft.length}, max=${maxVal.toFixed(2)}, volumeLevel=${volumeLevel.toFixed(2)}`);
-      }
-    }
-  }, [micFft, volumeLevel]);
-
   return (
     <div className="relative w-full h-full flex flex-col items-center bg-gradient-to-b from-blue-100 to-blue-50">
-      {/* VOLUME INDICATOR BAR - Shows microphone input level (outside avatar container) */}
+      {/* VOLUME INDICATOR BAR - Shows user microphone input level */}
       <div className="w-full max-w-md h-[10px] bg-gray-300 relative">
         <div 
           className="absolute top-0 left-0 h-full bg-green-500 transition-all duration-75"
           style={{ 
-            width: `${Math.max(volumeLevel * 100, 2)}%`,
+            width: `${Math.max(micVolume * 100, 2)}%`,
           }}
         />
       </div>

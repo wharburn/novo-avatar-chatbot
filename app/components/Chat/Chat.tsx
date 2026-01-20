@@ -1,6 +1,7 @@
 'use client';
 
 import { Emotion } from '@/app/types/avatar';
+import { useMicrophoneVolume } from '@/app/hooks/useMicrophoneVolume';
 import { playCameraClick } from '@/app/utils/sounds';
 import { useVoice, VoiceProvider, VoiceReadyState } from '@humeai/voice-react';
 import { ChevronDown, ChevronUp, MessageSquare, X } from 'lucide-react';
@@ -262,22 +263,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     lastAssistantProsodyMessage,
     sendToolMessage,
     sendAssistantInput,
-    micFft,
   } = useVoice();
 
   const isConnected = readyState === VoiceReadyState.OPEN;
   const isSpeaking = isPlaying;
   const isListening = isConnected && !isPlaying;
 
-  // Debug: Log micFft data from Hume SDK
-  useEffect(() => {
-    if (micFft && micFft.length > 0) {
-      const maxVal = Math.max(...micFft);
-      if (maxVal > 0.01) {
-        console.log(`🔊 Chat.tsx micFft: length=${micFft.length}, max=${maxVal.toFixed(3)}, sample=[${micFft.slice(0, 5).map(v => v.toFixed(2)).join(', ')}...]`);
-      }
-    }
-  }, [micFft]);
+  // Get user's microphone volume directly (independent of Hume SDK)
+  const { volume: micVolume } = useMicrophoneVolume(isConnected);
 
   // Start session when connected
   useEffect(() => {
@@ -1544,7 +1537,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             isListening={isListening}
             isSpeaking={isSpeaking}
             spokenText={currentSpokenText}
-            micFft={micFft}
+            micVolume={micVolume}
             onGreetingComplete={() => {
               console.log('🎬 Greeting complete');
             }}
