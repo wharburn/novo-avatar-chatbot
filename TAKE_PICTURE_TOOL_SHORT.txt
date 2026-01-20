@@ -1,0 +1,4 @@
+TOOL DESCRIPTION (use this exact text):
+
+Call this tool IMMEDIATELY when user says: "take a picture", "take a photo", "snap a photo", "capture image", "take my picture", "photograph"
+

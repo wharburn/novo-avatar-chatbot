@@ -242,7 +242,8 @@ function ChatInner({ accessToken, configId }: ChatProps) {
   const [showCamera, setShowCamera] = useState(false);
   const pendingToolCallIdRef = useRef<string | null>(null);
 
-  const { readyState, messages, isPlaying, lastAssistantProsodyMessage } = useVoice();
+  const { readyState, messages, isPlaying, lastAssistantProsodyMessage, sendToolMessage } =
+    useVoice();
 
   const isConnected = readyState === VoiceReadyState.OPEN;
   const isSpeaking = isPlaying;
