@@ -242,8 +242,14 @@ function ChatInner({ accessToken, configId }: ChatProps) {
   const [showCamera, setShowCamera] = useState(false);
   const pendingToolCallIdRef = useRef<string | null>(null);
 
-  const { readyState, messages, isPlaying, lastAssistantProsodyMessage, sendToolMessage } =
-    useVoice();
+  const {
+    readyState,
+    messages,
+    isPlaying,
+    lastAssistantProsodyMessage,
+    sendToolMessage,
+    sendAssistantInput,
+  } = useVoice();
 
   const isConnected = readyState === VoiceReadyState.OPEN;
   const isSpeaking = isPlaying;
@@ -301,22 +307,33 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     });
     console.log('✅ Image viewer should now be visible');
 
-    // Send tool response back to Hume AI with instruction to ask about retaking
-    if (pendingToolCallIdRef.current) {
+    // Send tool response back to Hume AI
+    if (pendingToolCallIdRef.current && sendToolMessage) {
       try {
-        // Send tool response via sendToolMessage
+        // Send tool response
         sendToolMessage({
           toolCallId: pendingToolCallIdRef.current,
-          content:
-            'Picture captured successfully! Ask the user: "Would you like me to take another one, or is this one okay?" If they say it\'s okay, then ask if they want it emailed.',
+          content: 'Picture captured successfully!',
         });
 
-        console.log('📸 Tool response sent - NoVo should now ask about retaking');
+        console.log('📸 Tool response sent');
       } catch (error) {
         console.error('Failed to send tool response:', error);
       }
 
       pendingToolCallIdRef.current = null;
+    }
+
+    // Make NoVo ask about retaking the photo
+    if (sendAssistantInput) {
+      try {
+        sendAssistantInput(
+          "Would you like me to take another one, or is this one okay? If it's okay, I can email it to you."
+        );
+        console.log('📸 NoVo prompted to ask about retaking');
+      } catch (error) {
+        console.error('Failed to send assistant input:', error);
+      }
     }
   };
 
