@@ -30,10 +30,17 @@
     },
     {
       "name": "send_email_summary",
-      "description": "Sends a conversation summary email to the user. Use this when the user asks to email them a summary, send them a recap, or wants to receive their conversation history via email.",
-      "parameters": "{ \"type\": \"object\", \"properties\": { \"email\": { \"type\": \"string\", \"description\": \"User's email address where the summary will be sent\" }, \"user_name\": { \"type\": \"string\", \"description\": \"User's name for personalization (optional)\" } }, \"required\": [\"email\"] }",
-      "fallback_content": "I'm sorry, I couldn't send the email summary. Please check the email address and try again.",
-      "version_description": "Sends conversation summary via Resend email service"
+      "description": "Sends a conversation summary email to the user. IMPORTANT: You MUST ask for and confirm BOTH the user's full name AND email address before calling this tool. Ask 'What is your full name?' and 'What is your email address?' separately. Repeat the information back to them for confirmation before sending. Use this only after the user has confirmed both pieces of information are correct.",
+      "parameters": "{ \"type\": \"object\", \"properties\": { \"email\": { \"type\": \"string\", \"description\": \"User's confirmed email address in valid format (e.g., john@example.com). Must be verified by the user before sending.\" }, \"user_name\": { \"type\": \"string\", \"description\": \"User's full name as they provided it. REQUIRED - do not send email without this.\" } }, \"required\": [\"email\", \"user_name\"] }",
+      "fallback_content": "I'm sorry, I couldn't send the email summary. Please verify your name and email address are correct and try again.",
+      "version_description": "Sends conversation summary via Resend email service - requires confirmed name and email"
+    },
+    {
+      "name": "send_picture_email",
+      "description": "Sends a picture via email after the user has taken a photo using the take_picture tool. IMPORTANT: You MUST ask for and confirm BOTH the user's full name AND email address before calling this tool. This tool should only be called AFTER a picture has been taken with the take_picture tool. Ask 'What is your email address?' and 'What is your name?' to collect the required information.",
+      "parameters": "{ \"type\": \"object\", \"properties\": { \"email\": { \"type\": \"string\", \"description\": \"User's confirmed email address in valid format (e.g., john@example.com)\" }, \"user_name\": { \"type\": \"string\", \"description\": \"User's full name. REQUIRED.\" }, \"image_url\": { \"type\": \"string\", \"description\": \"The URL of the image from the take_picture tool. This is provided by the take_picture tool response.\" }, \"caption\": { \"type\": \"string\", \"description\": \"Optional caption or message to include with the picture\" } }, \"required\": [\"email\", \"user_name\", \"image_url\"] }",
+      "fallback_content": "I'm sorry, I couldn't send the picture via email. Please make sure you've taken a picture first and provided your email address.",
+      "version_description": "Sends pictures via email using Resend - works with take_picture tool"
     }
   ],
   "instructions": {
@@ -89,6 +96,13 @@
         "Can you email me what we talked about?",
         "Send a summary to my email: sarah@company.com",
         "Email me our conversation history"
+      ],
+      "send_picture_email_examples": [
+        "Take a picture and email it to me",
+        "Can you take a photo and send it to my email?",
+        "Take a picture and send it to john@example.com",
+        "Capture an image and email it to me",
+        "Take a selfie and send it to my email"
       ]
     }
   },

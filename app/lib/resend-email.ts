@@ -166,7 +166,7 @@ export async function sendConversationSummary(
     `;
 
     const result = await resend.emails.send({
-      from: 'NoVo <onboarding@resend.dev>', // Change this to your verified domain
+      from: 'NoVo <novo@novocomai.online>',
       to: email,
       subject: `Your NoVo Conversation Summary - ${new Date().toLocaleDateString()}`,
       html: htmlContent,

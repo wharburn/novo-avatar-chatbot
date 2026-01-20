@@ -37,6 +37,14 @@ export async function POST(request: NextRequest) {
         result = await executeSendEmailSummary(parameters);
         break;
 
+      case 'take_picture':
+        result = await executeTakePicture(parameters);
+        break;
+
+      case 'send_picture_email':
+        result = await executeSendPictureEmail(parameters);
+        break;
+
       default:
         result = {
           success: false,
@@ -251,15 +259,33 @@ async function executeSendWhatsApp(params: SendWhatsAppParams): Promise<ToolExec
  */
 async function executeSendEmailSummary(params: {
   email: string;
-  user_name?: string;
+  user_name: string;
 }): Promise<ToolExecutionResult> {
   try {
     const { email, user_name } = params;
 
+    // Validate email address
     if (!email || !email.includes('@')) {
       return {
         success: false,
-        error: 'Please provide a valid email address',
+        error: 'Please provide a valid email address in the format: name@example.com',
+      };
+    }
+
+    // Validate user name is provided
+    if (!user_name || user_name.trim().length === 0) {
+      return {
+        success: false,
+        error: 'Please provide your full name before sending the email',
+      };
+    }
+
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return {
+        success: false,
+        error: 'The email address format appears to be invalid. Please check and try again.',
       };
     }
 
@@ -290,6 +316,118 @@ async function executeSendEmailSummary(params: {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to send email summary',
+    };
+  }
+}
+
+/**
+ * Execute take_picture tool
+ * Captures an image from the user's camera
+ */
+async function executeTakePicture(params: { image_url?: string }): Promise<ToolExecutionResult> {
+  try {
+    const { image_url } = params;
+
+    // The take_picture tool from Hume AI will provide the image_url
+    // We'll store it temporarily for the send_picture_email tool to use
+    if (image_url) {
+      console.log('[Take Picture] Image captured:', image_url);
+
+      return {
+        success: true,
+        data: {
+          image_url,
+          message: 'Picture captured successfully! Would you like me to email it to you?',
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        message: 'Picture taken! Would you like me to email it to you?',
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to take picture',
+    };
+  }
+}
+
+/**
+ * Execute send_picture_email tool
+ * Sends a picture via email
+ */
+async function executeSendPictureEmail(params: {
+  email: string;
+  user_name: string;
+  image_url: string;
+  caption?: string;
+}): Promise<ToolExecutionResult> {
+  try {
+    const { email, user_name, image_url, caption } = params;
+
+    // Validate email address
+    if (!email || !email.includes('@')) {
+      return {
+        success: false,
+        error: 'Please provide a valid email address in the format: name@example.com',
+      };
+    }
+
+    // Validate user name is provided
+    if (!user_name || user_name.trim().length === 0) {
+      return {
+        success: false,
+        error: 'Please provide your full name before sending the email',
+      };
+    }
+
+    // Validate image URL
+    if (!image_url || image_url.trim().length === 0) {
+      return {
+        success: false,
+        error: 'No image to send. Please take a picture first.',
+      };
+    }
+
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return {
+        success: false,
+        error: 'The email address format appears to be invalid. Please check and try again.',
+      };
+    }
+
+    const result = await sendImageEmail({
+      email,
+      userName: user_name,
+      imageUrl: image_url,
+      imageCaption: caption,
+    });
+
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || 'Failed to send picture email',
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        messageId: result.messageId,
+        email,
+        message: `Picture sent successfully to ${email}`,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to send picture email',
     };
   }
 }
