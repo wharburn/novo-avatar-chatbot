@@ -1706,6 +1706,22 @@ export default function Chat({ accessToken, configId }: ChatProps) {
       return; // Don't call send.success() - let ChatInner do it after capture
     }
 
+    // Handle send_email_summary - needs conversation messages from ChatInner
+    if (toolCall.name === 'send_email_summary') {
+      // Don't send any response here - ChatInner will handle it with conversation messages
+      // The send function is passed to ChatInner via pendingToolCall state
+      console.log('📧 send_email_summary: Deferring response to ChatInner (needs messages)');
+      return; // Don't call send.success() - let ChatInner do it after sending email
+    }
+
+    // Handle send_email_picture / send_picture_email - needs stored image from ChatInner
+    if (toolCall.name === 'send_email_picture' || toolCall.name === 'send_picture_email') {
+      // Don't send any response here - ChatInner will handle it with the stored image URL
+      // The send function is passed to ChatInner via pendingToolCall state
+      console.log('📧 send_email_picture: Deferring response to ChatInner (needs image URL)');
+      return; // Don't call send.success() - let ChatInner do it after sending email
+    }
+
     // Handle other tools that can be executed immediately
     if (toolCall.name === 'open_browser') {
       const url = params.url;
