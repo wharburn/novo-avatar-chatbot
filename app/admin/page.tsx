@@ -1,7 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Lock, Users, MessageSquare, Clock, ChevronRight, RefreshCw, ArrowLeft } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronRight,
+  Clock,
+  Lock,
+  MessageSquare,
+  RefreshCw,
+  Users,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -31,11 +39,11 @@ export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [total, setTotal] = useState(0);
-  
+
   // Check if PIN is stored in sessionStorage
   useEffect(() => {
     const storedPin = sessionStorage.getItem('adminPin');
@@ -44,34 +52,34 @@ export default function AdminPage() {
       fetchSessions(storedPin);
     }
   }, []);
-  
+
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
       setError('Please enter a 4-digit PIN');
       return;
     }
-    
+
     await fetchSessions(pin);
   };
-  
+
   const fetchSessions = async (adminPin: string) => {
     setLoading(true);
     setError('');
-    
+
     try {
       const res = await fetch(`/api/admin/sessions?pin=${adminPin}`);
       const data = await res.json();
-      
+
       if (!res.ok) {
         setError(data.error || 'Failed to fetch sessions');
         setIsAuthenticated(false);
         sessionStorage.removeItem('adminPin');
         return;
       }
-      
+
       setSessions(data.sessions || []);
       setTotal(data.total || 0);
       setIsAuthenticated(true);
@@ -82,14 +90,14 @@ export default function AdminPage() {
       setLoading(false);
     }
   };
-  
+
   const fetchSessionDetail = async (sessionId: string) => {
     setLoading(true);
-    
+
     try {
       const res = await fetch(`/api/admin/sessions?pin=${pin}&id=${sessionId}`);
       const data = await res.json();
-      
+
       if (res.ok && data.session) {
         setSelectedSession(data.session);
       }
@@ -99,20 +107,20 @@ export default function AdminPage() {
       setLoading(false);
     }
   };
-  
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
   };
-  
+
   const formatDuration = (start: number, end?: number) => {
     const endTime = end || Date.now();
     const duration = Math.floor((endTime - start) / 1000);
-    
+
     if (duration < 60) return `${duration}s`;
     if (duration < 3600) return `${Math.floor(duration / 60)}m`;
     return `${Math.floor(duration / 3600)}h ${Math.floor((duration % 3600) / 60)}m`;
   };
-  
+
   const handleLogout = () => {
     setIsAuthenticated(false);
     setPin('');
@@ -120,7 +128,7 @@ export default function AdminPage() {
     setSelectedSession(null);
     sessionStorage.removeItem('adminPin');
   };
-  
+
   // PIN Entry Screen
   if (!isAuthenticated) {
     return (
@@ -131,14 +139,12 @@ export default function AdminPage() {
               <Lock className="w-8 h-8 text-blue-600" />
             </div>
           </div>
-          
-          <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">
-            Admin Access
-          </h1>
+
+          <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">Admin Access</h1>
           <p className="text-gray-500 text-center mb-6">
             Enter your 4-digit PIN to view NoVo interactions
           </p>
-          
+
           <form onSubmit={handlePinSubmit}>
             <div className="flex justify-center gap-2 mb-6">
               {[0, 1, 2, 3].map((index) => (
@@ -154,7 +160,7 @@ export default function AdminPage() {
                     const newPin = pin.split('');
                     newPin[index] = value;
                     setPin(newPin.join(''));
-                    
+
                     // Auto-focus next input
                     if (value && index < 3) {
                       const next = e.target.nextElementSibling as HTMLInputElement;
@@ -163,18 +169,17 @@ export default function AdminPage() {
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Backspace' && !pin[index] && index > 0) {
-                      const prev = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                      const prev = (e.target as HTMLElement)
+                        .previousElementSibling as HTMLInputElement;
                       prev?.focus();
                     }
                   }}
                 />
               ))}
             </div>
-            
-            {error && (
-              <p className="text-red-500 text-sm text-center mb-4">{error}</p>
-            )}
-            
+
+            {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
+
             <button
               type="submit"
               disabled={loading || pin.length !== 4}
@@ -187,12 +192,12 @@ export default function AdminPage() {
       </div>
     );
   }
-  
+
   // Session Detail View
   if (selectedSession) {
     return (
-      <div className="min-h-screen bg-gray-100">
-        <header className="bg-white border-b px-6 py-4">
+      <div className="min-h-screen max-h-screen overflow-hidden flex flex-col bg-gray-100">
+        <header className="bg-white border-b px-6 py-4 flex-shrink-0">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSelectedSession(null)}
@@ -208,8 +213,8 @@ export default function AdminPage() {
             </div>
           </div>
         </header>
-        
-        <main className="p-6 max-w-4xl mx-auto">
+
+        <main className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full">
           {/* Session Info */}
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -241,11 +246,11 @@ export default function AdminPage() {
               </div>
             )}
           </div>
-          
+
           {/* Messages */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">Conversation</h2>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[600px] overflow-y-auto">
               {selectedSession.messages.map((msg, index) => (
                 <div
                   key={index}
@@ -253,9 +258,7 @@ export default function AdminPage() {
                 >
                   <div
                     className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      msg.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-800'
+                      msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'
                     }`}
                   >
                     <p className="text-sm">{msg.content}</p>
@@ -269,11 +272,9 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))}
-              
+
               {selectedSession.messages.length === 0 && (
-                <p className="text-gray-500 text-center py-8">
-                  No messages in this session
-                </p>
+                <p className="text-gray-500 text-center py-8">No messages in this session</p>
               )}
             </div>
           </div>
@@ -281,11 +282,11 @@ export default function AdminPage() {
       </div>
     );
   }
-  
+
   // Sessions List View
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b px-6 py-4">
+    <div className="min-h-screen max-h-screen overflow-hidden flex flex-col bg-gray-100">
+      <header className="bg-white border-b px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div>
             <h1 className="text-xl font-bold text-gray-800">NoVo Admin</h1>
@@ -299,17 +300,14 @@ export default function AdminPage() {
             >
               <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <button
-              onClick={handleLogout}
-              className="text-sm text-gray-600 hover:text-gray-800"
-            >
+            <button onClick={handleLogout} className="text-sm text-gray-600 hover:text-gray-800">
               Logout
             </button>
           </div>
         </div>
       </header>
-      
-      <main className="p-6 max-w-6xl mx-auto">
+
+      <main className="flex-1 overflow-y-auto p-6 max-w-6xl mx-auto w-full">
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm p-6">
@@ -323,7 +321,7 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3">
               <div className="bg-green-100 p-3 rounded-lg">
@@ -337,7 +335,7 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center gap-3">
               <div className="bg-purple-100 p-3 rounded-lg">
@@ -352,20 +350,20 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
-        
+
         {/* Sessions List */}
         <div className="bg-white rounded-xl shadow-sm">
           <div className="px-6 py-4 border-b">
             <h2 className="text-lg font-semibold">Recent Sessions</h2>
           </div>
-          
+
           {sessions.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
               <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No sessions recorded yet</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y max-h-[500px] overflow-y-auto">
               {sessions.map((session) => (
                 <button
                   key={session.id}
@@ -378,17 +376,13 @@ export default function AdminPage() {
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">{session.ipAddress}</p>
-                      <p className="text-sm text-gray-500">
-                        {formatDate(session.startTime)}
-                      </p>
+                      <p className="text-sm text-gray-500">{formatDate(session.startTime)}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <p className="text-sm font-medium">
-                        {session.messageCount} messages
-                      </p>
+                      <p className="text-sm font-medium">{session.messageCount} messages</p>
                       <p className="text-xs text-gray-500">
                         {formatDuration(session.startTime, session.endTime)}
                       </p>

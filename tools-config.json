@@ -1,0 +1,137 @@
+{
+  "tools": [
+    {
+      "name": "open_browser",
+      "description": "Opens a website URL in the user's browser. Use this when the user asks to open a website, view a page, or navigate to a URL. Examples: 'open google', 'show me youtube', 'navigate to github.com'",
+      "parameters": "{ \"type\": \"object\", \"properties\": { \"url\": { \"type\": \"string\", \"description\": \"The full URL to open, including https:// protocol. If user doesn't specify protocol, add https://\" } }, \"required\": [\"url\"] }",
+      "fallback_content": "I'm sorry, I couldn't open that website. Please try again or provide a different URL.",
+      "version_description": "Opens URLs in user's browser window"
+    },
+    {
+      "name": "open_translator",
+      "description": "Opens the translation app in the user's browser. Use this when the user needs to translate text or asks for translation help. Can optionally specify source and target languages.",
+      "parameters": "{ \"type\": \"object\", \"properties\": { \"language_from\": { \"type\": \"string\", \"description\": \"Source language code (e.g., 'en', 'es', 'fr'). Optional, defaults to auto-detect\" }, \"language_to\": { \"type\": \"string\", \"description\": \"Target language code (e.g., 'en', 'es', 'fr'). Optional\" } } }",
+      "fallback_content": "I'm sorry, I couldn't open the translator. Please try again.",
+      "version_description": "Opens translation app with optional language parameters"
+    },
+    {
+      "name": "translate_text",
+      "description": "Helps users with text translation by suggesting the translation app. Use this when the user asks to translate text, needs translation help, or wants to know what something means in another language.",
+      "parameters": "{ \"type\": \"object\", \"properties\": { \"text\": { \"type\": \"string\", \"description\": \"The text to translate\" }, \"target_language\": { \"type\": \"string\", \"description\": \"Target language code (e.g., 'en', 'es', 'fr', 'de')\" }, \"source_language\": { \"type\": \"string\", \"description\": \"Source language code (optional, defaults to auto-detect)\" } }, \"required\": [\"text\", \"target_language\"] }",
+      "fallback_content": "I can help you with translation! Let me open our translation app for you.",
+      "version_description": "Translation helper that suggests the web app"
+    },
+    {
+      "name": "send_whatsapp",
+      "description": "Sends a WhatsApp message to a phone number using Green API. Use this when the user asks to send a WhatsApp message, text someone on WhatsApp, or message a contact. The phone number must be in international format without the + symbol.",
+      "parameters": "{ \"type\": \"object\", \"properties\": { \"phoneNumber\": { \"type\": \"string\", \"description\": \"Phone number in international format without + symbol. Examples: 79876543210 (Russia), 14155551234 (USA), 447700900123 (UK). Remove all spaces, dashes, and special characters.\" }, \"message\": { \"type\": \"string\", \"description\": \"The message text to send via WhatsApp. Can include emojis and formatting.\" } }, \"required\": [\"phoneNumber\", \"message\"] }",
+      "fallback_content": "I'm sorry, I couldn't send that WhatsApp message. Please check the phone number format and try again. The number should be in international format without the + symbol.",
+      "version_description": "Sends WhatsApp messages via Green API integration"
+    }
+  ],
+  "instructions": {
+    "how_to_create": [
+      "1. Go to https://platform.hume.ai/",
+      "2. Navigate to EVI → Tools",
+      "3. Click 'Create Tool'",
+      "4. Copy the JSON for each tool above",
+      "5. Fill in the form fields with the corresponding values",
+      "6. Click 'Create'",
+      "7. Repeat for each tool"
+    ],
+    "how_to_add_to_config": [
+      "1. Go to https://platform.hume.ai/",
+      "2. Navigate to EVI → Configs",
+      "3. Select your config (or create a new one)",
+      "4. Click 'Edit'",
+      "5. In the 'Tools' section, click 'Add Tool'",
+      "6. Select the tools you created",
+      "7. Save the configuration"
+    ],
+    "testing": {
+      "open_browser_examples": [
+        "Open Google",
+        "Show me YouTube",
+        "Navigate to https://github.com",
+        "Can you open the weather website?",
+        "Go to reddit.com"
+      ],
+      "open_translator_examples": [
+        "I need to translate something",
+        "Open the translator",
+        "Help me translate from English to Spanish",
+        "Open translator for French to English",
+        "I need translation help"
+      ],
+      "translate_text_examples": [
+        "Translate 'hello' to Spanish",
+        "What does 'bonjour' mean in English?",
+        "How do you say 'thank you' in German?",
+        "Translate this text to French: I love you",
+        "Can you translate 'good morning' to Japanese?"
+      ],
+      "send_whatsapp_examples": [
+        "Send a WhatsApp to 14155551234 saying hello",
+        "Text 79876543210 on WhatsApp and say I'll be late",
+        "Message my friend at 447700900123 saying see you soon",
+        "WhatsApp 14155551234 with the message 'Meeting at 3pm'"
+      ]
+    }
+  },
+  "api_endpoints": {
+    "tool_execution": {
+      "url": "/api/tools/execute",
+      "method": "POST",
+      "description": "Executes tools called by Hume AI",
+      "body_example": {
+        "toolName": "send_whatsapp",
+        "parameters": {
+          "phoneNumber": "14155551234",
+          "message": "Hello from NoVo!"
+        }
+      }
+    },
+    "hume_webhook": {
+      "url": "/api/webhooks/hume",
+      "method": "POST",
+      "description": "Receives webhook events from Hume AI (chat_started, chat_ended, tool_call)",
+      "events": ["chat_started", "chat_ended", "tool_call"]
+    },
+    "whatsapp_webhook": {
+      "url": "/api/webhooks/whatsapp",
+      "method": "POST",
+      "description": "Receives incoming WhatsApp messages from Green API",
+      "configure_at": "Green API Console → Settings → Webhooks"
+    }
+  },
+  "environment_variables": {
+    "required": [
+      {
+        "name": "GREEN_API_INSTANCE_ID",
+        "description": "Your Green API instance ID",
+        "example": "1101234567",
+        "get_from": "https://green-api.com/ → Console → Instance"
+      },
+      {
+        "name": "GREEN_API_TOKEN",
+        "description": "Your Green API token",
+        "example": "abc123def456...",
+        "get_from": "https://green-api.com/ → Console → Instance → API Token"
+      }
+    ],
+    "optional": [
+      {
+        "name": "NEXT_PUBLIC_WEBHOOK_URL",
+        "description": "Your public app URL for webhooks",
+        "example": "https://your-app.onrender.com",
+        "used_for": "Webhook configuration"
+      },
+      {
+        "name": "TRANSLATOR_APP_URL",
+        "description": "URL to your web-based translation application",
+        "example": "https://your-translator-app.com",
+        "used_for": "open_translator tool"
+      }
+    ]
+  }
+}
