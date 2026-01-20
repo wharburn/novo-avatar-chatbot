@@ -16,6 +16,19 @@ interface ChatProps {
   configId?: string;
 }
 
+interface ChatInnerProps extends ChatProps {
+  pendingToolCall?: {
+    name: string;
+    toolCallId: string;
+    parameters: string;
+    send: {
+      success: (content: unknown) => unknown;
+      error: (e: { error: string; code: string; level: string; content: string }) => unknown;
+    };
+  } | null;
+  onToolCallHandled?: () => void;
+}
+
 // Text-based emotion detection keywords
 // Used as fallback/supplement when prosody doesn't match content
 const TEXT_EMOTION_KEYWORDS: Record<Emotion, string[]> = {
@@ -218,7 +231,7 @@ function getDominantEmotion(scores: Record<string, number>): Emotion {
 }
 
 // Inner component that uses the useVoice hook
-function ChatInner({ accessToken, configId }: ChatProps) {
+function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }: ChatInnerProps) {
   const [transcriptVisible, setTranscriptVisible] = useState(true);
   const [currentEmotion, setCurrentEmotion] = useState<Emotion>('neutral');
   const prosodyCountRef = useRef(0);
@@ -369,6 +382,93 @@ function ChatInner({ accessToken, configId }: ChatProps) {
       .catch((err) => console.error('Failed to load user profile:', err));
   }, []);
 
+  // Handle tool calls from VoiceProvider's onToolCall callback
+  useEffect(() => {
+    if (!pendingToolCall) return;
+
+    console.log('🔧 ChatInner received pending tool call:', pendingToolCall.name);
+
+    // Handle take_picture tool - open camera
+    if (pendingToolCall.name === 'take_picture') {
+      console.log('📸 Opening camera from onToolCall handler...');
+      // Store the send function for later use when photo is captured
+      pendingToolCallSendRef.current = pendingToolCall.send;
+      setShowCamera(true);
+      onToolCallHandled?.();
+      return;
+    }
+
+    // Handle send_picture_email / send_email_picture
+    if (pendingToolCall.name === 'send_picture_email' || pendingToolCall.name === 'send_email_picture') {
+      console.log('📧 Handling send_email_picture from onToolCall handler');
+      
+      const params = JSON.parse(pendingToolCall.parameters || '{}');
+      
+      // Inject stored image URL
+      if (lastCapturedImageRef.current) {
+        params.image_url = lastCapturedImageRef.current;
+        console.log('📸 Injecting stored image URL:', lastCapturedImageRef.current);
+      } else {
+        console.warn('⚠️ No image URL stored!');
+        pendingToolCall.send.error({
+          error: 'No photo available. Please take a picture first.',
+          code: 'NO_IMAGE',
+          level: 'error',
+          content: '',
+        });
+        onToolCallHandled?.();
+        return;
+      }
+
+      // Execute the email tool
+      fetch('/api/tools/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolName: 'send_email_picture',
+          parameters: params,
+        }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          console.log('📧 Email result:', result);
+          if (result.success) {
+            pendingToolCall.send.success({ 
+              message: `Picture sent successfully to ${params.email}!` 
+            });
+          } else {
+            pendingToolCall.send.error({
+              error: result.error || 'Failed to send email',
+              code: 'EMAIL_FAILED',
+              level: 'error',
+              content: '',
+            });
+          }
+        })
+        .catch((error) => {
+          console.error('📧 Email error:', error);
+          pendingToolCall.send.error({
+            error: error.message || 'Failed to send email',
+            code: 'EMAIL_ERROR',
+            level: 'error',
+            content: '',
+          });
+        });
+
+      onToolCallHandled?.();
+      return;
+    }
+
+    // For other tools, mark as handled
+    onToolCallHandled?.();
+  }, [pendingToolCall, onToolCallHandled]);
+
+  // Ref to store the send function for tool calls that need async completion (like camera)
+  const pendingToolCallSendRef = useRef<{
+    success: (content: unknown) => unknown;
+    error: (e: { error: string; code: string; level: string; content: string }) => unknown;
+  } | null>(null);
+
   // Send user context to Hume AI when connected and we have a returning user
   useEffect(() => {
     if (!isConnected || !userProfile || !sendAssistantInput) return;
@@ -461,7 +561,22 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     }, 5000);
 
     // Send tool response back to Hume AI
-    if (pendingToolCallIdRef.current && sendToolMessage) {
+    // Try the new onToolCall send function first
+    if (pendingToolCallSendRef.current) {
+      try {
+        pendingToolCallSendRef.current.success({
+          status: 'captured',
+          image_url: lastCapturedImageRef.current,
+          message: `Picture captured successfully! Image URL: ${lastCapturedImageRef.current}`,
+        });
+        console.log('📸 Tool response sent via onToolCall handler');
+      } catch (error) {
+        console.error('Failed to send tool response via onToolCall:', error);
+      }
+      pendingToolCallSendRef.current = null;
+    }
+    // Fallback to old method
+    else if (pendingToolCallIdRef.current && sendToolMessage) {
       try {
         // Send tool response with the image URL
         sendToolMessage({
@@ -470,7 +585,7 @@ function ChatInner({ accessToken, configId }: ChatProps) {
           content: `Picture captured successfully! Image URL: ${lastCapturedImageRef.current}`,
         } as any);
 
-        console.log('📸 Tool response sent with image URL');
+        console.log('📸 Tool response sent with image URL (legacy)');
       } catch (error) {
         console.error('Failed to send tool response:', error);
       }
@@ -542,9 +657,21 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     if (!lastMessage) return;
 
     // Debug: Log all message types to help troubleshoot tool calls
-    console.log(`📨 Message received [${messages.length}]: type="${lastMessage.type}"`);
-    if (lastMessage.type === 'tool_call' || lastMessage.type?.includes('tool')) {
+    const msgType = lastMessage.type;
+    console.log(`📨 Message received [${messages.length}]: type="${msgType}"`);
+    
+    // Log full message for any tool-related or unknown message types
+    if (msgType === 'tool_call' || msgType?.includes('tool') || 
+        (msgType !== 'user_message' && msgType !== 'assistant_message' && 
+         msgType !== 'user_interruption' && msgType !== 'assistant_end' && 
+         msgType !== 'assistant_prosody')) {
       console.log('📨 Full message:', JSON.stringify(lastMessage, null, 2));
+    }
+    
+    // Also check if the message has toolCall nested inside (some SDK versions)
+    const msgAny = lastMessage as any;
+    if (msgAny.toolCall || msgAny.tool_call) {
+      console.log('🔧 Found nested toolCall in message!', msgAny.toolCall || msgAny.tool_call);
     }
 
     // Check for user messages to extract email/name
@@ -1218,6 +1345,17 @@ function ChatInner({ accessToken, configId }: ChatProps) {
 
 // Main Chat component with VoiceProvider wrapper
 export default function Chat({ accessToken, configId }: ChatProps) {
+  // State to pass tool calls to ChatInner
+  const [pendingToolCall, setPendingToolCall] = useState<{
+    name: string;
+    toolCallId: string;
+    parameters: string;
+    send: {
+      success: (content: unknown) => unknown;
+      error: (e: { error: string; code: string; level: string; content: string }) => unknown;
+    };
+  } | null>(null);
+
   const handleMessage = (message: unknown) => {
     const msg = message as { type?: string };
     console.log(`Hume message [${msg.type}]:`, message);
@@ -1234,9 +1372,74 @@ export default function Chat({ accessToken, configId }: ChatProps) {
     }
   };
 
+  // Handle tool calls from Hume AI
+  const handleToolCall = async (
+    toolCall: { name: string; toolCallId: string; parameters: string },
+    send: {
+      success: (content: unknown) => unknown;
+      error: (e: { error: string; code: string; level: string; content: string }) => unknown;
+    }
+  ) => {
+    console.log('🔧🔧🔧 TOOL CALL RECEIVED via onToolCall! 🔧🔧🔧');
+    console.log('🔧 Tool name:', toolCall.name);
+    console.log('🔧 Tool call ID:', toolCall.toolCallId);
+    console.log('🔧 Parameters:', toolCall.parameters);
+
+    // Pass to ChatInner via state
+    setPendingToolCall({
+      name: toolCall.name,
+      toolCallId: toolCall.toolCallId,
+      parameters: toolCall.parameters,
+      send,
+    });
+
+    // Return a promise that will be resolved when ChatInner handles the tool call
+    // For now, we'll handle simple tools here and complex ones (like camera) in ChatInner
+    
+    const params = JSON.parse(toolCall.parameters || '{}');
+
+    // Handle take_picture - this needs to open the camera in ChatInner
+    if (toolCall.name === 'take_picture') {
+      // Don't resolve immediately - let ChatInner handle it
+      // Return a pending response that will be updated when photo is taken
+      return send.success({ 
+        status: 'camera_opening',
+        message: 'Opening camera to take a picture...'
+      });
+    }
+
+    // Handle other tools that can be executed immediately
+    if (toolCall.name === 'open_browser') {
+      const url = params.url;
+      if (url) {
+        window.open(url, '_blank');
+        return send.success({ message: `Opened ${url} in a new tab` });
+      }
+      return send.error({ error: 'No URL provided', code: 'MISSING_PARAM', level: 'error', content: '' });
+    }
+
+    if (toolCall.name === 'open_translator') {
+      const translatorUrl = process.env.NEXT_PUBLIC_TRANSLATOR_URL || 'https://translate.google.com';
+      window.open(translatorUrl, '_blank');
+      return send.success({ message: 'Opened translator' });
+    }
+
+    // For other tools, return a generic success
+    return send.success({ message: `Tool ${toolCall.name} acknowledged` });
+  };
+
   return (
-    <VoiceProvider onMessage={handleMessage} onError={handleError}>
-      <ChatInner accessToken={accessToken} configId={configId} />
+    <VoiceProvider 
+      onMessage={handleMessage} 
+      onError={handleError}
+      onToolCall={handleToolCall as any}
+    >
+      <ChatInner 
+        accessToken={accessToken} 
+        configId={configId} 
+        pendingToolCall={pendingToolCall}
+        onToolCallHandled={() => setPendingToolCall(null)}
+      />
     </VoiceProvider>
   );
 }
