@@ -75,7 +75,7 @@ export async function sendImageEmail(
 
       <!-- Image -->
       <div style="text-align: center; margin-bottom: 24px;">
-        <img src="${imageUrl}" alt="Picture from NoVo" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />
+        <img src="cid:captured_photo" alt="Picture from NoVo" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />
       </div>
 
       <!-- Info Box -->
@@ -100,11 +100,65 @@ export async function sendImageEmail(
 </html>
     `;
 
+    // Fetch the image and convert to base64 if it's a URL
+    let imageBase64 = '';
+    let imageMimeType = 'image/jpeg';
+
+    try {
+      if (imageUrl.startsWith('data:')) {
+        // Already base64
+        const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          imageMimeType = matches[1];
+          imageBase64 = matches[2];
+        }
+      } else if (
+        imageUrl.startsWith('http://localhost') ||
+        imageUrl.startsWith('http://127.0.0.1')
+      ) {
+        // Local URL - fetch from filesystem
+        const fs = await import('fs/promises');
+        const path = await import('path');
+
+        // Extract path from URL
+        const urlPath = new URL(imageUrl).pathname;
+        const filePath = path.join(process.cwd(), 'public', urlPath);
+
+        console.log('📸 Reading image from:', filePath);
+        const imageBuffer = await fs.readFile(filePath);
+        imageBase64 = imageBuffer.toString('base64');
+      } else {
+        // External URL - fetch it
+        const response = await fetch(imageUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        imageBase64 = buffer.toString('base64');
+
+        // Try to get mime type from response
+        const contentType = response.headers.get('content-type');
+        if (contentType) {
+          imageMimeType = contentType;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch image:', error);
+      // Continue anyway - email will be sent without image
+    }
+
     const result = await resend.emails.send({
       from: 'NoVo <novo@novocomai.online>',
       to: email,
       subject: `📸 Picture from NoVo - ${new Date().toLocaleDateString()}`,
       html: htmlContent,
+      attachments: imageBase64
+        ? [
+            {
+              filename: 'photo.jpg',
+              content: imageBase64,
+              content_id: 'captured_photo',
+            },
+          ]
+        : undefined,
     });
 
     return {
