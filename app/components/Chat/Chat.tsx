@@ -333,17 +333,22 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     // Check for tool call messages
     if (lastMessage.type === 'tool_call') {
       const toolCall = lastMessage as {
+        name?: string;
         tool_name?: string;
+        toolCallId?: string;
         tool_call_id?: string;
         parameters?: string;
       };
 
-      console.log('🔧 Tool call detected:', toolCall.tool_name);
+      const toolName = toolCall.name || toolCall.tool_name;
+      const toolCallId = toolCall.toolCallId || toolCall.tool_call_id;
+
+      console.log('🔧 Tool call detected:', toolName);
 
       // Handle take_picture tool
-      if (toolCall.tool_name === 'take_picture') {
+      if (toolName === 'take_picture') {
         console.log('📸 Opening camera...');
-        pendingToolCallIdRef.current = toolCall.tool_call_id || null;
+        pendingToolCallIdRef.current = toolCallId || null;
         setShowCamera(true);
       }
     }
