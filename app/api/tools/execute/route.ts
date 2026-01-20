@@ -363,10 +363,10 @@ async function executeTakePicture(params: { image_url?: string }): Promise<ToolE
 }
 
 /**
- * Execute send_picture_email tool
+ * Execute send_email_picture tool
  * Sends a picture via email
  */
-async function executeSendPictureEmail(params: {
+async function executeSendEmailPicture(params: {
   email: string;
   user_name: string;
   image_url: string;
