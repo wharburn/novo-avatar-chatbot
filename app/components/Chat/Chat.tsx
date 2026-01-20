@@ -6,6 +6,7 @@ import { useVoice, VoiceProvider, VoiceReadyState } from '@humeai/voice-react';
 import { ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import AvatarDisplay from '../Avatar/AvatarDisplay';
+import CameraCapture from '../Camera/CameraCapture';
 import ChatControls from './ChatControls';
 import ChatMessages from './ChatMessages';
 import ImageViewer from './ImageViewer';
