@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, X, Download, ExternalLink } from 'lucide-react';
+import { Camera, Download, ExternalLink, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface ImageViewerProps {
@@ -20,6 +20,8 @@ export default function ImageViewer({
   source = 'other',
   timestamp,
 }: ImageViewerProps) {
+  console.log('🖼️ ImageViewer rendered!', { source, imageUrl: imageUrl.substring(0, 50) + '...' });
+
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -102,7 +104,9 @@ export default function ImageViewer({
             <div className="text-center p-8">
               <Camera className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 font-medium">Failed to load image</p>
-              <p className="text-sm text-gray-400 mt-2">The image URL may be invalid or unavailable</p>
+              <p className="text-sm text-gray-400 mt-2">
+                The image URL may be invalid or unavailable
+              </p>
               <button
                 onClick={handleOpenInNewTab}
                 className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium inline-flex items-center gap-2"
@@ -126,9 +130,7 @@ export default function ImageViewer({
 
         {/* Footer */}
         <div className="p-4 bg-gray-50 border-t">
-          {caption && (
-            <p className="text-sm text-gray-700 mb-3 italic">"{caption}"</p>
-          )}
+          {caption && <p className="text-sm text-gray-700 mb-3 italic">"{caption}"</p>}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <span className="font-medium">NoVo</span>
@@ -161,4 +163,3 @@ export default function ImageViewer({
     </div>
   );
 }
-

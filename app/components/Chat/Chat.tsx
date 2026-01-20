@@ -280,20 +280,24 @@ function ChatInner({ accessToken, configId }: ChatProps) {
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
     console.log('📸 Photo captured!');
+    console.log('📸 Image data URL length:', imageDataUrl.length);
 
     // Play camera click sound
+    console.log('🔊 Playing camera click sound...');
     playCameraClick();
 
     // Close camera
     setShowCamera(false);
 
     // Display the captured image
+    console.log('🖼️ Setting displayed image...');
     setDisplayedImage({
       url: imageDataUrl,
       source: 'camera',
       caption: 'Picture captured successfully!',
       timestamp: new Date(),
     });
+    console.log('✅ Image viewer should now be visible');
 
     // Send tool response back to Hume AI
     if (pendingToolCallIdRef.current) {
