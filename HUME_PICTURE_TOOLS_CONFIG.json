@@ -2,14 +2,27 @@
   "tools": [
     {
       "name": "take_picture",
-      "description": "Takes a picture using the device camera. This is a built-in Hume AI tool. When the user asks to take a picture, use this tool to capture an image. The tool automatically detects the device and uses the appropriate camera: front camera on phones/tablets, webcam on laptops/desktops. After taking the picture, ask if they would like you to email it to them.",
-      "note": "This is a BUILT-IN Hume AI tool - you just need to ENABLE it in your EVI config, not create it",
+      "description": "Takes a picture using the device camera (phone camera, tablet camera, or laptop webcam). Automatically detects the device and uses the appropriate camera. On mobile devices, uses the front-facing camera. On laptops/desktops, uses the webcam. After taking the picture, the tool returns an image_url that can be used to email the photo. Ask the user if they would like to email the picture after it's taken.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "camera_type": {
+            "type": "string",
+            "description": "Optional: 'front' or 'back' camera. Defaults to 'front' on mobile devices.",
+            "enum": ["front", "back"]
+          }
+        }
+      },
+      "fallback_content": "I'm sorry, I couldn't access the camera. Please make sure you've granted camera permissions in your browser settings.",
+      "version_description": "Captures photos from device camera - works on phones, tablets, and laptops",
+      "note": "This is a CUSTOM tool - you need to CREATE it in Hume AI Tools section",
       "camera_behavior": {
-        "mobile_phones": "Uses front-facing camera (selfie camera)",
-        "tablets": "Uses front-facing camera",
+        "mobile_phones": "Uses front-facing camera (selfie camera) by default",
+        "tablets": "Uses front-facing camera by default",
         "laptops": "Uses built-in webcam",
         "desktops": "Uses connected webcam",
-        "permissions": "Browser will request camera permission on first use"
+        "permissions": "Browser will request camera permission on first use",
+        "camera_selection": "Use camera_type parameter to choose 'front' or 'back' camera on mobile devices"
       }
     },
     {
@@ -42,18 +55,15 @@
     }
   ],
   "setup_instructions": {
-    "step_1_enable_take_picture": {
-      "title": "Enable take_picture (Built-in Tool)",
+    "step_1_create_take_picture": {
+      "title": "Create take_picture (Custom Tool)",
       "instructions": [
         "1. Go to https://platform.hume.ai/",
-        "2. Navigate to EVI → Configs",
-        "3. Select your config",
-        "4. Click 'Edit'",
-        "5. In the 'Tools' section, find 'take_picture' in the built-in tools list",
-        "6. Enable it by checking the box",
-        "7. Click 'Save'"
+        "2. Navigate to EVI → Tools",
+        "3. Click 'Create Tool'",
+        "4. Fill in the form with the values from the take_picture tool above"
       ],
-      "note": "take_picture is already built into Hume AI - you don't need to create it!"
+      "note": "take_picture is a CUSTOM tool - you need to create it in Hume AI Tools section"
     },
     "step_2_create_send_picture_email": {
       "title": "Create send_picture_email (Custom Tool)",
