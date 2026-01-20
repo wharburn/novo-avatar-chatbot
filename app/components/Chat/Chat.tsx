@@ -307,6 +307,18 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     });
     console.log('✅ Image viewer should now be visible');
 
+    // Auto-dismiss the photo after 5 seconds so NoVo becomes visible again
+    setTimeout(() => {
+      console.log('📸 Auto-dismissing photo to show NoVo');
+      setDisplayedImage(null);
+    }, 5000);
+
+    // Auto-dismiss photo after 3 seconds to show avatar again
+    setTimeout(() => {
+      console.log('📸 Auto-dismissing photo, returning to avatar');
+      setDisplayedImage(null);
+    }, 3000);
+
     // Send tool response back to Hume AI
     if (pendingToolCallIdRef.current && sendToolMessage) {
       try {
