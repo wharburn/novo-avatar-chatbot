@@ -299,6 +299,109 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     name: null,
   });
 
+  // User profile state (loaded from Redis based on IP)
+  const [userProfile, setUserProfile] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    isReturningUser: boolean;
+    visitCount: number;
+  } | null>(null);
+  const userProfileLoadedRef = useRef(false);
+  const identityConfirmedRef = useRef(false);
+
+  // Helper function to save user profile to Redis
+  const saveUserProfile = async (updates: { name?: string; email?: string; phone?: string }) => {
+    try {
+      console.log('💾 Saving user profile:', updates);
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setProfile',
+          ...updates,
+        }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        console.log('✅ User profile saved:', result.user);
+        // Update local state
+        setUserProfile((prev) => prev ? { ...prev, ...updates } : {
+          ...updates,
+          isReturningUser: false,
+          visitCount: 1,
+        });
+      } else {
+        console.error('❌ Failed to save user profile:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error saving user profile:', error);
+    }
+  };
+
+  // Load user profile on mount
+  useEffect(() => {
+    if (userProfileLoadedRef.current) return;
+    userProfileLoadedRef.current = true;
+
+    fetch('/api/users')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.user) {
+          console.log('👤 User profile loaded:', data.user);
+          setUserProfile({
+            name: data.user.name,
+            email: data.user.email,
+            phone: data.user.phone,
+            isReturningUser: data.isReturningUser,
+            visitCount: data.user.visitCount,
+          });
+
+          // Pre-fill email intent if we have stored email
+          if (data.user.email) {
+            emailIntentRef.current.email = data.user.email;
+          }
+          if (data.user.name) {
+            emailIntentRef.current.name = data.user.name;
+          }
+        }
+      })
+      .catch((err) => console.error('Failed to load user profile:', err));
+  }, []);
+
+  // Send user context to Hume AI when connected and we have a returning user
+  useEffect(() => {
+    if (!isConnected || !userProfile || !sendAssistantInput) return;
+    if (identityConfirmedRef.current) return; // Already sent context
+
+    // If this is a returning user with a name, prompt NoVo to greet them
+    if (userProfile.isReturningUser && userProfile.name) {
+      // Wait a moment for the greeting to finish, then send context
+      const timer = setTimeout(() => {
+        console.log(`👤 Sending returning user context to NoVo: ${userProfile.name}`);
+        
+        // Build context message for the AI
+        let context = `[SYSTEM: This appears to be a returning user. `;
+        context += `Their stored name is "${userProfile.name}". `;
+        if (userProfile.email) {
+          context += `Their email is ${userProfile.email}. `;
+        }
+        if (userProfile.phone) {
+          context += `Their phone is ${userProfile.phone}. `;
+        }
+        context += `This is visit #${userProfile.visitCount}. `;
+        context += `Please warmly greet them by name and ask if they are indeed ${userProfile.name}. `;
+        context += `If they confirm, you can use their stored information. `;
+        context += `If they say no, ask for their name.]`;
+
+        sendAssistantInput(context);
+        identityConfirmedRef.current = true; // Mark as sent
+      }, 2000); // Wait 2 seconds after connection
+
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, userProfile, sendAssistantInput]);
+
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
     console.log('📸 Photo captured!');
@@ -471,10 +574,14 @@ function ChatInner({ accessToken, configId }: ChatProps) {
           const constructedEmail = `${spokenEmailMatch[1]}@${spokenEmailMatch[2]}.${spokenEmailMatch[3]}`;
           console.log('📧 Constructed email from spoken format:', constructedEmail);
           emailIntentRef.current.email = constructedEmail;
+          // Save to Redis
+          saveUserProfile({ email: constructedEmail });
         }
       } else {
         emailIntentRef.current.email = emailMatch[0];
         console.log('📧 Extracted email:', emailMatch[0]);
+        // Save to Redis
+        saveUserProfile({ email: emailMatch[0] });
       }
 
       // Extract name from various patterns
@@ -497,6 +604,9 @@ function ChatInner({ accessToken, configId }: ChatProps) {
           const name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
           emailIntentRef.current.name = name;
           console.log('👤 Extracted name from user message:', name);
+          
+          // Save to Redis
+          saveUserProfile({ name });
         }
       }
 
@@ -509,8 +619,47 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         !content.includes('@') &&
         /^[a-zA-Z\s]+$/.test(content)
       ) {
-        emailIntentRef.current.name = content.trim();
-        console.log('👤 Extracted name (simple):', content.trim());
+        const name = content.trim();
+        emailIntentRef.current.name = name;
+        console.log('👤 Extracted name (simple):', name);
+        // Save to Redis
+        saveUserProfile({ name });
+      }
+
+      // Check if user confirms identity ("yes", "that's me", "correct")
+      if (
+        userProfile?.name &&
+        !identityConfirmedRef.current &&
+        (content.toLowerCase().includes('yes') ||
+          content.toLowerCase().includes("that's me") ||
+          content.toLowerCase().includes('thats me') ||
+          content.toLowerCase().includes('correct') ||
+          content.toLowerCase().includes('right'))
+      ) {
+        console.log('👤 User confirmed identity as:', userProfile.name);
+        identityConfirmedRef.current = true;
+        // Pre-fill email intent with stored data
+        if (userProfile.email) emailIntentRef.current.email = userProfile.email;
+        if (userProfile.name) emailIntentRef.current.name = userProfile.name;
+      }
+
+      // Check if user denies identity ("no", "not me", "different person")
+      if (
+        userProfile?.name &&
+        !identityConfirmedRef.current &&
+        (content.toLowerCase().includes('no') ||
+          content.toLowerCase().includes('not me') ||
+          content.toLowerCase().includes("i'm not") ||
+          content.toLowerCase().includes('different'))
+      ) {
+        console.log('👤 User denied identity, clearing stored name');
+        // Clear the stored name
+        fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'newUser' }),
+        });
+        setUserProfile((prev) => prev ? { ...prev, name: undefined } : null);
       }
     }
 

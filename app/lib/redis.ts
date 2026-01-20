@@ -7,6 +7,19 @@ export const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
 
+// Types for user profiles (stored by IP address)
+export interface UserProfile {
+  ipAddress: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  preferences?: Record<string, string>;
+  notes?: string[];
+  firstSeen: number;
+  lastSeen: number;
+  visitCount: number;
+}
+
 // Types for interaction tracking
 export interface Message {
   role: 'user' | 'assistant';
@@ -34,6 +47,8 @@ export interface SessionSummary {
 // Redis key patterns
 const SESSIONS_KEY = 'novo:sessions'; // Sorted set of session IDs by time
 const SESSION_PREFIX = 'novo:session:'; // Hash for each session
+const USER_PREFIX = 'novo:user:'; // Hash for each user profile by IP
+const USERS_KEY = 'novo:users'; // Set of all user IPs
 
 /**
  * Create a new session
@@ -162,4 +177,118 @@ export async function getSessionsByIp(ipAddress: string): Promise<Session[]> {
   }
   
   return sessions;
+}
+
+// ============================================
+// USER PROFILE FUNCTIONS (IP-based recognition)
+// ============================================
+
+/**
+ * Get user profile by IP address
+ */
+export async function getUserByIp(ipAddress: string): Promise<UserProfile | null> {
+  const userData = await redis.get(`${USER_PREFIX}${ipAddress}`);
+  if (!userData) return null;
+  
+  return typeof userData === 'string' 
+    ? JSON.parse(userData) 
+    : userData as UserProfile;
+}
+
+/**
+ * Create or update user profile
+ */
+export async function upsertUser(ipAddress: string, updates: Partial<UserProfile>): Promise<UserProfile> {
+  const existing = await getUserByIp(ipAddress);
+  
+  const now = Date.now();
+  const user: UserProfile = existing 
+    ? {
+        ...existing,
+        ...updates,
+        lastSeen: now,
+        visitCount: existing.visitCount + (updates.visitCount === undefined ? 0 : 0), // Don't double-increment
+      }
+    : {
+        ipAddress,
+        firstSeen: now,
+        lastSeen: now,
+        visitCount: 1,
+        ...updates,
+      };
+  
+  // Store user data
+  await redis.set(`${USER_PREFIX}${ipAddress}`, JSON.stringify(user));
+  
+  // Add to users set
+  await redis.sadd(USERS_KEY, ipAddress);
+  
+  return user;
+}
+
+/**
+ * Record a user visit (increment visit count and update lastSeen)
+ */
+export async function recordUserVisit(ipAddress: string): Promise<UserProfile> {
+  const existing = await getUserByIp(ipAddress);
+  
+  if (existing) {
+    existing.lastSeen = Date.now();
+    existing.visitCount += 1;
+    await redis.set(`${USER_PREFIX}${ipAddress}`, JSON.stringify(existing));
+    return existing;
+  }
+  
+  // New user
+  return upsertUser(ipAddress, {});
+}
+
+/**
+ * Update specific user fields
+ */
+export async function updateUserField(
+  ipAddress: string, 
+  field: keyof UserProfile, 
+  value: string | number | string[] | Record<string, string>
+): Promise<UserProfile | null> {
+  const user = await getUserByIp(ipAddress);
+  if (!user) return null;
+  
+  (user as any)[field] = value;
+  user.lastSeen = Date.now();
+  
+  await redis.set(`${USER_PREFIX}${ipAddress}`, JSON.stringify(user));
+  return user;
+}
+
+/**
+ * Add a note to user profile
+ */
+export async function addUserNote(ipAddress: string, note: string): Promise<UserProfile | null> {
+  const user = await getUserByIp(ipAddress);
+  if (!user) return null;
+  
+  if (!user.notes) user.notes = [];
+  user.notes.push(`[${new Date().toISOString()}] ${note}`);
+  user.lastSeen = Date.now();
+  
+  await redis.set(`${USER_PREFIX}${ipAddress}`, JSON.stringify(user));
+  return user;
+}
+
+/**
+ * Get all users (for admin)
+ */
+export async function getAllUsers(): Promise<UserProfile[]> {
+  const ipAddresses = await redis.smembers(USERS_KEY);
+  if (!ipAddresses || ipAddresses.length === 0) return [];
+  
+  const users: UserProfile[] = [];
+  for (const ip of ipAddresses) {
+    const user = await getUserByIp(ip as string);
+    if (user) users.push(user);
+  }
+  
+  // Sort by lastSeen (most recent first)
+  return users.sort((a, b) => b.lastSeen - a.lastSeen);
 }
