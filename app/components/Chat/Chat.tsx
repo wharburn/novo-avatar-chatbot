@@ -1,12 +1,12 @@
 'use client';
 
-import { VoiceProvider, useVoice, VoiceReadyState } from '@humeai/voice-react';
-import { useState, useEffect, useRef } from 'react';
 import { Emotion } from '@/app/types/avatar';
+import { useVoice, VoiceProvider, VoiceReadyState } from '@humeai/voice-react';
+import { ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import AvatarDisplay from '../Avatar/AvatarDisplay';
 import ChatControls from './ChatControls';
 import ChatMessages from './ChatMessages';
-import { ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 
 interface ChatProps {
   accessToken: string;
@@ -16,14 +16,57 @@ interface ChatProps {
 // Text-based emotion detection keywords
 // Used as fallback/supplement when prosody doesn't match content
 const TEXT_EMOTION_KEYWORDS: Record<Emotion, string[]> = {
-  happy: ['happy', 'glad', 'joyful', 'delighted', 'pleased', 'cheerful', 'wonderful', 'great', 'fantastic', 'awesome', 'love', 'loving', 'excited', 'amazing', 'incredible', 'enthusiastic'],
+  happy: [
+    'happy',
+    'glad',
+    'joyful',
+    'delighted',
+    'pleased',
+    'cheerful',
+    'wonderful',
+    'great',
+    'fantastic',
+    'awesome',
+    'love',
+    'loving',
+    'excited',
+    'amazing',
+    'incredible',
+    'enthusiastic',
+  ],
   excited: ['thrilled', 'ecstatic', 'pumped', 'absolutely amazing', 'so excited'],
-  sad: ['sad', 'sorry', 'unfortunate', 'disappointed', 'upset', 'heartbroken', 'melancholy', 'down', 'blue', 'grief', 'crying', 'tears', 'miss', 'lonely', 'depressed'],
+  sad: [
+    'sad',
+    'sorry',
+    'unfortunate',
+    'disappointed',
+    'upset',
+    'heartbroken',
+    'melancholy',
+    'down',
+    'blue',
+    'grief',
+    'crying',
+    'tears',
+    'miss',
+    'lonely',
+    'depressed',
+  ],
   angry: ['angry', 'mad', 'furious', 'annoyed', 'frustrated', 'irritated', 'outraged', 'hate'],
   surprised: ['surprised', 'shocked', 'amazed', 'astonished', 'wow', 'unexpected', 'unbelievable'],
   fear: ['afraid', 'scared', 'frightened', 'terrified', 'anxious', 'worried', 'nervous', 'fear'],
   disgust: ['disgusted', 'gross', 'revolting', 'nasty', 'yuck', 'ugh'],
-  thinking: ['thinking', 'considering', 'wondering', 'pondering', 'hmm', 'perhaps', 'maybe', 'curious', 'interesting'],
+  thinking: [
+    'thinking',
+    'considering',
+    'wondering',
+    'pondering',
+    'hmm',
+    'perhaps',
+    'maybe',
+    'curious',
+    'interesting',
+  ],
   suspicious: ['suspicious', 'skeptical', 'doubtful', 'uncertain', 'fishy', 'strange'],
   neutral: [],
 };
@@ -31,14 +74,14 @@ const TEXT_EMOTION_KEYWORDS: Record<Emotion, string[]> = {
 // Detect emotion from text content
 function detectEmotionFromText(text: string): Emotion | null {
   if (!text) return null;
-  
+
   const lowerText = text.toLowerCase();
   let bestMatch: Emotion | null = null;
   let bestScore = 0;
-  
+
   for (const [emotion, keywords] of Object.entries(TEXT_EMOTION_KEYWORDS)) {
     if (emotion === 'neutral') continue;
-    
+
     let score = 0;
     for (const keyword of keywords) {
       if (lowerText.includes(keyword)) {
@@ -49,13 +92,13 @@ function detectEmotionFromText(text: string): Emotion | null {
         }
       }
     }
-    
+
     if (score > bestScore) {
       bestScore = score;
       bestMatch = emotion as Emotion;
     }
   }
-  
+
   // Only return if we found at least one keyword match
   return bestScore >= 1 ? bestMatch : null;
 }
@@ -64,85 +107,85 @@ function detectEmotionFromText(text: string): Emotion | null {
 // Hume provides 48+ emotions, we map them to our 10 avatar states
 const EMOTION_MAPPING: Record<string, Emotion> = {
   // Happy emotions
-  'joy': 'happy',
-  'amusement': 'happy',
-  'love': 'happy',
-  'contentment': 'happy',
-  'satisfaction': 'happy',
-  'relief': 'happy',
-  'admiration': 'happy',
-  'gratitude': 'happy',
-  'calmness': 'happy',
-  'pride': 'happy',
-  
+  joy: 'happy',
+  amusement: 'happy',
+  love: 'happy',
+  contentment: 'happy',
+  satisfaction: 'happy',
+  relief: 'happy',
+  admiration: 'happy',
+  gratitude: 'happy',
+  calmness: 'happy',
+  pride: 'happy',
+
   // Excited emotions - only for truly high energy moments
-  'ecstasy': 'excited',
-  'triumph': 'excited',
-  
+  ecstasy: 'excited',
+  triumph: 'excited',
+
   // These map to happy instead (less intense)
-  'excitement': 'happy',
-  'enthusiasm': 'happy',
-  'interest': 'happy',
-  'determination': 'happy',
-  'aestheticAppreciation': 'happy',
-  'craving': 'happy',
-  'desire': 'happy',
-  
+  excitement: 'happy',
+  enthusiasm: 'happy',
+  interest: 'happy',
+  determination: 'happy',
+  aestheticAppreciation: 'happy',
+  craving: 'happy',
+  desire: 'happy',
+
   // Sad emotions
-  'sadness': 'sad',
-  'disappointment': 'sad',
-  'distress': 'sad',
-  'grief': 'sad',
-  'guilt': 'sad',
-  'shame': 'sad',
-  'embarrassment': 'sad',
-  'regret': 'sad',
-  'sympathy': 'sad',
-  'empathicPain': 'sad',
-  'nostalgia': 'sad',
-  'tiredness': 'sad',
-  
+  sadness: 'sad',
+  disappointment: 'sad',
+  distress: 'sad',
+  grief: 'sad',
+  guilt: 'sad',
+  shame: 'sad',
+  embarrassment: 'sad',
+  regret: 'sad',
+  sympathy: 'sad',
+  empathicPain: 'sad',
+  nostalgia: 'sad',
+  tiredness: 'sad',
+
   // Thinking emotions
-  'concentration': 'thinking',
-  'contemplation': 'thinking',
-  'confusion': 'thinking',
-  'doubt': 'thinking',
-  'realization': 'thinking',
-  'curiosity': 'thinking',
-  'boredom': 'thinking',
-  
+  concentration: 'thinking',
+  contemplation: 'thinking',
+  confusion: 'thinking',
+  doubt: 'thinking',
+  realization: 'thinking',
+  curiosity: 'thinking',
+  boredom: 'thinking',
+
   // Angry emotions
-  'anger': 'angry',
-  'annoyance': 'angry',
-  'frustration': 'angry',
-  'rage': 'angry',
-  'contempt': 'angry',
-  'envy': 'angry',
-  
+  anger: 'angry',
+  annoyance: 'angry',
+  frustration: 'angry',
+  rage: 'angry',
+  contempt: 'angry',
+  envy: 'angry',
+
   // Surprised emotions
-  'surprise': 'surprised',
-  'surprisePositive': 'surprised',
-  'surpriseNegative': 'surprised',
-  'awe': 'surprised',
-  'amazement': 'surprised',
-  
+  surprise: 'surprised',
+  surprisePositive: 'surprised',
+  surpriseNegative: 'surprised',
+  awe: 'surprised',
+  amazement: 'surprised',
+
   // Fear emotions
-  'fear': 'fear',
-  'anxiety': 'fear',
-  'horror': 'fear',
-  'terror': 'fear',
-  'nervousness': 'fear',
-  'worry': 'fear',
-  'awkwardness': 'fear',
-  
+  fear: 'fear',
+  anxiety: 'fear',
+  horror: 'fear',
+  terror: 'fear',
+  nervousness: 'fear',
+  worry: 'fear',
+  awkwardness: 'fear',
+
   // Disgust emotions
-  'disgust': 'disgust',
-  'revulsion': 'disgust',
-  
+  disgust: 'disgust',
+  revulsion: 'disgust',
+
   // Suspicious emotions
-  'suspicion': 'suspicious',
-  'distrust': 'suspicious',
-  'skepticism': 'suspicious',
+  suspicion: 'suspicious',
+  distrust: 'suspicious',
+  skepticism: 'suspicious',
 };
 
 // Get the dominant emotion from Hume's emotion scores
@@ -176,25 +219,28 @@ function ChatInner({ accessToken, configId }: ChatProps) {
   const [transcriptVisible, setTranscriptVisible] = useState(true);
   const [currentEmotion, setCurrentEmotion] = useState<Emotion>('neutral');
   const prosodyCountRef = useRef(0);
-  
+
   // Current spoken text for phrase video matching
   const [currentSpokenText, setCurrentSpokenText] = useState('');
-  
+
   // Session tracking
   const sessionIdRef = useRef<string | null>(null);
   const lastRecordedMessageRef = useRef<string>('');
-  
-  const { 
-    readyState, 
-    messages,
-    isPlaying,
-    lastAssistantProsodyMessage,
-  } = useVoice();
+
+  // Image viewer state
+  const [displayedImage, setDisplayedImage] = useState<{
+    url: string;
+    source: 'camera' | 'web' | 'other';
+    caption?: string;
+    timestamp: Date;
+  } | null>(null);
+
+  const { readyState, messages, isPlaying, lastAssistantProsodyMessage } = useVoice();
 
   const isConnected = readyState === VoiceReadyState.OPEN;
   const isSpeaking = isPlaying;
   const isListening = isConnected && !isPlaying;
-  
+
   // Start session when connected
   useEffect(() => {
     if (isConnected && !sessionIdRef.current) {
@@ -204,38 +250,100 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'start' }),
       })
-        .then(res => res.json())
-        .then(data => {
+        .then((res) => res.json())
+        .then((data) => {
           if (data.sessionId) {
             sessionIdRef.current = data.sessionId;
             console.log(`📝 Session started: ${data.sessionId}`);
           }
         })
-        .catch(err => console.error('Failed to start session:', err));
+        .catch((err) => console.error('Failed to start session:', err));
     }
-    
+
     // End session when disconnected
     if (!isConnected && sessionIdRef.current) {
       fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'end', sessionId: sessionIdRef.current }),
-      }).catch(err => console.error('Failed to end session:', err));
+      }).catch((err) => console.error('Failed to end session:', err));
       sessionIdRef.current = null;
     }
   }, [isConnected]);
-  
+
+  // Listen for tool calls (take_picture, show_image, etc.)
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return;
+
+    // Check for tool call messages
+    if (lastMessage.type === 'tool_call') {
+      const toolCall = lastMessage as {
+        tool_name?: string;
+        parameters?: string;
+      };
+
+      console.log('🔧 Tool call detected:', toolCall.tool_name);
+
+      // Handle take_picture tool
+      if (toolCall.tool_name === 'take_picture') {
+        console.log('📸 Camera tool called - playing click sound');
+        playCameraClick();
+      }
+    }
+
+    // Check for tool response messages with image URLs
+    if (lastMessage.type === 'tool_response') {
+      const toolResponse = lastMessage as {
+        tool_name?: string;
+        content?: string;
+      };
+
+      console.log('🔧 Tool response:', toolResponse.tool_name);
+
+      try {
+        const content = JSON.parse(toolResponse.content || '{}');
+
+        // Handle take_picture response with image URL
+        if (toolResponse.tool_name === 'take_picture' && content.image_url) {
+          console.log('📸 Displaying captured image:', content.image_url);
+          setDisplayedImage({
+            url: content.image_url,
+            source: 'camera',
+            caption: content.message,
+            timestamp: new Date(),
+          });
+        }
+
+        // Handle any other tool that returns an image_url
+        if (content.image_url && toolResponse.tool_name !== 'take_picture') {
+          console.log('🖼️ Displaying image from tool:', toolResponse.tool_name);
+          setDisplayedImage({
+            url: content.image_url,
+            source: 'web',
+            caption: content.caption || content.message,
+            timestamp: new Date(),
+          });
+        }
+      } catch (error) {
+        console.error('Failed to parse tool response:', error);
+      }
+    }
+  }, [messages]);
+
   // Record messages
   useEffect(() => {
     if (!sessionIdRef.current || messages.length === 0) return;
-    
+
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage) return;
-    
+
     // Extract content based on message type
     let content = '';
     let role: 'user' | 'assistant' | null = null;
-    
+
     if (lastMessage.type === 'user_message') {
       const userMsg = lastMessage as { message?: { content?: string } };
       content = userMsg.message?.content || '';
@@ -245,11 +353,11 @@ function ChatInner({ accessToken, configId }: ChatProps) {
       content = assistantMsg.message?.content || '';
       role = 'assistant';
     }
-    
+
     // Only record if we have content and it's different from last recorded
     if (role && content && content !== lastRecordedMessageRef.current) {
       lastRecordedMessageRef.current = content;
-      
+
       fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -261,7 +369,7 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         }),
       })
         .then(() => console.log(`📝 Recorded ${role} message`))
-        .catch(err => console.error('Failed to record message:', err));
+        .catch((err) => console.error('Failed to record message:', err));
     }
   }, [messages]);
 
@@ -279,24 +387,28 @@ function ChatInner({ accessToken, configId }: ChatProps) {
   useEffect(() => {
     if (lastAssistantProsodyMessage) {
       prosodyCountRef.current++;
-      
+
       const prosodyScores = lastAssistantProsodyMessage.models?.prosody?.scores;
       // Get the text content from the prosody message
       const messageText = (lastAssistantProsodyMessage as { text?: string }).text || '';
-      
+
       // Update current spoken text for phrase video matching
       if (messageText) {
         console.log(`🗣️ Hume speaking: "${messageText}"`);
         setCurrentSpokenText(messageText);
       }
-      
+
       // Skip first 2 prosody messages - they often have unreliable emotion data
       // Default to happy for greetings
       if (prosodyCountRef.current <= 2) {
         const lowerText = messageText.toLowerCase();
-        const isGreeting = lowerText.includes('hello') || lowerText.includes('hi') || 
-                          lowerText.includes('hey') || lowerText.includes('welcome') ||
-                          lowerText.includes('nice to') || lowerText.includes('good to');
+        const isGreeting =
+          lowerText.includes('hello') ||
+          lowerText.includes('hi') ||
+          lowerText.includes('hey') ||
+          lowerText.includes('welcome') ||
+          lowerText.includes('nice to') ||
+          lowerText.includes('good to');
         if (isGreeting) {
           console.log(`Early message #${prosodyCountRef.current} - greeting detected, using happy`);
           setCurrentEmotion('happy');
@@ -306,53 +418,67 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         }
         return;
       }
-      
+
       // Detect emotion from text
       const textEmotion = detectEmotionFromText(messageText);
-      
+
       if (prosodyScores) {
         const scores = prosodyScores as unknown as Record<string, number>;
-        
+
         // Find top 5 emotions for debugging
         const sortedEmotions = Object.entries(scores)
-          .sort(([,a], [,b]) => b - a)
+          .sort(([, a], [, b]) => b - a)
           .slice(0, 5);
-        
+
         console.log('=== Top 5 Prosody Emotions ===');
         sortedEmotions.forEach(([emotion, score]) => {
           console.log(`  ${emotion}: ${(score * 100).toFixed(1)}%`);
         });
-        
+
         const prosodyEmotion = getDominantEmotion(scores);
         console.log(`Prosody emotion: ${prosodyEmotion}`);
         console.log(`Text emotion: ${textEmotion} (from: "${messageText.slice(0, 50)}...")`);
-        
+
         // Blend prosody and text emotions:
         // Priority: happy/excited > text emotion > neutral > fear/sad
         // Fear and sad should require very strong signals
         let finalEmotion: Emotion;
-        
+
         // Get the top emotion score
         const topScore = sortedEmotions[0]?.[1] || 0;
-        
+
         // If prosody detected happy/excited with decent confidence, use it
         if ((prosodyEmotion === 'happy' || prosodyEmotion === 'excited') && topScore > 0.15) {
           finalEmotion = prosodyEmotion;
-          console.log(`Using PROSODY emotion (happy/excited with ${(topScore * 100).toFixed(1)}% confidence)`);
+          console.log(
+            `Using PROSODY emotion (happy/excited with ${(topScore * 100).toFixed(1)}% confidence)`
+          );
         }
         // Fear and sad need VERY high confidence (>40%) to override
         else if ((prosodyEmotion === 'fear' || prosodyEmotion === 'sad') && topScore < 0.4) {
           // Don't use fear/sad unless very confident - default to neutral or text
           finalEmotion = textEmotion || 'neutral';
-          console.log(`Ignoring weak fear/sad (${(topScore * 100).toFixed(1)}%), using: ${finalEmotion}`);
+          console.log(
+            `Ignoring weak fear/sad (${(topScore * 100).toFixed(1)}%), using: ${finalEmotion}`
+          );
         }
         // Text emotion takes precedence for weak prosody signals
-        else if (textEmotion && (prosodyEmotion === 'neutral' || prosodyEmotion === 'thinking' || topScore < 0.2)) {
+        else if (
+          textEmotion &&
+          (prosodyEmotion === 'neutral' || prosodyEmotion === 'thinking' || topScore < 0.2)
+        ) {
           finalEmotion = textEmotion;
-          console.log(`Using TEXT emotion (prosody was weak: ${prosodyEmotion} at ${(topScore * 100).toFixed(1)}%)`);
+          console.log(
+            `Using TEXT emotion (prosody was weak: ${prosodyEmotion} at ${(topScore * 100).toFixed(1)}%)`
+          );
         }
         // Strong prosody signal (not fear/sad)
-        else if (prosodyEmotion !== 'neutral' && prosodyEmotion !== 'fear' && prosodyEmotion !== 'sad' && topScore > 0.2) {
+        else if (
+          prosodyEmotion !== 'neutral' &&
+          prosodyEmotion !== 'fear' &&
+          prosodyEmotion !== 'sad' &&
+          topScore > 0.2
+        ) {
           finalEmotion = prosodyEmotion;
           console.log(`Using PROSODY emotion: ${prosodyEmotion}`);
         }
@@ -365,7 +491,7 @@ function ChatInner({ accessToken, configId }: ChatProps) {
           finalEmotion = 'happy';
           console.log(`No strong emotion detected, defaulting to happy`);
         }
-        
+
         console.log(`Final avatar emotion: ${finalEmotion}`);
         setCurrentEmotion(finalEmotion);
       } else if (textEmotion) {
@@ -386,11 +512,7 @@ function ChatInner({ accessToken, configId }: ChatProps) {
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b bg-white/80 backdrop-blur-sm">
         <div className="flex items-center">
-          <img 
-            src="/NOVOC.png" 
-            alt="NOVOC" 
-            className="h-8 w-auto"
-          />
+          <img src="/NOVOC.png" alt="NOVOC" className="h-8 w-auto" />
         </div>
         <div className="flex items-center gap-2">
           <div
@@ -398,16 +520,16 @@ function ChatInner({ accessToken, configId }: ChatProps) {
               isConnected
                 ? 'bg-green-500'
                 : readyState === VoiceReadyState.CONNECTING
-                ? 'bg-yellow-500 animate-pulse'
-                : 'bg-gray-400'
+                  ? 'bg-yellow-500 animate-pulse'
+                  : 'bg-gray-400'
             }`}
           />
           <span className="text-xs text-gray-600">
             {isConnected
               ? 'Connected'
               : readyState === VoiceReadyState.CONNECTING
-              ? 'Connecting...'
-              : 'Disconnected'}
+                ? 'Connecting...'
+                : 'Disconnected'}
           </span>
         </div>
       </header>
@@ -481,6 +603,16 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         </div>
       )}
 
+      {/* Image Viewer Modal */}
+      {displayedImage && (
+        <ImageViewer
+          imageUrl={displayedImage.url}
+          source={displayedImage.source}
+          caption={displayedImage.caption}
+          timestamp={displayedImage.timestamp}
+          onClose={() => setDisplayedImage(null)}
+        />
+      )}
     </div>
   );
 }
@@ -504,10 +636,7 @@ export default function Chat({ accessToken, configId }: ChatProps) {
   };
 
   return (
-    <VoiceProvider
-      onMessage={handleMessage}
-      onError={handleError}
-    >
+    <VoiceProvider onMessage={handleMessage} onError={handleError}>
       <ChatInner accessToken={accessToken} configId={configId} />
     </VoiceProvider>
   );
