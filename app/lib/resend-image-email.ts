@@ -155,7 +155,7 @@ export async function sendImageEmail(
             {
               filename: 'photo.jpg',
               content: imageBase64,
-              content_id: 'captured_photo',
+              contentId: 'captured_photo',
             },
           ]
         : undefined,
