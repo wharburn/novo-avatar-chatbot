@@ -46,10 +46,19 @@ function generateSummary(messages: ConversationMessage[]): string {
  * Format conversation as HTML
  */
 function formatConversationHTML(messages: ConversationMessage[]): string {
+  if (!messages || messages.length === 0) {
+    return `
+      <div style="text-align: center; padding: 20px; color: #666;">
+        <p style="margin: 0;">No conversation messages recorded.</p>
+      </div>
+    `;
+  }
+
   return messages
     .map((msg) => {
-      const time = new Date(msg.timestamp).toLocaleTimeString();
+      const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
       const isUser = msg.role === 'user';
+      const content = msg.content || '(empty message)';
 
       return `
         <div style="margin-bottom: 20px; ${isUser ? 'text-align: right;' : 'text-align: left;'}">
@@ -58,8 +67,8 @@ function formatConversationHTML(messages: ConversationMessage[]): string {
               ? 'background-color: #2563eb; color: white;'
               : 'background-color: #f3f4f6; color: #1f2937;'
           }">
-            <p style="margin: 0; font-size: 14px;">${msg.content}</p>
-            <p style="margin: 4px 0 0 0; font-size: 11px; opacity: 0.7;">${time}</p>
+            <p style="margin: 0; font-size: 14px; white-space: pre-wrap;">${content}</p>
+            ${time ? `<p style="margin: 4px 0 0 0; font-size: 11px; opacity: 0.7;">${time}</p>` : ''}
           </div>
         </div>
       `;
@@ -75,6 +84,17 @@ export async function sendConversationSummary(
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const { email, messages, userName } = params;
+
+    console.log('[Email Summary] Received params:', {
+      email,
+      userName,
+      messageCount: messages?.length || 0,
+    });
+    
+    if (messages && messages.length > 0) {
+      console.log('[Email Summary] First message:', messages[0]);
+      console.log('[Email Summary] Last message:', messages[messages.length - 1]);
+    }
 
     if (!resend) {
       return {
@@ -92,6 +112,9 @@ export async function sendConversationSummary(
 
     const summary = generateSummary(messages);
     const conversationHTML = formatConversationHTML(messages);
+    
+    console.log('[Email Summary] Generated summary:', summary);
+    console.log('[Email Summary] Conversation HTML length:', conversationHTML.length);
     const startTime =
       messages.length > 0
         ? new Date(messages[0].timestamp).toLocaleString()

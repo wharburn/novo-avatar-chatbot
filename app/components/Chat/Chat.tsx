@@ -459,9 +459,83 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       return;
     }
 
+    // Handle send_email_summary - pass conversation messages from client
+    if (pendingToolCall.name === 'send_email_summary') {
+      console.log('📧 Handling send_email_summary from client');
+      console.log('📧 Total messages in state:', messages.length);
+      
+      const params = JSON.parse(pendingToolCall.parameters || '{}');
+      
+      // Get conversation messages from the messages array
+      const filteredMessages = messages.filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message');
+      console.log('📧 Filtered messages (user/assistant):', filteredMessages.length);
+      
+      // Log first few messages to debug structure
+      if (filteredMessages.length > 0) {
+        console.log('📧 Sample message structure:', JSON.stringify(filteredMessages[0], null, 2));
+      }
+      
+      const conversationMessages = filteredMessages.map((msg) => {
+          const typedMsg = msg as { type: string; message?: { role: string; content: string }; receivedAt?: Date };
+          const extracted = {
+            role: typedMsg.message?.role === 'user' ? 'user' : 'assistant',
+            content: typedMsg.message?.content || '',
+            timestamp: typedMsg.receivedAt ? new Date(typedMsg.receivedAt).getTime() : Date.now(),
+          };
+          return extracted;
+        });
+
+      console.log('📧 Collected', conversationMessages.length, 'messages for summary');
+      if (conversationMessages.length > 0) {
+        console.log('📧 First extracted message:', conversationMessages[0]);
+      }
+
+      // Call the API with the messages
+      fetch('/api/tools/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolName: 'send_email_summary',
+          parameters: {
+            ...params,
+            messages: conversationMessages,
+          },
+        }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          console.log('📧 Summary email result:', result);
+          if (result.success) {
+            pendingToolCall.send.success({ 
+              message: `Conversation summary sent to ${params.email}!`,
+              messageCount: conversationMessages.length,
+            });
+          } else {
+            pendingToolCall.send.error({
+              error: result.error || 'Failed to send summary',
+              code: 'EMAIL_FAILED',
+              level: 'error',
+              content: '',
+            });
+          }
+        })
+        .catch((error) => {
+          console.error('📧 Summary email error:', error);
+          pendingToolCall.send.error({
+            error: error.message || 'Failed to send summary',
+            code: 'EMAIL_ERROR',
+            level: 'error',
+            content: '',
+          });
+        });
+
+      onToolCallHandled?.();
+      return;
+    }
+
     // For other tools, mark as handled
     onToolCallHandled?.();
-  }, [pendingToolCall, onToolCallHandled]);
+  }, [pendingToolCall, onToolCallHandled, messages]);
 
   // Ref to store the send function for tool calls that need async completion (like camera)
   const pendingToolCallSendRef = useRef<{
@@ -486,6 +560,62 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('📸 Opening camera from webhook notification...');
             pendingToolCallIdRef.current = data.toolCall.toolCallId;
             setShowCamera(true);
+          }
+          
+          // Handle send_email_summary
+          if (data.toolCall.name === 'send_email_summary') {
+            console.log('📧 Handling send_email_summary from webhook notification...');
+            const params = typeof data.toolCall.parameters === 'string' 
+              ? JSON.parse(data.toolCall.parameters) 
+              : data.toolCall.parameters;
+            
+            // Get conversation messages
+            const conversationMessages = messages
+              .filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message')
+              .map((msg) => {
+                const typedMsg = msg as { type: string; message?: { role: string; content: string }; receivedAt?: Date };
+                return {
+                  role: typedMsg.message?.role === 'user' ? 'user' : 'assistant',
+                  content: typedMsg.message?.content || '',
+                  timestamp: typedMsg.receivedAt ? new Date(typedMsg.receivedAt).getTime() : Date.now(),
+                };
+              });
+
+            console.log('📧 Sending summary with', conversationMessages.length, 'messages');
+
+            // Call the API with the messages
+            fetch('/api/tools/execute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toolName: 'send_email_summary',
+                parameters: {
+                  ...params,
+                  messages: conversationMessages,
+                },
+              }),
+            })
+              .then((res) => res.json())
+              .then((result) => {
+                console.log('📧 Summary email result:', result);
+                // Send tool response back to Hume
+                if (sendToolMessage && data.toolCall.toolCallId) {
+                  sendToolMessage({
+                    type: 'tool_response',
+                    toolCallId: data.toolCall.toolCallId,
+                    content: JSON.stringify({
+                      success: result.success,
+                      message: result.success 
+                        ? `Conversation summary sent to ${params.email}!`
+                        : result.error,
+                      messageCount: conversationMessages.length,
+                    }),
+                  } as any);
+                }
+              })
+              .catch((error) => {
+                console.error('📧 Summary email error:', error);
+              });
           }
         }
       } catch (error) {

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'send_email_summary':
-        result = await handleSendEmailSummary(params);
+        result = await handleSendEmailSummary(params, chat_id, tool_call_id);
         break;
 
       default:
@@ -53,10 +53,10 @@ export async function POST(request: NextRequest) {
     console.log('[Hume Webhook] Tool result:', result);
 
     // Return the response in Hume AI webhook format
-    // IMPORTANT: For take_picture, we DON'T return a tool_response here
-    // The client will send the response after the camera captures the image
-    if (name === 'take_picture') {
-      console.log('[Hume Webhook] take_picture - NOT sending response, client will handle it');
+    // IMPORTANT: For take_picture and send_email_summary, we DON'T return a tool_response here
+    // The client will send the response with the actual data
+    if (name === 'take_picture' || name === 'send_email_summary') {
+      console.log(`[Hume Webhook] ${name} - NOT sending response, client will handle it`);
       // Return 200 OK but no tool_response - client will send it
       return NextResponse.json({ 
         success: true, 
@@ -150,26 +150,41 @@ async function handleSendEmailPicture(parameters: any) {
 
 /**
  * Handle send_email_summary tool call
+ * NOTE: This needs client-side data (messages), so we notify the client
  */
-async function handleSendEmailSummary(parameters: any) {
+async function handleSendEmailSummary(parameters: any, chatId: string, toolCallId: string) {
   console.log('[Hume Webhook] Handling send_email_summary with params:', parameters);
+  console.log('[Hume Webhook] Chat ID:', chatId, 'Tool Call ID:', toolCallId);
 
   const { email, user_name } = parameters;
 
-  // Call the existing tool execution endpoint
-  const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/tools/execute`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      toolName: 'send_email_summary',
-      parameters: { email, user_name },
-    }),
-  });
+  // Notify the client about this tool call so it can send the messages
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://novo-avatar-chatbot.onrender.com';
+    await fetch(`${appUrl}/api/tool-calls`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chatId: chatId || 'default',
+        toolCallId,
+        name: 'send_email_summary',
+        parameters: { email, user_name },
+      }),
+    });
+    console.log('[Hume Webhook] Notified client about send_email_summary tool call');
+  } catch (error) {
+    console.error('[Hume Webhook] Failed to notify client:', error);
+  }
 
-  const result = await response.json();
-  return result;
+  // Return a pending response - client will send the real one with messages
+  return {
+    success: true,
+    message: 'Preparing conversation summary to send to your email...',
+    data: {
+      status: 'preparing',
+      note: 'Client will send the actual summary with conversation history',
+    },
+  };
 }
 
 /**

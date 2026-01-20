@@ -1,6 +1,7 @@
 import { checkWhatsAppNumber, sendWhatsAppMessage } from '@/app/lib/greenapi';
 import { sendConversationSummary } from '@/app/lib/resend-email';
 import { sendImageEmail } from '@/app/lib/resend-image-email';
+import { getSessionsByIp, getUserByIp } from '@/app/lib/redis';
 import { OpenBrowserParams, SendWhatsAppParams, ToolExecutionResult } from '@/app/types/tools';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -266,9 +267,20 @@ async function executeSendWhatsApp(params: SendWhatsAppParams): Promise<ToolExec
 async function executeSendEmailSummary(params: {
   email: string;
   user_name: string;
+  messages?: { role: string; content: string; timestamp: number }[];
+  ip_address?: string;
+  session_id?: string;
 }): Promise<ToolExecutionResult> {
   try {
-    const { email, user_name } = params;
+    const { email, user_name, messages: providedMessages, ip_address, session_id } = params;
+
+    console.log('[Send Email Summary] Params:', { 
+      email, 
+      user_name, 
+      providedMessagesCount: providedMessages?.length,
+      ip_address, 
+      session_id 
+    });
 
     // Validate email address
     if (!email || !email.includes('@')) {
@@ -295,11 +307,46 @@ async function executeSendEmailSummary(params: {
       };
     }
 
-    // For now, we'll send a simple confirmation
-    // In production, you'd get the actual conversation messages from the session
+    // Use provided messages first, then try to get from Redis
+    let messages: { role: 'user' | 'assistant'; content: string; timestamp: number }[] = [];
+
+    if (providedMessages && providedMessages.length > 0) {
+      // Use messages passed directly from the client
+      messages = providedMessages.map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: m.timestamp,
+      }));
+      console.log('[Send Email Summary] Using', messages.length, 'messages from client');
+    } else {
+      // Try to get conversation messages from Redis
+      try {
+        // If we have an IP address, get the most recent session for that IP
+        if (ip_address) {
+          console.log('[Send Email Summary] Fetching sessions for IP:', ip_address);
+          const sessions = await getSessionsByIp(ip_address);
+          
+          if (sessions && sessions.length > 0) {
+            // Get the most recent session (sessions are sorted by time, newest first)
+            const latestSession = sessions[0];
+            messages = latestSession.messages || [];
+            console.log('[Send Email Summary] Found', messages.length, 'messages in Redis session');
+          }
+        }
+      } catch (redisError) {
+        console.error('[Send Email Summary] Failed to fetch messages from Redis:', redisError);
+        // Continue anyway - we'll send an email with no conversation history
+      }
+    }
+
+    // If no messages found, add a placeholder message
+    if (messages.length === 0) {
+      console.log('[Send Email Summary] No messages found, sending basic summary');
+    }
+
     const result = await sendConversationSummary({
       email,
-      messages: [], // TODO: Get actual messages from session
+      messages,
       userName: user_name,
     });
 
@@ -315,10 +362,12 @@ async function executeSendEmailSummary(params: {
       data: {
         messageId: result.messageId,
         email,
-        message: `Email summary sent successfully to ${email}`,
+        messageCount: messages.length,
+        message: `Conversation summary with ${messages.length} messages sent successfully to ${email}`,
       },
     };
   } catch (error) {
+    console.error('[Send Email Summary] Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to send email summary',
