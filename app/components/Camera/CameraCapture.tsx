@@ -33,8 +33,11 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
     const video = videoRef.current;
 
     if (!stream || !video) {
+      console.log('📸 Auto-capture: No stream or video ref');
       return;
     }
+
+    console.log('📸 Auto-capture: Stream and video ref available, readyState:', video.readyState);
 
     const handleVideoReady = () => {
       console.log('📸 Camera ready, starting 3-second countdown...');
@@ -57,25 +60,23 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
       }, 1000);
     };
 
-    // Wait for video to be ready
-    if (video.readyState >= 2) {
-      // Video is already ready
+    // Give the video a moment to start, then begin countdown
+    const startTimer = setTimeout(() => {
+      console.log('📸 Starting countdown after delay, readyState:', video.readyState);
       handleVideoReady();
-    } else {
-      // Wait for video to load
-      video.addEventListener('loadeddata', handleVideoReady, { once: true });
-    }
+    }, 500); // Wait 500ms for video to start
 
     return () => {
+      clearTimeout(startTimer);
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
       }
-      video.removeEventListener('loadeddata', handleVideoReady);
     };
   }, [stream]);
 
   const startCamera = async () => {
     try {
+      console.log('📸 Starting camera...');
       setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -86,9 +87,11 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
         audio: false,
       });
 
+      console.log('📸 Camera stream obtained');
       setStream(mediaStream);
 
       if (videoRef.current) {
+        console.log('📸 Setting video source');
         videoRef.current.srcObject = mediaStream;
       }
     } catch (err) {
