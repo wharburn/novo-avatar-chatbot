@@ -1,12 +1,14 @@
 'use client';
 
 import { Emotion } from '@/app/types/avatar';
+import { playCameraClick } from '@/app/utils/sounds';
 import { useVoice, VoiceProvider, VoiceReadyState } from '@humeai/voice-react';
 import { ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import AvatarDisplay from '../Avatar/AvatarDisplay';
 import ChatControls from './ChatControls';
 import ChatMessages from './ChatMessages';
+import ImageViewer from './ImageViewer';
 
 interface ChatProps {
   accessToken: string;
@@ -235,6 +237,10 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     timestamp: Date;
   } | null>(null);
 
+  // Camera state
+  const [showCamera, setShowCamera] = useState(false);
+  const pendingToolCallIdRef = useRef<string | null>(null);
+
   const { readyState, messages, isPlaying, lastAssistantProsodyMessage } = useVoice();
 
   const isConnected = readyState === VoiceReadyState.OPEN;
@@ -271,6 +277,48 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     }
   }, [isConnected]);
 
+  // Handle camera capture
+  const handleCameraCapture = async (imageDataUrl: string) => {
+    console.log('📸 Photo captured!');
+
+    // Play camera click sound
+    playCameraClick();
+
+    // Close camera
+    setShowCamera(false);
+
+    // Display the captured image
+    setDisplayedImage({
+      url: imageDataUrl,
+      source: 'camera',
+      caption: 'Picture captured successfully!',
+      timestamp: new Date(),
+    });
+
+    // Send tool response back to Hume AI
+    if (pendingToolCallIdRef.current) {
+      try {
+        const response = await fetch('/api/tools/execute', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            toolName: 'take_picture',
+            parameters: { image_url: imageDataUrl },
+          }),
+        });
+
+        const result = await response.json();
+        console.log('📸 Tool response sent:', result);
+      } catch (error) {
+        console.error('Failed to send tool response:', error);
+      }
+
+      pendingToolCallIdRef.current = null;
+    }
+  };
+
   // Listen for tool calls (take_picture, show_image, etc.)
   useEffect(() => {
     if (messages.length === 0) return;
@@ -282,6 +330,7 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     if (lastMessage.type === 'tool_call') {
       const toolCall = lastMessage as {
         tool_name?: string;
+        tool_call_id?: string;
         parameters?: string;
       };
 
@@ -289,8 +338,9 @@ function ChatInner({ accessToken, configId }: ChatProps) {
 
       // Handle take_picture tool
       if (toolCall.tool_name === 'take_picture') {
-        console.log('📸 Camera tool called - playing click sound');
-        playCameraClick();
+        console.log('📸 Opening camera...');
+        pendingToolCallIdRef.current = toolCall.tool_call_id || null;
+        setShowCamera(true);
       }
     }
 
