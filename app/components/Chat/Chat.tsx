@@ -288,6 +288,17 @@ function ChatInner({ accessToken, configId }: ChatProps) {
   // Store the last captured image URL for emailing
   const lastCapturedImageRef = useRef<string | null>(null);
 
+  // Track email intent and collected information
+  const emailIntentRef = useRef<{
+    wantsEmail: boolean;
+    email: string | null;
+    name: string | null;
+  }>({
+    wantsEmail: false,
+    email: null,
+    name: null,
+  });
+
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
     console.log('📸 Photo captured!');
@@ -376,12 +387,111 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     }
   };
 
+  // Auto-trigger email when we have all required info
+  useEffect(() => {
+    const intent = emailIntentRef.current;
+
+    if (intent.wantsEmail && intent.email && intent.name && lastCapturedImageRef.current) {
+      console.log('📧 Auto-triggering email with collected info:', intent);
+
+      // Reset intent to prevent duplicate sends
+      emailIntentRef.current = {
+        wantsEmail: false,
+        email: null,
+        name: null,
+      };
+
+      // Send the email
+      fetch('/api/tools/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolName: 'send_email_picture',
+          parameters: {
+            email: intent.email,
+            user_name: intent.name,
+            image_url: lastCapturedImageRef.current,
+            caption: 'Picture from NoVo!',
+          },
+        }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          console.log('📧 Auto-email result:', result);
+          if (result.success) {
+            console.log('✅ Email sent successfully!');
+          } else {
+            console.error('❌ Email failed:', result.error);
+          }
+        })
+        .catch((error) => {
+          console.error('📧 Auto-email error:', error);
+        });
+    }
+  }, [messages]);
+
   // Listen for tool calls (take_picture, show_image, etc.)
   useEffect(() => {
     if (messages.length === 0) return;
 
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage) return;
+
+    // Check for user messages to extract email/name
+    if (lastMessage.type === 'user_message') {
+      const userMsg = lastMessage as any;
+      const content = userMsg.message?.content || '';
+
+      console.log('👤 User message:', content);
+
+      // Check if user wants to email the picture
+      if (
+        content.toLowerCase().includes('email') &&
+        (content.toLowerCase().includes('yes') ||
+          content.toLowerCase().includes('please') ||
+          content.toLowerCase().includes('send'))
+      ) {
+        console.log('📧 User wants to email the picture');
+        emailIntentRef.current.wantsEmail = true;
+      }
+
+      // Extract email address
+      const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+      if (emailMatch) {
+        emailIntentRef.current.email = emailMatch[0];
+        console.log('📧 Extracted email:', emailMatch[0]);
+      }
+
+      // If message looks like a name (short, no special chars, after asking for name)
+      if (
+        emailIntentRef.current.wantsEmail &&
+        emailIntentRef.current.email &&
+        !emailIntentRef.current.name &&
+        content.length < 50 &&
+        !content.includes('@') &&
+        /^[a-zA-Z\s]+$/.test(content)
+      ) {
+        emailIntentRef.current.name = content.trim();
+        console.log('👤 Extracted name:', content.trim());
+      }
+    }
+
+    // Check for assistant messages asking for email/name
+    if (lastMessage.type === 'assistant_message') {
+      const assistantMsg = lastMessage as any;
+      const content = assistantMsg.message?.content || '';
+
+      // If NoVo asks about emailing, set intent
+      if (
+        content.toLowerCase().includes('email') &&
+        (content.toLowerCase().includes('would you like') ||
+          content.toLowerCase().includes('want me to') ||
+          content.toLowerCase().includes('should i'))
+      ) {
+        console.log('📧 NoVo asking about emailing - setting intent');
+        emailIntentRef.current.wantsEmail = true;
+      }
+    }
 
     // Check for tool call messages
     if (lastMessage.type === 'tool_call') {
