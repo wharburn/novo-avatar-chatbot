@@ -21,7 +21,7 @@ take_picture
 ### Description
 
 ```
-Takes a picture using the device camera. IMPORTANT: Call this tool IMMEDIATELY when the user asks to take a picture - do not ask for confirmation or explain first. Just call the tool right away. The camera will open automatically for the user to capture the photo.
+Takes a picture using the device camera. IMPORTANT: Call this tool IMMEDIATELY when the user asks to take a picture. On laptops, there is only one camera (webcam). On phones/tablets, FIRST ask: "Would you like a selfie, or a picture of what you're looking at?" Then call the tool. The camera will open automatically for the user to capture the photo.
 ```
 
 ### Parameters

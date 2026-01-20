@@ -2,7 +2,7 @@
 
 ## Step 1: Go to Hume AI Dashboard
 
-1. Open https://platform.hume.ai/
+1. Open <https://platform.hume.ai/>
 2. Click **"EVI"** in the left sidebar
 3. Click **"Tools"**
 4. Click **"Create Tool"** button
@@ -20,7 +20,7 @@ take_picture
 ### **Description:**
 
 ```
-Takes a picture using the device camera. IMPORTANT: Call this tool IMMEDIATELY when the user asks to take a picture - do not ask for confirmation or explain first. Just call the tool right away. The camera will open automatically for the user to capture the photo.
+Takes a picture using the device camera. IMPORTANT: Call this tool IMMEDIATELY when the user asks to take a picture. On laptops, there is only one camera (webcam). On phones/tablets, FIRST ask: "Would you like a selfie, or a picture of what you're looking at?" Then call the tool. The camera will open automatically for the user to capture the photo.
 ```
 
 ### **Parameters:**
@@ -61,7 +61,7 @@ Click **"Save"** or **"Create Tool"**
 
 ## Step 5: Test
 
-1. Refresh your app at http://localhost:3000
+1. Refresh your app at <http://localhost:3000>
 2. Say: **"Take a picture"**
 3. Camera should open
 4. Click the capture button
