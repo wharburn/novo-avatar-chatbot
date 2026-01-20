@@ -553,11 +553,12 @@ function ChatInner({ accessToken, configId }: ChatProps) {
             // Send tool response back to Hume AI
             if (toolCallId && sendToolMessage) {
               sendToolMessage({
+                type: 'tool_response',
                 toolCallId: toolCallId,
                 content: result.success
                   ? `Picture sent successfully to ${params.email}!`
                   : `Failed to send picture: ${result.error}`,
-              });
+              } as any);
             }
           })
           .catch((error) => {
@@ -566,9 +567,11 @@ function ChatInner({ accessToken, configId }: ChatProps) {
             // Send error response back to Hume AI
             if (toolCallId && sendToolMessage) {
               sendToolMessage({
+                type: 'tool_error',
                 toolCallId: toolCallId,
-                content: `Failed to send picture: ${error.message}`,
-              });
+                error: `Failed to send picture: ${error.message}`,
+                content: '',
+              } as any);
             }
           });
       }
