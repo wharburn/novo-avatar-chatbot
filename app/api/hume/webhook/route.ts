@@ -75,18 +75,22 @@ export async function POST(request: NextRequest) {
 
 /**
  * Handle take_picture tool call
+ * NOTE: The actual camera capture happens client-side in Chat.tsx
+ * This webhook acknowledges the intent to take a picture
  */
 async function handleTakePicture(parameters: any) {
   console.log('[Hume Webhook] Handling take_picture with params:', parameters);
 
   // The take_picture tool is handled client-side (opens camera)
-  // We just acknowledge it here
+  // The client will open the camera and send the actual tool response
+  // We return a pending status here - the real result comes from the client
   return {
     success: true,
     message:
-      'Picture taken successfully! I can see the photo. Would you like me to email it to you?',
+      'Opening camera to take a picture. Please look at the camera and smile!',
     data: {
-      status: 'captured',
+      status: 'camera_opening',
+      note: 'Actual capture will be handled by the client',
     },
   };
 }

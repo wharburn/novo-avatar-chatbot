@@ -1,6 +1,13 @@
 {
   "tools": [
     {
+      "name": "take_picture",
+      "description": "Takes a picture using the device camera. Use this when the user asks to take a photo, capture an image, take a selfie, or snap a picture. After the picture is taken, ask the user if they want to email it to themselves.",
+      "parameters": "{ \"type\": \"object\", \"properties\": {} }",
+      "fallback_content": "I'm sorry, I couldn't access the camera. Please make sure you've granted camera permissions and try again.",
+      "version_description": "Opens the device camera to capture a photo"
+    },
+    {
       "name": "open_browser",
       "description": "Opens a website URL in the user's browser. Use this when the user asks to open a website, view a page, or navigate to a URL. Examples: 'open google', 'show me youtube', 'navigate to github.com'",
       "parameters": "{ \"type\": \"object\", \"properties\": { \"url\": { \"type\": \"string\", \"description\": \"The full URL to open, including https:// protocol. If user doesn't specify protocol, add https://\" } }, \"required\": [\"url\"] }",

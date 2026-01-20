@@ -438,6 +438,12 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage) return;
 
+    // Debug: Log all message types to help troubleshoot tool calls
+    console.log(`📨 Message received [${messages.length}]: type="${lastMessage.type}"`);
+    if (lastMessage.type === 'tool_call' || lastMessage.type?.includes('tool')) {
+      console.log('📨 Full message:', JSON.stringify(lastMessage, null, 2));
+    }
+
     // Check for user messages to extract email/name
     if (lastMessage.type === 'user_message') {
       const userMsg = lastMessage as any;
@@ -492,11 +498,37 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         console.log('📧 NoVo asking about emailing - setting intent');
         emailIntentRef.current.wantsEmail = true;
       }
+
+      // If NoVo says she's sending the email, extract email and name from her message
+      if (
+        content.toLowerCase().includes('send') &&
+        content.toLowerCase().includes('photo') &&
+        lastCapturedImageRef.current
+      ) {
+        console.log("📧 NoVo says she's sending the photo");
+
+        // Extract email from NoVo's message
+        const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+        if (emailMatch) {
+          emailIntentRef.current.email = emailMatch[0];
+          emailIntentRef.current.wantsEmail = true;
+          console.log('📧 Extracted email from NoVo:', emailMatch[0]);
+        }
+
+        // Extract name from NoVo's message (look for "Perfect, [Name]" or similar)
+        const nameMatch = content.match(/(?:Perfect|Great|Okay),?\s+([A-Z][a-z]+)/);
+        if (nameMatch) {
+          emailIntentRef.current.name = nameMatch[1];
+          console.log('👤 Extracted name from NoVo:', nameMatch[1]);
+        }
+      }
     }
 
     // Check for tool call messages
+    // Hume SDK ToolCallMessage has: type: 'tool_call', name, toolCallId, parameters (string)
     if (lastMessage.type === 'tool_call') {
       const toolCall = lastMessage as {
+        type: string;
         name?: string;
         tool_name?: string;
         toolCallId?: string;
@@ -507,7 +539,10 @@ function ChatInner({ accessToken, configId }: ChatProps) {
       const toolName = toolCall.name || toolCall.tool_name;
       const toolCallId = toolCall.toolCallId || toolCall.tool_call_id;
 
-      console.log('🔧 Tool call detected:', toolName);
+      console.log('🔧 Tool call detected!');
+      console.log('🔧 Tool name:', toolName);
+      console.log('🔧 Tool call ID:', toolCallId);
+      console.log('🔧 Full tool call message:', JSON.stringify(toolCall, null, 2));
 
       // Handle take_picture tool
       if (toolName === 'take_picture') {
@@ -516,8 +551,9 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         setShowCamera(true);
       }
 
-      // Handle send_email_picture tool - inject the stored image URL
-      if (toolName === 'send_email_picture') {
+      // Handle send_email_picture / send_picture_email tool - inject the stored image URL
+      // Note: tools-config.json uses 'send_picture_email', but we support both names
+      if (toolName === 'send_email_picture' || toolName === 'send_picture_email') {
         console.log('📧 Handling send_email_picture tool call');
 
         // Parse parameters
@@ -534,6 +570,17 @@ function ChatInner({ accessToken, configId }: ChatProps) {
           console.log('📸 Injecting stored image URL:', lastCapturedImageRef.current);
         } else {
           console.warn('⚠️ No image URL stored! User needs to take a picture first.');
+          // Send error response back to Hume AI immediately
+          if (toolCallId && sendToolMessage) {
+            sendToolMessage({
+              type: 'tool_error',
+              toolCallId: toolCallId,
+              error:
+                'No photo available. Please take a picture first using the take_picture command.',
+              content: '',
+            } as any);
+          }
+          return; // Don't proceed with the API call
         }
 
         // Execute the tool
