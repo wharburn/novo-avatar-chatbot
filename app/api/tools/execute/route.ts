@@ -1,5 +1,6 @@
 import { checkWhatsAppNumber, sendWhatsAppMessage } from '@/app/lib/greenapi';
 import { sendConversationSummary } from '@/app/lib/resend-email';
+import { sendImageEmail } from '@/app/lib/resend-image-email';
 import { OpenBrowserParams, SendWhatsAppParams, ToolExecutionResult } from '@/app/types/tools';
 import { NextRequest, NextResponse } from 'next/server';
 
