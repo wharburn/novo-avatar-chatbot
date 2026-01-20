@@ -404,6 +404,63 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         pendingToolCallIdRef.current = toolCallId || null;
         setShowCamera(true);
       }
+
+      // Handle send_email_picture tool - inject the stored image URL
+      if (toolName === 'send_email_picture') {
+        console.log('📧 Handling send_email_picture tool call');
+
+        // Parse parameters
+        let params: any = {};
+        try {
+          params = JSON.parse(toolCall.parameters || '{}');
+        } catch (error) {
+          console.error('Failed to parse tool parameters:', error);
+        }
+
+        // Inject the stored image URL
+        if (lastCapturedImageRef.current) {
+          params.image_url = lastCapturedImageRef.current;
+          console.log('📸 Injecting stored image URL:', lastCapturedImageRef.current);
+        } else {
+          console.warn('⚠️ No image URL stored! User needs to take a picture first.');
+        }
+
+        // Execute the tool
+        console.log('📧 Executing send_email_picture with params:', params);
+        fetch('/api/tools/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolName: 'send_email_picture',
+            parameters: params,
+          }),
+        })
+          .then((res) => res.json())
+          .then((result) => {
+            console.log('📧 Email result:', result);
+
+            // Send tool response back to Hume AI
+            if (toolCallId && sendToolMessage) {
+              sendToolMessage({
+                toolCallId: toolCallId,
+                content: result.success
+                  ? `Picture sent successfully to ${params.email}!`
+                  : `Failed to send picture: ${result.error}`,
+              });
+            }
+          })
+          .catch((error) => {
+            console.error('📧 Email error:', error);
+
+            // Send error response back to Hume AI
+            if (toolCallId && sendToolMessage) {
+              sendToolMessage({
+                toolCallId: toolCallId,
+                content: `Failed to send picture: ${error.message}`,
+              });
+            }
+          });
+      }
     }
 
     // Check for tool response messages with image URLs
