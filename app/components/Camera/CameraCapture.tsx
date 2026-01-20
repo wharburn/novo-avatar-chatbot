@@ -30,8 +30,13 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
 
   // Auto-capture after camera starts
   useEffect(() => {
-    if (stream && videoRef.current && videoRef.current.readyState === 4) {
-      // Camera is ready, start 3-second countdown
+    const video = videoRef.current;
+
+    if (!stream || !video) {
+      return;
+    }
+
+    const handleVideoReady = () => {
       console.log('📸 Camera ready, starting 3-second countdown...');
       setCountdown(3);
 
@@ -50,12 +55,22 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
           capturePhoto();
         }
       }, 1000);
+    };
+
+    // Wait for video to be ready
+    if (video.readyState >= 2) {
+      // Video is already ready
+      handleVideoReady();
+    } else {
+      // Wait for video to load
+      video.addEventListener('loadeddata', handleVideoReady, { once: true });
     }
 
     return () => {
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
       }
+      video.removeEventListener('loadeddata', handleVideoReady);
     };
   }, [stream]);
 
