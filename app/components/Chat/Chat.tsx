@@ -285,6 +285,9 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     }
   }, [isConnected]);
 
+  // Store the last captured image URL for emailing
+  const lastCapturedImageRef = useRef<string | null>(null);
+
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
     console.log('📸 Photo captured!');
@@ -296,6 +299,36 @@ function ChatInner({ accessToken, configId }: ChatProps) {
 
     // Close camera
     setShowCamera(false);
+
+    // Save image to disk and get public URL
+    try {
+      console.log('💾 Saving image to disk...');
+      const saveResponse = await fetch('/api/images/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageData: imageDataUrl,
+          filename: `photo-${Date.now()}.jpg`,
+        }),
+      });
+
+      const saveResult = await saveResponse.json();
+
+      if (saveResult.success) {
+        // Store the public URL for emailing
+        const publicUrl = `${window.location.origin}${saveResult.url}`;
+        lastCapturedImageRef.current = publicUrl;
+        console.log('✅ Image saved:', publicUrl);
+      } else {
+        console.error('Failed to save image:', saveResult.error);
+        // Fallback: use base64 data URL
+        lastCapturedImageRef.current = imageDataUrl;
+      }
+    } catch (error) {
+      console.error('Error saving image:', error);
+      // Fallback: use base64 data URL
+      lastCapturedImageRef.current = imageDataUrl;
+    }
 
     // Display the captured image
     console.log('🖼️ Setting displayed image...');
@@ -313,22 +346,16 @@ function ChatInner({ accessToken, configId }: ChatProps) {
       setDisplayedImage(null);
     }, 5000);
 
-    // Auto-dismiss photo after 3 seconds to show avatar again
-    setTimeout(() => {
-      console.log('📸 Auto-dismissing photo, returning to avatar');
-      setDisplayedImage(null);
-    }, 3000);
-
     // Send tool response back to Hume AI
     if (pendingToolCallIdRef.current && sendToolMessage) {
       try {
-        // Send tool response
+        // Send tool response with the image URL
         sendToolMessage({
           toolCallId: pendingToolCallIdRef.current,
-          content: 'Picture captured successfully!',
+          content: `Picture captured successfully! Image URL: ${lastCapturedImageRef.current}`,
         });
 
-        console.log('📸 Tool response sent');
+        console.log('📸 Tool response sent with image URL');
       } catch (error) {
         console.error('Failed to send tool response:', error);
       }
