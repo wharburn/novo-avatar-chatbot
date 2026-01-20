@@ -637,43 +637,37 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     return () => clearInterval(pollInterval);
   }, [isConnected]);
 
-  // Send user context to Hume AI when connected and we have a returning user
+  // Send user context to Hume AI when connected
+  // IMPORTANT: Always send variables (even empty) to avoid Hume error W0106
   useEffect(() => {
-    if (!isConnected || !userProfile || !sendSessionSettings) return;
+    if (!isConnected || !sendSessionSettings) return;
     if (identityConfirmedRef.current) return; // Already handled
 
-    // If this is a returning user with a name, update session with context
-    if (userProfile.isReturningUser && userProfile.name) {
-      console.log(`👤 Returning user detected: ${userProfile.name} (visit #${userProfile.visitCount})`);
-      console.log(`👤 Stored email: ${userProfile.email || 'none'}`);
-      
-      // Build context variables for the session
-      // This adds context that the AI can use without speaking it aloud
-      const contextVariables: Record<string, string> = {
-        user_name: userProfile.name,
-        is_returning_user: 'true',
-        visit_count: String(userProfile.visitCount),
-      };
-      
-      if (userProfile.email) {
-        contextVariables.user_email = userProfile.email;
-      }
-      if (userProfile.phone) {
-        contextVariables.user_phone = userProfile.phone;
-      }
+    // Build context variables - always include all variables with defaults
+    const contextVariables: Record<string, string> = {
+      user_name: userProfile?.name || '',
+      user_email: userProfile?.email || '',
+      is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
+      visit_count: String(userProfile?.visitCount || 1),
+    };
 
-      // Send session settings with user context
-      try {
-        sendSessionSettings({
-          variables: contextVariables,
-        });
-        console.log('👤 Sent user context to Hume AI via session settings:', contextVariables);
-      } catch (error) {
-        console.error('Failed to send session settings:', error);
-      }
-      
-      identityConfirmedRef.current = true;
+    if (userProfile?.isReturningUser && userProfile?.name) {
+      console.log(`👤 Returning user detected: ${userProfile.name} (visit #${userProfile.visitCount})`);
+    } else {
+      console.log('👤 New user - sending default session variables');
     }
+
+    // Send session settings with user context (or defaults)
+    try {
+      sendSessionSettings({
+        variables: contextVariables,
+      });
+      console.log('👤 Sent session variables to Hume AI:', contextVariables);
+    } catch (error) {
+      console.error('Failed to send session settings:', error);
+    }
+    
+    identityConfirmedRef.current = true;
   }, [isConnected, userProfile, sendSessionSettings]);
 
   // Handle camera capture
