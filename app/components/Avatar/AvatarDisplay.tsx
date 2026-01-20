@@ -37,20 +37,19 @@ type DisplayMode = 'greeting' | 'phrase' | 'talking' | 'listening' | 'waiting';
 function calculateVolumeLevel(fft: number[]): number {
   if (!fft || fft.length === 0) return 0;
   
-  // Focus on speech frequency bins (roughly 85-255 Hz range)
-  const speechBins = fft.slice(0, Math.min(24, fft.length));
+  // Get the maximum value from all FFT bins (most responsive)
+  const maxVal = Math.max(...fft);
   
-  // Calculate RMS (root mean square) for smoother volume representation
-  const sumSquares = speechBins.reduce((acc, val) => acc + val * val, 0);
-  const rms = Math.sqrt(sumSquares / speechBins.length);
+  // Also calculate average for comparison
+  const avg = fft.reduce((a, b) => a + b, 0) / fft.length;
   
-  // Normalize to 0-1 range (FFT values are typically 0-255)
-  // Use a multiplier to make it more sensitive
-  const normalized = Math.min(1, rms / 128 * 2);
+  // Hume FFT values seem to be 0-1 range, so multiply to get better range
+  // Use max value for more responsive indicator
+  const normalized = Math.min(1, maxVal * 2);
   
-  // Debug logging
-  if (fft.length > 0 && normalized > 0.01) {
-    console.log(`🎤 Mic FFT: length=${fft.length}, rms=${rms.toFixed(2)}, normalized=${normalized.toFixed(2)}`);
+  // Debug logging - log every time there's meaningful data
+  if (maxVal > 0.01) {
+    console.log(`🎤 Mic FFT: len=${fft.length}, max=${maxVal.toFixed(3)}, avg=${avg.toFixed(3)}, normalized=${normalized.toFixed(2)}`);
   }
   
   return normalized;

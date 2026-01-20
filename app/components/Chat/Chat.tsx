@@ -269,6 +269,16 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const isSpeaking = isPlaying;
   const isListening = isConnected && !isPlaying;
 
+  // Debug: Log micFft data from Hume SDK
+  useEffect(() => {
+    if (micFft && micFft.length > 0) {
+      const maxVal = Math.max(...micFft);
+      if (maxVal > 0.01) {
+        console.log(`🔊 Chat.tsx micFft: length=${micFft.length}, max=${maxVal.toFixed(3)}, sample=[${micFft.slice(0, 5).map(v => v.toFixed(2)).join(', ')}...]`);
+      }
+    }
+  }, [micFft]);
+
   // Start session when connected
   useEffect(() => {
     if (isConnected && !sessionIdRef.current) {
