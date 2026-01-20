@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, X, RotateCw } from 'lucide-react';
+import { Camera, RotateCw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 interface CameraCaptureProps {
@@ -15,13 +15,49 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [isCapturing, setIsCapturing] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     startCamera();
     return () => {
       stopCamera();
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
     };
   }, [facingMode]);
+
+  // Auto-capture after camera starts
+  useEffect(() => {
+    if (stream && videoRef.current && videoRef.current.readyState === 4) {
+      // Camera is ready, start 3-second countdown
+      console.log('📸 Camera ready, starting 3-second countdown...');
+      setCountdown(3);
+
+      let count = 3;
+      countdownTimerRef.current = setInterval(() => {
+        count--;
+        if (count > 0) {
+          setCountdown(count);
+          console.log(`📸 Countdown: ${count}`);
+        } else {
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+          }
+          setCountdown(null);
+          console.log('📸 Auto-capturing now!');
+          capturePhoto();
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
+    };
+  }, [stream]);
 
   const startCamera = async () => {
     try {
@@ -44,7 +80,9 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
       console.error('Camera error:', err);
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError') {
-          setError('Camera permission denied. Please allow camera access in your browser settings.');
+          setError(
+            'Camera permission denied. Please allow camera access in your browser settings.'
+          );
         } else if (err.name === 'NotFoundError') {
           setError('No camera found on this device.');
         } else {
@@ -136,6 +174,13 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
               className="max-w-full max-h-full object-contain"
             />
             <canvas ref={canvasRef} className="hidden" />
+
+            {/* Countdown Overlay */}
+            {countdown !== null && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+                <div className="text-white text-9xl font-bold animate-pulse">{countdown}</div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -169,4 +214,3 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
     </div>
   );
 }
-
