@@ -462,14 +462,45 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         emailIntentRef.current.wantsEmail = true;
       }
 
-      // Extract email address
-      const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
-      if (emailMatch) {
+      // Extract email address (including spoken format like "wayne at wharburn dot com")
+      let emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+      if (!emailMatch) {
+        // Try to parse spoken email format: "wayne at wharburn dot com"
+        const spokenEmailMatch = content.match(/([a-zA-Z0-9._%+-]+)\s+at\s+([a-zA-Z0-9.-]+)\s+dot\s+([a-zA-Z]{2,})/i);
+        if (spokenEmailMatch) {
+          const constructedEmail = `${spokenEmailMatch[1]}@${spokenEmailMatch[2]}.${spokenEmailMatch[3]}`;
+          console.log('📧 Constructed email from spoken format:', constructedEmail);
+          emailIntentRef.current.email = constructedEmail;
+        }
+      } else {
         emailIntentRef.current.email = emailMatch[0];
         console.log('📧 Extracted email:', emailMatch[0]);
       }
 
-      // If message looks like a name (short, no special chars, after asking for name)
+      // Extract name from various patterns
+      if (!emailIntentRef.current.name) {
+        // Pattern 1: "it's [name]" or "I'm [name]" or "my name is [name]"
+        let nameMatch = content.match(/(?:it'?s|i'?m|name\s+is|this\s+is)\s+([a-zA-Z]+)/i);
+        
+        // Pattern 2: "Yes, [name]" or just a capitalized name at the start
+        if (!nameMatch) {
+          nameMatch = content.match(/^(?:yes[,.]?\s+)?([A-Z][a-z]+)(?:\s|,|\.)/);
+        }
+        
+        // Pattern 3: "[name] and the email" or "[name], email"
+        if (!nameMatch) {
+          nameMatch = content.match(/^([a-zA-Z]+)(?:\s+and|\s*,)/i);
+        }
+
+        if (nameMatch && nameMatch[1] && nameMatch[1].length > 1) {
+          // Capitalize first letter
+          const name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
+          emailIntentRef.current.name = name;
+          console.log('👤 Extracted name from user message:', name);
+        }
+      }
+
+      // If message looks like just a name (short, no special chars, after asking for name)
       if (
         emailIntentRef.current.wantsEmail &&
         emailIntentRef.current.email &&
@@ -479,7 +510,7 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         /^[a-zA-Z\s]+$/.test(content)
       ) {
         emailIntentRef.current.name = content.trim();
-        console.log('👤 Extracted name:', content.trim());
+        console.log('👤 Extracted name (simple):', content.trim());
       }
     }
 
@@ -517,10 +548,14 @@ function ChatInner({ accessToken, configId }: ChatProps) {
 
         // Extract name from NoVo's message (look for capitalized words that might be names)
         // Try multiple patterns
-        let nameMatch = content.match(/(?:Perfect|Great|Okay|Alright|Sure),?\s+([A-Z][a-z]+)/);
+        let nameMatch = content.match(/(?:Perfect|Great|Okay|Alright|Sure|Got it),?\s+([A-Z][a-z]+)/i);
         if (!nameMatch) {
-          // Try "I'll send that photo to [Name]"
-          nameMatch = content.match(/(?:send|email).*?to\s+([A-Z][a-z]+)/);
+          // Try "I'll send that photo to [Name]" or "send the photo to wayne@..."
+          nameMatch = content.match(/(?:send|email).*?to\s+([A-Z][a-z]+)(?:@|\s|\.)/i);
+        }
+        if (!nameMatch) {
+          // Try extracting name that appears before email: "Wayne" from "to Wayne at wayne@..."
+          nameMatch = content.match(/to\s+([A-Z][a-z]+)\s+(?:at|@)/i);
         }
         if (!nameMatch) {
           // Try any capitalized word that's not at the start of a sentence
