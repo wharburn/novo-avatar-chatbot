@@ -262,6 +262,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     lastAssistantProsodyMessage,
     sendToolMessage,
     sendAssistantInput,
+    micFft,
   } = useVoice();
 
   const isConnected = readyState === VoiceReadyState.OPEN;
@@ -1533,6 +1534,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             isListening={isListening}
             isSpeaking={isSpeaking}
             spokenText={currentSpokenText}
+            micFft={micFft}
             onGreetingComplete={() => {
               console.log('🎬 Greeting complete');
             }}

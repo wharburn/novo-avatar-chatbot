@@ -17,6 +17,8 @@ interface AvatarDisplayProps {
   onGreetingComplete?: () => void;
   /** Current text being spoken (for phrase video matching) */
   spokenText?: string;
+  /** Microphone FFT data for volume indicator */
+  micFft?: number[];
 }
 
 /**
@@ -31,11 +33,30 @@ interface AvatarDisplayProps {
  */
 type DisplayMode = 'greeting' | 'phrase' | 'talking' | 'listening' | 'waiting';
 
+// Calculate volume level from FFT data (0-1 range)
+function calculateVolumeLevel(fft: number[]): number {
+  if (!fft || fft.length === 0) return 0;
+  
+  // Focus on speech frequency bins (roughly 85-255 Hz range)
+  const speechBins = fft.slice(0, Math.min(24, fft.length));
+  
+  // Calculate RMS (root mean square) for smoother volume representation
+  const sumSquares = speechBins.reduce((acc, val) => acc + val * val, 0);
+  const rms = Math.sqrt(sumSquares / speechBins.length);
+  
+  // Normalize to 0-1 range (FFT values are typically 0-255)
+  // Use a multiplier to make it more sensitive
+  const normalized = Math.min(1, rms / 128 * 2);
+  
+  return normalized;
+}
+
 export default function AvatarDisplay({
   isSpeaking,
   isListening,
   onGreetingComplete,
   spokenText = '',
+  micFft = [],
 }: AvatarDisplayProps) {
   // Current display mode
   const [mode, setMode] = useState<DisplayMode>('waiting');
@@ -135,9 +156,21 @@ export default function AvatarDisplay({
   // Common video styles
   const baseVideoStyle = "absolute inset-0 w-full h-full object-cover transition-opacity duration-300";
 
+  // Calculate current volume level
+  const volumeLevel = calculateVolumeLevel(micFft);
+
   return (
     <div className="relative w-full h-full flex items-start justify-center bg-gradient-to-b from-blue-100 to-blue-50">
       <div className="relative w-full max-w-md aspect-square overflow-hidden">
+        
+        {/* VOLUME INDICATOR BAR - Shows microphone input level */}
+        <div 
+          className="absolute top-0 left-0 h-[5px] bg-green-500 transition-all duration-75 z-50"
+          style={{ 
+            width: `${volumeLevel * 100}%`,
+            opacity: isListening ? 1 : 0.3,
+          }}
+        />
         
         {/* WAITING VIDEO - Always mounted as background fallback */}
         <video
