@@ -515,11 +515,28 @@ function ChatInner({ accessToken, configId }: ChatProps) {
           console.log('📧 Extracted email from NoVo:', emailMatch[0]);
         }
 
-        // Extract name from NoVo's message (look for "Perfect, [Name]" or similar)
-        const nameMatch = content.match(/(?:Perfect|Great|Okay),?\s+([A-Z][a-z]+)/);
-        if (nameMatch) {
+        // Extract name from NoVo's message (look for capitalized words that might be names)
+        // Try multiple patterns
+        let nameMatch = content.match(/(?:Perfect|Great|Okay|Alright|Sure),?\s+([A-Z][a-z]+)/);
+        if (!nameMatch) {
+          // Try "I'll send that photo to [Name]"
+          nameMatch = content.match(/(?:send|email).*?to\s+([A-Z][a-z]+)/);
+        }
+        if (!nameMatch) {
+          // Try any capitalized word that's not at the start of a sentence
+          const words = content.split(/\s+/);
+          for (let i = 1; i < words.length; i++) {
+            if (/^[A-Z][a-z]+$/.test(words[i]) && words[i].length > 2) {
+              nameMatch = [null, words[i]];
+              break;
+            }
+          }
+        }
+        if (nameMatch && nameMatch[1]) {
           emailIntentRef.current.name = nameMatch[1];
           console.log('👤 Extracted name from NoVo:', nameMatch[1]);
+        } else {
+          console.warn('⚠️ Could not extract name from NoVo message:', content);
         }
 
         // Trigger email immediately if we have all info
