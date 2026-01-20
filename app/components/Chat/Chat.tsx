@@ -638,36 +638,18 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
   // Send user context to Hume AI when connected and we have a returning user
   useEffect(() => {
-    if (!isConnected || !userProfile || !sendAssistantInput) return;
-    if (identityConfirmedRef.current) return; // Already sent context
+    if (!isConnected || !userProfile) return;
+    if (identityConfirmedRef.current) return; // Already handled
 
-    // If this is a returning user with a name, prompt NoVo to greet them
+    // If this is a returning user with a name, just log it
+    // Note: We don't send system messages via sendAssistantInput as it causes them to be spoken aloud
+    // The user profile data is available for tools like send_email_picture/send_email_summary
     if (userProfile.isReturningUser && userProfile.name) {
-      // Wait a moment for the greeting to finish, then send context
-      const timer = setTimeout(() => {
-        console.log(`👤 Sending returning user context to NoVo: ${userProfile.name}`);
-        
-        // Build context message for the AI
-        let context = `[SYSTEM: This appears to be a returning user. `;
-        context += `Their stored name is "${userProfile.name}". `;
-        if (userProfile.email) {
-          context += `Their email is ${userProfile.email}. `;
-        }
-        if (userProfile.phone) {
-          context += `Their phone is ${userProfile.phone}. `;
-        }
-        context += `This is visit #${userProfile.visitCount}. `;
-        context += `Please warmly greet them by name and ask if they are indeed ${userProfile.name}. `;
-        context += `If they confirm, you can use their stored information. `;
-        context += `If they say no, ask for their name.]`;
-
-        sendAssistantInput(context);
-        identityConfirmedRef.current = true; // Mark as sent
-      }, 2000); // Wait 2 seconds after connection
-
-      return () => clearTimeout(timer);
+      console.log(`👤 Returning user detected: ${userProfile.name} (visit #${userProfile.visitCount})`);
+      console.log(`👤 Stored email: ${userProfile.email || 'none'}`);
+      identityConfirmedRef.current = true;
     }
-  }, [isConnected, userProfile, sendAssistantInput]);
+  }, [isConnected, userProfile]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
