@@ -4,31 +4,45 @@
  */
 
 /**
- * Play camera shutter sound
- * Falls back to a simple beep if camera-click.mp3 is not found
+ * Play camera shutter sound using Web Audio API
+ * Creates a realistic two-click shutter sound
  */
 export function playCameraClick() {
   try {
-    const audio = new Audio('/sounds/camera-click.mp3');
-    audio.volume = 0.5; // 50% volume
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
-    // Fallback to a simple beep if file not found
-    audio.addEventListener(
-      'error',
-      () => {
-        console.warn('Camera click sound file not found, using fallback beep');
-        playSimpleBeep();
-      },
-      { once: true }
-    );
+    // Create a realistic camera shutter sound with two quick clicks
+    const playClick = (time: number, frequency: number) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      const filter = audioContext.createBiquadFilter();
 
-    audio.play().catch((error) => {
-      console.warn('Failed to play camera click sound:', error);
-      playSimpleBeep();
-    });
+      oscillator.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Sharp, mechanical click sound
+      oscillator.frequency.value = frequency;
+      oscillator.type = 'square';
+
+      filter.type = 'bandpass';
+      filter.frequency.value = 2000;
+      filter.Q.value = 10;
+
+      // Very short, sharp envelope for click sound
+      gainNode.gain.setValueAtTime(0.4, time);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.02);
+
+      oscillator.start(time);
+      oscillator.stop(time + 0.02);
+    };
+
+    // Two quick clicks for realistic shutter sound
+    const now = audioContext.currentTime;
+    playClick(now, 1200); // First click (higher pitch)
+    playClick(now + 0.05, 1000); // Second click (lower pitch)
   } catch (error) {
-    console.warn('Failed to create camera click audio:', error);
-    playSimpleBeep();
+    console.warn('Failed to play camera click sound:', error);
   }
 }
 
