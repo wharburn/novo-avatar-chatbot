@@ -770,18 +770,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     } else {
       console.warn('📸 No way to send tool response! pendingToolCallIdRef:', pendingToolCallIdRef.current, 'sendToolMessage:', !!sendToolMessage);
     }
-
-    // Make NoVo ask about retaking the photo
-    if (sendAssistantInput) {
-      try {
-        sendAssistantInput(
-          "Would you like me to take another one, or is this one okay? If it's okay, I can email it to you."
-        );
-        console.log('📸 NoVo prompted to ask about retaking');
-      } catch (error) {
-        console.error('Failed to send assistant input:', error);
-      }
-    }
+    
+    // Note: Don't call sendAssistantInput here - the tool response already triggers NoVo to respond
+    // Calling both would result in duplicate audio responses
   };
 
   // Auto-trigger email when we have all required info
@@ -1708,12 +1699,10 @@ export default function Chat({ accessToken, configId }: ChatProps) {
 
     // Handle take_picture - this needs to open the camera in ChatInner
     if (toolCall.name === 'take_picture') {
-      // Don't resolve immediately - let ChatInner handle it
-      // Return a pending response that will be updated when photo is taken
-      return send.success({ 
-        status: 'camera_opening',
-        message: 'Opening camera to take a picture...'
-      });
+      // Don't send any response here - ChatInner will handle it when photo is captured
+      // The send function is passed to ChatInner via pendingToolCall state
+      console.log('📸 take_picture: Deferring response to ChatInner (camera capture)');
+      return; // Don't call send.success() - let ChatInner do it after capture
     }
 
     // Handle other tools that can be executed immediately
