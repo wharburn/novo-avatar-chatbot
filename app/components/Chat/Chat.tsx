@@ -886,28 +886,48 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       }
 
       // Extract name from various patterns
+      // Common words to exclude - these are NOT names
+      const excludedWords = new Set([
+        'sure', 'okay', 'ok', 'yes', 'no', 'yeah', 'yep', 'nope', 'great', 'good', 
+        'fine', 'thanks', 'thank', 'please', 'hello', 'hi', 'hey', 'bye', 'goodbye',
+        'well', 'actually', 'really', 'just', 'right', 'correct', 'true', 'false',
+        'maybe', 'perhaps', 'probably', 'definitely', 'absolutely', 'certainly',
+        'perfect', 'awesome', 'cool', 'nice', 'alright', 'sorry', 'wow', 'oh',
+        'the', 'and', 'but', 'for', 'are', 'was', 'were', 'been', 'being',
+        'have', 'has', 'had', 'having', 'will', 'would', 'could', 'should',
+        'email', 'photo', 'picture', 'camera', 'send', 'take', 'call'
+      ]);
+
       if (!emailIntentRef.current.name) {
-        // Pattern 1: "it's [name]" or "I'm [name]" or "my name is [name]"
-        let nameMatch = content.match(/(?:it'?s|i'?m|name\s+is|this\s+is)\s+([a-zA-Z]+)/i);
-        
-        // Pattern 2: "Yes, [name]" or just a capitalized name at the start
-        if (!nameMatch) {
-          nameMatch = content.match(/^(?:yes[,.]?\s+)?([A-Z][a-z]+)(?:\s|,|\.)/);
+        let extractedName: string | null = null;
+
+        // Pattern 1: "my name is [name]" or "I'm [name]" or "I am [name]" or "call me [name]"
+        const namePattern1 = content.match(/(?:my\s+name\s+is|i'?m|i\s+am|call\s+me)\s+([a-zA-Z]+)/i);
+        if (namePattern1 && namePattern1[1]) {
+          extractedName = namePattern1[1];
         }
         
-        // Pattern 3: "[name] and the email" or "[name], email"
-        if (!nameMatch) {
-          nameMatch = content.match(/^([a-zA-Z]+)(?:\s+and|\s*,)/i);
+        // Pattern 2: "it's [name]" when responding to "what's your name"
+        if (!extractedName) {
+          const namePattern2 = content.match(/^(?:it'?s|this\s+is)\s+([a-zA-Z]+)$/i);
+          if (namePattern2 && namePattern2[1]) {
+            extractedName = namePattern2[1];
+          }
         }
 
-        if (nameMatch && nameMatch[1] && nameMatch[1].length > 1) {
-          // Capitalize first letter
-          const name = nameMatch[1].charAt(0).toUpperCase() + nameMatch[1].slice(1).toLowerCase();
-          emailIntentRef.current.name = name;
-          console.log('👤 Extracted name from user message:', name);
-          
-          // Save to Redis
-          saveUserProfile({ name });
+        // Validate the extracted name
+        if (extractedName && extractedName.length > 1) {
+          const nameLower = extractedName.toLowerCase();
+          if (!excludedWords.has(nameLower)) {
+            const name = extractedName.charAt(0).toUpperCase() + extractedName.slice(1).toLowerCase();
+            emailIntentRef.current.name = name;
+            console.log('👤 Extracted name from user message:', name);
+            
+            // Save to Redis
+            saveUserProfile({ name });
+          } else {
+            console.log('👤 Rejected invalid name:', extractedName);
+          }
         }
       }
 
@@ -1064,31 +1084,45 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         }
 
         // Extract name from NoVo's message (look for capitalized words that might be names)
-        // Try multiple patterns
-        let nameMatch = content.match(/(?:Perfect|Great|Okay|Alright|Sure|Got it),?\s+([A-Z][a-z]+)/i);
-        if (!nameMatch) {
-          // Try "I'll send that photo to [Name]" or "send the photo to wayne@..."
-          nameMatch = content.match(/(?:send|email).*?to\s+([A-Z][a-z]+)(?:@|\s|\.)/i);
+        // Common words to exclude - these are NOT names
+        const excludedNovoWords = new Set([
+          'sure', 'okay', 'ok', 'yes', 'no', 'yeah', 'great', 'good', 'perfect',
+          'fine', 'thanks', 'thank', 'please', 'hello', 'hi', 'hey', 'bye',
+          'well', 'actually', 'really', 'just', 'right', 'alright', 'got',
+          'email', 'photo', 'picture', 'camera', 'send', 'sending', 'sent',
+          'would', 'could', 'should', 'will', 'the', 'and', 'for', 'that',
+          'this', 'your', 'you', 'now', 'away', 'right', 'done', 'here'
+        ]);
+
+        let extractedName: string | null = null;
+
+        // Pattern 1: "Got it, [Name]" or "Perfect, [Name]" - name after greeting
+        const namePattern1 = content.match(/(?:got\s+it|perfect|great|okay|alright),?\s+([A-Z][a-z]+)/i);
+        if (namePattern1 && namePattern1[1] && !excludedNovoWords.has(namePattern1[1].toLowerCase())) {
+          extractedName = namePattern1[1];
         }
-        if (!nameMatch) {
-          // Try extracting name that appears before email: "Wayne" from "to Wayne at wayne@..."
-          nameMatch = content.match(/to\s+([A-Z][a-z]+)\s+(?:at|@)/i);
-        }
-        if (!nameMatch) {
-          // Try any capitalized word that's not at the start of a sentence
-          const words = content.split(/\s+/);
-          for (let i = 1; i < words.length; i++) {
-            if (/^[A-Z][a-z]+$/.test(words[i]) && words[i].length > 2) {
-              nameMatch = [null, words[i]];
-              break;
-            }
+
+        // Pattern 2: "send...to [Name]" - name before email
+        if (!extractedName) {
+          const namePattern2 = content.match(/(?:send|email).*?to\s+([A-Z][a-z]+)(?:@|\s+at\s+)/i);
+          if (namePattern2 && namePattern2[1] && !excludedNovoWords.has(namePattern2[1].toLowerCase())) {
+            extractedName = namePattern2[1];
           }
         }
-        if (nameMatch && nameMatch[1]) {
-          emailIntentRef.current.name = nameMatch[1];
-          console.log('👤 Extracted name from NoVo:', nameMatch[1]);
+
+        // Pattern 3: "[Name]," at the start when addressing user
+        if (!extractedName) {
+          const namePattern3 = content.match(/^([A-Z][a-z]+),/);
+          if (namePattern3 && namePattern3[1] && !excludedNovoWords.has(namePattern3[1].toLowerCase())) {
+            extractedName = namePattern3[1];
+          }
+        }
+
+        if (extractedName) {
+          emailIntentRef.current.name = extractedName;
+          console.log('👤 Extracted name from NoVo:', extractedName);
         } else {
-          console.warn('⚠️ Could not extract name from NoVo message:', content);
+          console.log('👤 Could not extract valid name from NoVo message');
         }
 
         // Trigger email immediately if we have all info

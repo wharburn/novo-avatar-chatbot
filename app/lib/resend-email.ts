@@ -29,19 +29,43 @@ function generateSummary(messages: ConversationMessage[]): string {
   const assistantMessages = messages.filter((m) => m.role === 'assistant');
 
   const topics = new Set<string>();
+  const actions = new Set<string>();
 
-  // Simple topic extraction (you can enhance this with AI later)
-  userMessages.forEach((msg) => {
-    const content = msg.content.toLowerCase();
-    if (content.includes('translate')) topics.add('Translation');
-    if (content.includes('whatsapp')) topics.add('WhatsApp Messaging');
-    if (content.includes('open') || content.includes('website')) topics.add('Web Browsing');
-    if (content.includes('help')) topics.add('General Assistance');
-  });
+  // Extract topics and actions from the conversation
+  const allContent = messages.map(m => m.content.toLowerCase()).join(' ');
+  
+  // Topics discussed
+  if (allContent.includes('translate') || allContent.includes('translation')) topics.add('Translation');
+  if (allContent.includes('whatsapp')) topics.add('WhatsApp messaging');
+  if (allContent.includes('open') || allContent.includes('website') || allContent.includes('browser')) topics.add('Web browsing');
+  if (allContent.includes('photo') || allContent.includes('picture') || allContent.includes('camera')) topics.add('Photography');
+  if (allContent.includes('email')) topics.add('Email');
+  if (allContent.includes('weather')) topics.add('Weather');
+  if (allContent.includes('help') || allContent.includes('assist')) topics.add('General assistance');
+  if (allContent.includes('name') || allContent.includes('who are you')) topics.add('Introductions');
+  if (allContent.includes('work') || allContent.includes('job') || allContent.includes('career')) topics.add('Work & Career');
+  if (allContent.includes('family') || allContent.includes('married') || allContent.includes('kids')) topics.add('Family');
+  if (allContent.includes('hobby') || allContent.includes('hobbies') || allContent.includes('interests')) topics.add('Hobbies & Interests');
 
-  const topicsList = Array.from(topics).join(', ') || 'General conversation';
+  // Actions taken
+  if (allContent.includes('took a photo') || allContent.includes('picture captured') || allContent.includes('camera')) actions.add('Took a photo');
+  if (allContent.includes('sent') && allContent.includes('email')) actions.add('Sent an email');
+  if (allContent.includes('opened')) actions.add('Opened a website');
 
-  return `You had a ${messages.length}-message conversation with NoVo covering: ${topicsList}. You asked ${userMessages.length} questions and received ${assistantMessages.length} responses.`;
+  const topicsList = Array.from(topics);
+  const actionsList = Array.from(actions);
+
+  let summary = `During this conversation, you exchanged ${messages.length} messages with NoVo — ${userMessages.length} from you and ${assistantMessages.length} from NoVo.`;
+  
+  if (topicsList.length > 0) {
+    summary += ` You discussed: ${topicsList.join(', ')}.`;
+  }
+  
+  if (actionsList.length > 0) {
+    summary += ` Actions taken: ${actionsList.join(', ')}.`;
+  }
+
+  return summary;
 }
 
 /**
