@@ -48,6 +48,11 @@ function calculateVolumeLevel(fft: number[]): number {
   // Use a multiplier to make it more sensitive
   const normalized = Math.min(1, rms / 128 * 2);
   
+  // Debug logging
+  if (fft.length > 0 && normalized > 0.01) {
+    console.log(`🎤 Mic FFT: length=${fft.length}, rms=${rms.toFixed(2)}, normalized=${normalized.toFixed(2)}`);
+  }
+  
   return normalized;
 }
 
@@ -158,16 +163,25 @@ export default function AvatarDisplay({
 
   // Calculate current volume level
   const volumeLevel = calculateVolumeLevel(micFft);
+  
+  // Debug: log when micFft has data
+  useEffect(() => {
+    if (micFft && micFft.length > 0) {
+      const maxVal = Math.max(...micFft);
+      if (maxVal > 0) {
+        console.log(`🎤 AvatarDisplay received micFft: length=${micFft.length}, max=${maxVal.toFixed(2)}, volumeLevel=${volumeLevel.toFixed(2)}`);
+      }
+    }
+  }, [micFft, volumeLevel]);
 
   return (
     <div className="relative w-full h-full flex flex-col items-center bg-gradient-to-b from-blue-100 to-blue-50">
       {/* VOLUME INDICATOR BAR - Shows microphone input level (outside avatar container) */}
-      <div className="w-full max-w-md h-[5px] bg-gray-200 relative">
+      <div className="w-full max-w-md h-[10px] bg-gray-300 relative">
         <div 
           className="absolute top-0 left-0 h-full bg-green-500 transition-all duration-75"
           style={{ 
             width: `${Math.max(volumeLevel * 100, 2)}%`,
-            opacity: isListening ? 1 : 0.5,
           }}
         />
       </div>
