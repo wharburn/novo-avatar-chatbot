@@ -3,7 +3,7 @@
 import { Emotion } from '@/app/types/avatar';
 import { playCameraClick } from '@/app/utils/sounds';
 import { useVoice, VoiceProvider, VoiceReadyState } from '@humeai/voice-react';
-import { ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
+import { ChevronDown, ChevronUp, MessageSquare, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import AvatarDisplay from '../Avatar/AvatarDisplay';
 import CameraCapture from '../Camera/CameraCapture';
@@ -300,22 +300,17 @@ function ChatInner({ accessToken, configId }: ChatProps) {
     });
     console.log('✅ Image viewer should now be visible');
 
-    // Send tool response back to Hume AI
+    // Send tool response back to Hume AI with instruction to ask about retaking
     if (pendingToolCallIdRef.current) {
       try {
-        const response = await fetch('/api/tools/execute', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            toolName: 'take_picture',
-            parameters: { image_url: imageDataUrl },
-          }),
+        // Send tool response via sendToolMessage
+        sendToolMessage({
+          toolCallId: pendingToolCallIdRef.current,
+          content:
+            'Picture captured successfully! Ask the user: "Would you like me to take another one, or is this one okay?" If they say it\'s okay, then ask if they want it emailed.',
         });
 
-        const result = await response.json();
-        console.log('📸 Tool response sent:', result);
+        console.log('📸 Tool response sent - NoVo should now ask about retaking');
       } catch (error) {
         console.error('Failed to send tool response:', error);
       }
@@ -600,14 +595,31 @@ function ChatInner({ accessToken, configId }: ChatProps) {
           transcriptVisible ? 'h-[55vh]' : 'flex-1'
         }`}
       >
-        <AvatarDisplay
-          isListening={isListening}
-          isSpeaking={isSpeaking}
-          spokenText={currentSpokenText}
-          onGreetingComplete={() => {
-            console.log('🎬 Greeting complete');
-          }}
-        />
+        {displayedImage ? (
+          <div className="relative w-full h-full flex items-center justify-center bg-black">
+            <img
+              src={displayedImage.url}
+              alt="Captured photo"
+              className="max-w-full max-h-full object-contain"
+            />
+            <button
+              onClick={() => setDisplayedImage(null)}
+              className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
+              aria-label="Close photo"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        ) : (
+          <AvatarDisplay
+            isListening={isListening}
+            isSpeaking={isSpeaking}
+            spokenText={currentSpokenText}
+            onGreetingComplete={() => {
+              console.log('🎬 Greeting complete');
+            }}
+          />
+        )}
 
         <ChatControls accessToken={accessToken} configId={configId} />
       </div>
