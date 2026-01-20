@@ -263,6 +263,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     lastAssistantProsodyMessage,
     sendToolMessage,
     sendAssistantInput,
+    sendSessionSettings,
   } = useVoice();
 
   const isConnected = readyState === VoiceReadyState.OPEN;
@@ -638,18 +639,42 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
   // Send user context to Hume AI when connected and we have a returning user
   useEffect(() => {
-    if (!isConnected || !userProfile) return;
+    if (!isConnected || !userProfile || !sendSessionSettings) return;
     if (identityConfirmedRef.current) return; // Already handled
 
-    // If this is a returning user with a name, just log it
-    // Note: We don't send system messages via sendAssistantInput as it causes them to be spoken aloud
-    // The user profile data is available for tools like send_email_picture/send_email_summary
+    // If this is a returning user with a name, update session with context
     if (userProfile.isReturningUser && userProfile.name) {
       console.log(`👤 Returning user detected: ${userProfile.name} (visit #${userProfile.visitCount})`);
       console.log(`👤 Stored email: ${userProfile.email || 'none'}`);
+      
+      // Build context variables for the session
+      // This adds context that the AI can use without speaking it aloud
+      const contextVariables: Record<string, string> = {
+        user_name: userProfile.name,
+        is_returning_user: 'true',
+        visit_count: String(userProfile.visitCount),
+      };
+      
+      if (userProfile.email) {
+        contextVariables.user_email = userProfile.email;
+      }
+      if (userProfile.phone) {
+        contextVariables.user_phone = userProfile.phone;
+      }
+
+      // Send session settings with user context
+      try {
+        sendSessionSettings({
+          variables: contextVariables,
+        });
+        console.log('👤 Sent user context to Hume AI via session settings:', contextVariables);
+      } catch (error) {
+        console.error('Failed to send session settings:', error);
+      }
+      
       identityConfirmedRef.current = true;
     }
-  }, [isConnected, userProfile]);
+  }, [isConnected, userProfile, sendSessionSettings]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
