@@ -362,9 +362,10 @@ function ChatInner({ accessToken, configId }: ChatProps) {
       try {
         // Send tool response with the image URL
         sendToolMessage({
+          type: 'tool_response',
           toolCallId: pendingToolCallIdRef.current,
           content: `Picture captured successfully! Image URL: ${lastCapturedImageRef.current}`,
-        });
+        } as any);
 
         console.log('📸 Tool response sent with image URL');
       } catch (error) {
