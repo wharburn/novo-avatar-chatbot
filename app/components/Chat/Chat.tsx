@@ -653,6 +653,17 @@ function ChatInner({ accessToken, configId }: ChatProps) {
         </div>
       )}
 
+      {/* Camera Capture */}
+      {showCamera && (
+        <CameraCapture
+          onCapture={handleCameraCapture}
+          onClose={() => {
+            setShowCamera(false);
+            pendingToolCallIdRef.current = null;
+          }}
+        />
+      )}
+
       {/* Image Viewer Modal */}
       {displayedImage && (
         <ImageViewer
