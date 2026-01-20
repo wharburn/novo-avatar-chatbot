@@ -521,6 +521,46 @@ function ChatInner({ accessToken, configId }: ChatProps) {
           emailIntentRef.current.name = nameMatch[1];
           console.log('👤 Extracted name from NoVo:', nameMatch[1]);
         }
+
+        // Trigger email immediately if we have all info
+        const intent = emailIntentRef.current;
+        if (intent.wantsEmail && intent.email && intent.name && lastCapturedImageRef.current) {
+          console.log('📧 Auto-triggering email NOW with collected info:', intent);
+
+          // Reset intent to prevent duplicate sends
+          emailIntentRef.current = {
+            wantsEmail: false,
+            email: null,
+            name: null,
+          };
+
+          // Send the email
+          fetch('/api/tools/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              toolName: 'send_email_picture',
+              parameters: {
+                email: intent.email,
+                user_name: intent.name,
+                image_url: lastCapturedImageRef.current,
+                caption: 'Picture from NoVo!',
+              },
+            }),
+          })
+            .then((res) => res.json())
+            .then((result) => {
+              console.log('📧 Auto-email result:', result);
+              if (result.success) {
+                console.log('✅ Email sent successfully!');
+              } else {
+                console.error('❌ Email failed:', result.error);
+              }
+            })
+            .catch((error) => {
+              console.error('📧 Auto-email error:', error);
+            });
+        }
       }
     }
 
