@@ -489,8 +489,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       if (conversationMessages.length > 0) {
         console.log('📧 First extracted message:', conversationMessages[0]);
       }
+      
+      // Include user profile in the request
+      console.log('📧 Including user profile:', userProfile);
 
-      // Call the API with the messages
+      // Call the API with the messages and user profile
       fetch('/api/tools/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -499,6 +502,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           parameters: {
             ...params,
             messages: conversationMessages,
+            userProfile: userProfile,
           },
         }),
       })
@@ -582,8 +586,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               });
 
             console.log('📧 Sending summary with', conversationMessages.length, 'messages');
+            console.log('📧 Including user profile:', userProfile);
 
-            // Call the API with the messages
+            // Call the API with the messages and user profile
             fetch('/api/tools/execute', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -592,6 +597,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 parameters: {
                   ...params,
                   messages: conversationMessages,
+                  userProfile: userProfile,
                 },
               }),
             })
@@ -955,6 +961,73 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           body: JSON.stringify({ action: 'newUser' }),
         });
         setUserProfile((prev) => prev ? { ...prev, name: undefined } : null);
+      }
+
+      // Extract additional personal information from user messages
+      const lowerContent = content.toLowerCase();
+      const profileUpdates: Record<string, string | number> = {};
+
+      // Birthday patterns: "my birthday is", "I was born on", "born on"
+      const birthdayMatch = content.match(/(?:birthday\s+is|born\s+on|born\s+in)\s+([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?|\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i);
+      if (birthdayMatch) {
+        profileUpdates.birthday = birthdayMatch[1];
+        console.log('🎂 Extracted birthday:', birthdayMatch[1]);
+      }
+
+      // Age patterns: "I'm X years old", "I am X", "age is X"
+      const ageMatch = content.match(/(?:i'?m|i\s+am|age\s+is)\s+(\d{1,3})\s*(?:years?\s+old)?/i);
+      if (ageMatch) {
+        profileUpdates.age = parseInt(ageMatch[1], 10);
+        console.log('📅 Extracted age:', ageMatch[1]);
+      }
+
+      // Relationship status patterns
+      if (lowerContent.includes('married') || lowerContent.includes('spouse') || lowerContent.includes('husband') || lowerContent.includes('wife')) {
+        profileUpdates.relationshipStatus = 'married';
+        console.log('💍 Extracted relationship status: married');
+      } else if (lowerContent.includes('single') || lowerContent.includes('not married')) {
+        profileUpdates.relationshipStatus = 'single';
+        console.log('💍 Extracted relationship status: single');
+      } else if (lowerContent.includes('divorced')) {
+        profileUpdates.relationshipStatus = 'divorced';
+        console.log('💍 Extracted relationship status: divorced');
+      } else if (lowerContent.includes('engaged')) {
+        profileUpdates.relationshipStatus = 'engaged';
+        console.log('💍 Extracted relationship status: engaged');
+      }
+
+      // Occupation patterns: "I work as", "I'm a", "my job is", "I do"
+      const occupationMatch = content.match(/(?:i\s+work\s+as\s+(?:a\s+)?|i'?m\s+a\s+|my\s+job\s+is\s+(?:a\s+)?|i\s+am\s+a\s+|profession\s+is\s+(?:a\s+)?)([a-zA-Z\s]+?)(?:\.|,|$|\s+at\s+|\s+for\s+|\s+and\s+)/i);
+      if (occupationMatch && occupationMatch[1].trim().length > 2) {
+        profileUpdates.occupation = occupationMatch[1].trim();
+        console.log('💼 Extracted occupation:', occupationMatch[1].trim());
+      }
+
+      // Employer patterns: "I work at", "I work for", "employed at/by"
+      const employerMatch = content.match(/(?:i\s+work\s+(?:at|for)|employed\s+(?:at|by)|company\s+is)\s+([A-Za-z0-9\s&]+?)(?:\.|,|$|\s+as\s+)/i);
+      if (employerMatch && employerMatch[1].trim().length > 1) {
+        profileUpdates.employer = employerMatch[1].trim();
+        console.log('🏢 Extracted employer:', employerMatch[1].trim());
+      }
+
+      // Location patterns: "I live in", "I'm from", "located in"
+      const locationMatch = content.match(/(?:i\s+live\s+in|i'?m\s+from|located\s+in|i\s+am\s+from|based\s+in)\s+([A-Za-z\s,]+?)(?:\.|$|and\s+)/i);
+      if (locationMatch && locationMatch[1].trim().length > 2) {
+        profileUpdates.location = locationMatch[1].trim();
+        console.log('📍 Extracted location:', locationMatch[1].trim());
+      }
+
+      // Phone number patterns
+      const phoneMatch = content.match(/(?:phone\s+(?:number\s+)?is|number\s+is|call\s+me\s+(?:at|on))\s*[:\s]*([+]?[\d\s\-\(\)]{10,})/i);
+      if (phoneMatch) {
+        profileUpdates.phone = phoneMatch[1].replace(/\s/g, '');
+        console.log('📱 Extracted phone:', phoneMatch[1]);
+      }
+
+      // Save any extracted profile updates
+      if (Object.keys(profileUpdates).length > 0) {
+        console.log('👤 Saving profile updates:', profileUpdates);
+        saveUserProfile(profileUpdates as any);
       }
     }
 

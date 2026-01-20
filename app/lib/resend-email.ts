@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { UserProfile } from './redis';
 
 // Initialize Resend only if API key is available
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -13,6 +14,7 @@ export interface EmailSummaryParams {
   email: string;
   messages: ConversationMessage[];
   userName?: string;
+  userProfile?: Partial<UserProfile>;
 }
 
 /**
@@ -40,6 +42,75 @@ function generateSummary(messages: ConversationMessage[]): string {
   const topicsList = Array.from(topics).join(', ') || 'General conversation';
 
   return `You had a ${messages.length}-message conversation with NoVo covering: ${topicsList}. You asked ${userMessages.length} questions and received ${assistantMessages.length} responses.`;
+}
+
+/**
+ * Format user profile as HTML
+ */
+function formatUserProfileHTML(profile?: Partial<UserProfile>): string {
+  if (!profile) {
+    return '';
+  }
+
+  const profileItems: { label: string; value: string }[] = [];
+
+  // Basic info
+  if (profile.name) profileItems.push({ label: 'Name', value: profile.name });
+  if (profile.email) profileItems.push({ label: 'Email', value: profile.email });
+  if (profile.phone) profileItems.push({ label: 'Phone', value: profile.phone });
+  
+  // Personal details
+  if (profile.birthday) profileItems.push({ label: 'Birthday', value: profile.birthday });
+  if (profile.age) profileItems.push({ label: 'Age', value: profile.age.toString() });
+  if (profile.relationshipStatus) profileItems.push({ label: 'Relationship Status', value: profile.relationshipStatus });
+  if (profile.occupation) profileItems.push({ label: 'Occupation', value: profile.occupation });
+  if (profile.employer) profileItems.push({ label: 'Employer', value: profile.employer });
+  if (profile.location) profileItems.push({ label: 'Location', value: profile.location });
+  
+  // Interests
+  if (profile.interests && profile.interests.length > 0) {
+    profileItems.push({ label: 'Interests', value: profile.interests.join(', ') });
+  }
+  
+  // Preferences
+  if (profile.preferences) {
+    Object.entries(profile.preferences).forEach(([key, value]) => {
+      profileItems.push({ label: key.charAt(0).toUpperCase() + key.slice(1), value });
+    });
+  }
+  
+  // Additional info
+  if (profile.additionalInfo) {
+    Object.entries(profile.additionalInfo).forEach(([key, value]) => {
+      profileItems.push({ label: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '), value });
+    });
+  }
+
+  // Visit info
+  if (profile.visitCount) {
+    profileItems.push({ label: 'Total Visits', value: profile.visitCount.toString() });
+  }
+  if (profile.firstSeen) {
+    profileItems.push({ label: 'First Visit', value: new Date(profile.firstSeen).toLocaleDateString() });
+  }
+
+  if (profileItems.length === 0) {
+    return '';
+  }
+
+  return `
+    <div style="background-color: #fff; border: 1px solid #e5e7eb; padding: 16px; margin-bottom: 24px; border-radius: 8px;">
+      <h3 style="margin: 0 0 16px 0; font-size: 16px; color: #333;">👤 Your Profile</h3>
+      <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+        ${profileItems.map(item => `
+          <tr>
+            <td style="padding: 8px 0; color: #666; border-bottom: 1px solid #f3f4f6; width: 40%;">${item.label}:</td>
+            <td style="padding: 8px 0; text-align: right; color: #333; border-bottom: 1px solid #f3f4f6;">${item.value}</td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+  `;
 }
 
 /**
@@ -83,17 +154,22 @@ export async function sendConversationSummary(
   params: EmailSummaryParams
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    const { email, messages, userName } = params;
+    const { email, messages, userName, userProfile } = params;
 
     console.log('[Email Summary] Received params:', {
       email,
       userName,
       messageCount: messages?.length || 0,
+      hasUserProfile: !!userProfile,
     });
     
     if (messages && messages.length > 0) {
       console.log('[Email Summary] First message:', messages[0]);
       console.log('[Email Summary] Last message:', messages[messages.length - 1]);
+    }
+    
+    if (userProfile) {
+      console.log('[Email Summary] User profile:', userProfile);
     }
 
     if (!resend) {
@@ -112,9 +188,12 @@ export async function sendConversationSummary(
 
     const summary = generateSummary(messages);
     const conversationHTML = formatConversationHTML(messages);
+    const userProfileHTML = formatUserProfileHTML(userProfile);
     
     console.log('[Email Summary] Generated summary:', summary);
     console.log('[Email Summary] Conversation HTML length:', conversationHTML.length);
+    console.log('[Email Summary] User Profile HTML length:', userProfileHTML.length);
+    
     const startTime =
       messages.length > 0
         ? new Date(messages[0].timestamp).toLocaleString()
@@ -142,8 +221,11 @@ export async function sendConversationSummary(
   <!-- Greeting -->
   <div style="margin-bottom: 24px;">
     <p style="font-size: 16px; margin: 0;">Hi ${userName || 'there'}! 👋</p>
-    <p style="font-size: 14px; color: #666; margin: 8px 0 0 0;">Here's a summary of your conversation with NoVo.</p>
+    <p style="font-size: 14px; color: #666; margin: 8px 0 0 0;">Here's a summary of your conversation with NoVo, including all the information we've collected about you.</p>
   </div>
+
+  <!-- User Profile Section -->
+  ${userProfileHTML}
 
   <!-- Summary Box -->
   <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; padding: 16px; margin-bottom: 24px; border-radius: 8px;">

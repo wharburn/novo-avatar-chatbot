@@ -10,11 +10,24 @@ export const redis = new Redis({
 // Types for user profiles (stored by IP address)
 export interface UserProfile {
   ipAddress: string;
+  // Basic info
   name?: string;
   email?: string;
   phone?: string;
+  // Personal details
+  birthday?: string;
+  age?: number;
+  relationshipStatus?: string; // single, married, divorced, etc.
+  occupation?: string;
+  employer?: string;
+  location?: string;
+  // Interests and preferences
+  interests?: string[];
   preferences?: Record<string, string>;
+  // Any other collected info
+  additionalInfo?: Record<string, string>;
   notes?: string[];
+  // Metadata
   firstSeen: number;
   lastSeen: number;
   visitCount: number;

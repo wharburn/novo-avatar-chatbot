@@ -268,16 +268,18 @@ async function executeSendEmailSummary(params: {
   email: string;
   user_name: string;
   messages?: { role: string; content: string; timestamp: number }[];
+  userProfile?: Record<string, unknown>;
   ip_address?: string;
   session_id?: string;
 }): Promise<ToolExecutionResult> {
   try {
-    const { email, user_name, messages: providedMessages, ip_address, session_id } = params;
+    const { email, user_name, messages: providedMessages, userProfile: providedProfile, ip_address, session_id } = params;
 
     console.log('[Send Email Summary] Params:', { 
       email, 
       user_name, 
       providedMessagesCount: providedMessages?.length,
+      hasUserProfile: !!providedProfile,
       ip_address, 
       session_id 
     });
@@ -344,10 +346,25 @@ async function executeSendEmailSummary(params: {
       console.log('[Send Email Summary] No messages found, sending basic summary');
     }
 
+    // Get user profile - use provided one or fetch from Redis
+    let userProfile: any = providedProfile;
+    if (!userProfile && ip_address) {
+      try {
+        const fetchedProfile = await getUserByIp(ip_address);
+        if (fetchedProfile) {
+          userProfile = fetchedProfile;
+          console.log('[Send Email Summary] Fetched user profile from Redis');
+        }
+      } catch (error) {
+        console.error('[Send Email Summary] Failed to fetch user profile:', error);
+      }
+    }
+
     const result = await sendConversationSummary({
       email,
       messages,
       userName: user_name,
+      userProfile: userProfile as any,
     });
 
     if (!result.success) {
