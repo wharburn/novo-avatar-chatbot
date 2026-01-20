@@ -1,0 +1,115 @@
+{
+  "tools": [
+    {
+      "name": "take_picture",
+      "description": "Takes a picture using the device camera. This is a built-in Hume AI tool. When the user asks to take a picture, use this tool to capture an image. The tool automatically detects the device and uses the appropriate camera: front camera on phones/tablets, webcam on laptops/desktops. After taking the picture, ask if they would like you to email it to them.",
+      "note": "This is a BUILT-IN Hume AI tool - you just need to ENABLE it in your EVI config, not create it",
+      "camera_behavior": {
+        "mobile_phones": "Uses front-facing camera (selfie camera)",
+        "tablets": "Uses front-facing camera",
+        "laptops": "Uses built-in webcam",
+        "desktops": "Uses connected webcam",
+        "permissions": "Browser will request camera permission on first use"
+      }
+    },
+    {
+      "name": "send_picture_email",
+      "description": "Sends a picture via email after the user has taken a photo using the take_picture tool. IMPORTANT: You MUST ask for and confirm BOTH the user's full name AND email address before calling this tool. This tool should only be called AFTER a picture has been taken with the take_picture tool. Ask 'What is your email address?' and 'What is your name?' to collect the required information.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User's confirmed email address in valid format (e.g., john@example.com)"
+          },
+          "user_name": {
+            "type": "string",
+            "description": "User's full name. REQUIRED."
+          },
+          "image_url": {
+            "type": "string",
+            "description": "The URL of the image from the take_picture tool. This is provided by the take_picture tool response."
+          },
+          "caption": {
+            "type": "string",
+            "description": "Optional caption or message to include with the picture"
+          }
+        },
+        "required": ["email", "user_name", "image_url"]
+      },
+      "fallback_content": "I'm sorry, I couldn't send the picture via email. Please make sure you've taken a picture first and provided your email address.",
+      "version_description": "Sends pictures via email using Resend - works with take_picture tool"
+    }
+  ],
+  "setup_instructions": {
+    "step_1_enable_take_picture": {
+      "title": "Enable take_picture (Built-in Tool)",
+      "instructions": [
+        "1. Go to https://platform.hume.ai/",
+        "2. Navigate to EVI → Configs",
+        "3. Select your config",
+        "4. Click 'Edit'",
+        "5. In the 'Tools' section, find 'take_picture' in the built-in tools list",
+        "6. Enable it by checking the box",
+        "7. Click 'Save'"
+      ],
+      "note": "take_picture is already built into Hume AI - you don't need to create it!"
+    },
+    "step_2_create_send_picture_email": {
+      "title": "Create send_picture_email (Custom Tool)",
+      "instructions": [
+        "1. Go to https://platform.hume.ai/",
+        "2. Navigate to EVI → Tools",
+        "3. Click 'Create Tool'",
+        "4. Fill in the form with the values below"
+      ],
+      "form_fields": {
+        "name": "send_picture_email",
+        "description": "Sends a picture via email after the user has taken a photo using the take_picture tool. IMPORTANT: You MUST ask for and confirm BOTH the user's full name AND email address before calling this tool. This tool should only be called AFTER a picture has been taken with the take_picture tool. Ask 'What is your email address?' and 'What is your name?' to collect the required information.",
+        "parameters": "{ \"type\": \"object\", \"properties\": { \"email\": { \"type\": \"string\", \"description\": \"User's confirmed email address in valid format (e.g., john@example.com)\" }, \"user_name\": { \"type\": \"string\", \"description\": \"User's full name. REQUIRED.\" }, \"image_url\": { \"type\": \"string\", \"description\": \"The URL of the image from the take_picture tool. This is provided by the take_picture tool response.\" }, \"caption\": { \"type\": \"string\", \"description\": \"Optional caption or message to include with the picture\" } }, \"required\": [\"email\", \"user_name\", \"image_url\"] }",
+        "fallback_content": "I'm sorry, I couldn't send the picture via email. Please make sure you've taken a picture first and provided your email address.",
+        "version_description": "Sends pictures via email using Resend - works with take_picture tool"
+      }
+    },
+    "step_3_add_to_config": {
+      "title": "Add Both Tools to Your EVI Config",
+      "instructions": [
+        "1. Go to EVI → Configs",
+        "2. Select your config",
+        "3. Click 'Edit'",
+        "4. In the 'Tools' section, add:",
+        "   - take_picture (built-in)",
+        "   - send_picture_email (custom)",
+        "5. Click 'Save'"
+      ]
+    }
+  },
+  "copy_paste_values": {
+    "note": "Copy these exact values when creating the send_picture_email tool in Hume AI dashboard",
+    "name": "send_picture_email",
+    "description": "Sends a picture via email after the user has taken a photo using the take_picture tool. IMPORTANT: You MUST ask for and confirm BOTH the user's full name AND email address before calling this tool. This tool should only be called AFTER a picture has been taken with the take_picture tool. Ask 'What is your email address?' and 'What is your name?' to collect the required information.",
+    "parameters_json": "{ \"type\": \"object\", \"properties\": { \"email\": { \"type\": \"string\", \"description\": \"User's confirmed email address in valid format (e.g., john@example.com)\" }, \"user_name\": { \"type\": \"string\", \"description\": \"User's full name. REQUIRED.\" }, \"image_url\": { \"type\": \"string\", \"description\": \"The URL of the image from the take_picture tool. This is provided by the take_picture tool response.\" }, \"caption\": { \"type\": \"string\", \"description\": \"Optional caption or message to include with the picture\" } }, \"required\": [\"email\", \"user_name\", \"image_url\"] }",
+    "fallback_content": "I'm sorry, I couldn't send the picture via email. Please make sure you've taken a picture first and provided your email address.",
+    "version_description": "Sends pictures via email using Resend - works with take_picture tool"
+  },
+  "test_phrases": [
+    "Take a picture",
+    "Can you take a photo?",
+    "Take a picture and email it to me",
+    "Capture an image and send it to my email",
+    "Take a selfie and email it to john@example.com"
+  ],
+  "workflow": {
+    "user_says": "Take a picture and email it to me",
+    "step_1": "NoVo calls take_picture tool (Hume AI captures image)",
+    "step_2": "Hume AI returns image_url",
+    "step_3": "NoVo plays camera click sound",
+    "step_4": "NoVo asks: 'What's your email address?'",
+    "step_5": "User provides email",
+    "step_6": "NoVo asks: 'And what's your name?'",
+    "step_7": "User provides name",
+    "step_8": "NoVo calls send_picture_email with all parameters",
+    "step_9": "System sends email with picture",
+    "step_10": "NoVo confirms: 'Picture sent to your email!'"
+  }
+}

@@ -54,24 +54,18 @@ export default function ChatMessages() {
 
             {/* Message content */}
             <div
-              className={`flex flex-col max-w-[75%] ${
-                isAssistant ? 'items-start' : 'items-end'
-              }`}
+              className={`flex flex-col max-w-[75%] ${isAssistant ? 'items-start' : 'items-end'}`}
             >
               <div
                 className={`rounded-2xl px-4 py-2 ${
-                  isAssistant
-                    ? 'bg-blue-50 text-gray-800'
-                    : 'bg-gray-100 text-gray-800'
+                  isAssistant ? 'bg-blue-50 text-gray-800' : 'bg-gray-100 text-gray-800'
                 }`}
               >
                 <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
               </div>
 
               {/* Role label */}
-              <span className="text-xs text-gray-400 mt-1 px-1 capitalize">
-                {role}
-              </span>
+              <span className="text-xs text-gray-400 mt-1 px-1 capitalize">{role}</span>
             </div>
           </div>
         );
