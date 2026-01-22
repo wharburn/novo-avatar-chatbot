@@ -111,6 +111,9 @@ const CONTEXT_HINTS: Record<Exclude<CommandType, null>, string[]> = {
     'appearance',
   ],
   take_picture: ['picture', 'photo', 'selfie', 'camera', 'capture', 'snap', 'shoot', 'shot'],
+  photo_session: ['photo', 'picture', 'series', 'multiple', 'shoot', 'session'],
+  end_photo_session: ['done', 'finished', 'enough', 'all', 'stop'],
+  explain_photo_session: ['photo', 'session', 'mode', 'how', 'work', 'explain'],
   send_email_picture: ['email', 'send', 'picture', 'photo'],
   send_email_summary: ['email', 'summary', 'recap', 'conversation'],
 };
