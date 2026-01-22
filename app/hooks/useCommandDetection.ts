@@ -75,10 +75,12 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
     /how\s*does\s*(photo\s*session|it)\s*work/i,
     /what('?s|\s*is)\s*photo\s*session/i,
     /explain\s*photo\s*session/i,
+    /tell\s*me\s*(more\s*)?(about\s*)?(photo|session|mode)/i, // More specific "tell me" pattern
     /^yes$/i, // When AI asks "do you want to know about photo session mode?"
     /^yeah$/i,
     /^sure$/i,
-    /tell\s*me/i,
+    /^okay$/i,
+    /^ok$/i,
   ],
   send_email_picture: [
     /email\s*(me\s*)?(the\s*)?(picture|photo|pic|image)/i,
