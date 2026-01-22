@@ -5,7 +5,7 @@ const WEATHER_FASHION_ADVICE: Record<string, string[]> = {
   rain: [
     'Bring an umbrella!',
     'Water-resistant jacket recommended',
-    'Avoid suede shoes - they don\'t do well in rain',
+    "Avoid suede shoes - they don't do well in rain",
     'Consider waterproof boots',
   ],
   drizzle: [
@@ -21,7 +21,7 @@ const WEATHER_FASHION_ADVICE: Record<string, string[]> = {
   snow: [
     'Bundle up with warm layers!',
     'Insulated, waterproof boots are essential',
-    'Don\'t forget a warm hat and gloves',
+    "Don't forget a warm hat and gloves",
     'A cozy scarf adds warmth and style',
   ],
   clear: [
@@ -29,10 +29,7 @@ const WEATHER_FASHION_ADVICE: Record<string, string[]> = {
     'Sunglasses would be a stylish addition',
     'If sunny, consider sun protection',
   ],
-  clouds: [
-    'Layers are a good idea',
-    'Perfect weather for that light jacket you love',
-  ],
+  clouds: ['Layers are a good idea', 'Perfect weather for that light jacket you love'],
   hot: [
     'Light, breathable fabrics like linen or cotton',
     'Light colors reflect heat better',
@@ -42,7 +39,7 @@ const WEATHER_FASHION_ADVICE: Record<string, string[]> = {
   cold: [
     'Layer up! Base layer, mid layer, outer layer',
     'Wool or cashmere for warmth and style',
-    'Don\'t forget your extremities - hat, gloves, warm socks',
+    "Don't forget your extremities - hat, gloves, warm socks",
     'A stylish coat is worth the investment',
   ],
   mild: [
@@ -69,50 +66,57 @@ function getTemperatureAdvice(tempF: number): { category: string; advice: string
   } else if (tempF >= 68) {
     return { category: 'mild', advice: WEATHER_FASHION_ADVICE.mild };
   } else if (tempF >= 50) {
-    return { category: 'cool', advice: ['A light jacket or sweater recommended', 'Layers are your friend'] };
+    return {
+      category: 'cool',
+      advice: ['A light jacket or sweater recommended', 'Layers are your friend'],
+    };
   } else if (tempF >= 32) {
     return { category: 'cold', advice: WEATHER_FASHION_ADVICE.cold };
   } else {
-    return { category: 'freezing', advice: [...WEATHER_FASHION_ADVICE.cold, 'Seriously, bundle up - it\'s freezing!'] };
+    return {
+      category: 'freezing',
+      advice: [...WEATHER_FASHION_ADVICE.cold, "Seriously, bundle up - it's freezing!"],
+    };
   }
 }
 
 // Generate fashion context from weather data
 function generateWeatherFashionContext(weather: WeatherData): string {
-  const { temperature, condition, humidity, windSpeed, description, feelsLike, uv, location } = weather;
-  
+  const { temperature, condition, humidity, windSpeed, description, feelsLike, uv, location } =
+    weather;
+
   let context = `Current Weather${location ? ` in ${location}` : ''}: ${description}\n`;
   context += `Temperature: ${temperature.fahrenheit}°F (${temperature.celsius}°C)\n`;
-  
+
   if (feelsLike) {
     context += `Feels Like: ${feelsLike.fahrenheit}°F (${feelsLike.celsius}°C)\n`;
   }
   if (humidity) context += `Humidity: ${humidity}%\n`;
   if (windSpeed) context += `Wind: ${windSpeed} mph\n`;
   if (uv !== undefined) context += `UV Index: ${uv}\n`;
-  
+
   context += '\nWeather-Based Style Recommendations:\n';
-  
+
   // Temperature advice (use feels-like if available)
   const effectiveTemp = feelsLike?.fahrenheit || temperature.fahrenheit;
   const tempAdvice = getTemperatureAdvice(effectiveTemp);
   context += `\nFor ${tempAdvice.category} weather:\n`;
-  tempAdvice.advice.forEach(tip => {
+  tempAdvice.advice.forEach((tip) => {
     context += `- ${tip}\n`;
   });
-  
+
   // Condition-specific advice
   const conditionLower = condition.toLowerCase();
   for (const [key, tips] of Object.entries(WEATHER_FASHION_ADVICE)) {
     if (conditionLower.includes(key)) {
       context += `\nBecause of ${condition}:\n`;
-      tips.forEach(tip => {
+      tips.forEach((tip) => {
         context += `- ${tip}\n`;
       });
       break;
     }
   }
-  
+
   // UV advice
   if (uv !== undefined && uv >= 6) {
     context += '\nHigh UV tips:\n';
@@ -123,23 +127,23 @@ function generateWeatherFashionContext(weather: WeatherData): string {
       context += '- Try to stay in shade during peak hours\n';
     }
   }
-  
+
   // Humidity advice
   if (humidity && humidity > 70) {
     context += '\nHigh humidity tips:\n';
-    WEATHER_FASHION_ADVICE.humid.forEach(tip => {
+    WEATHER_FASHION_ADVICE.humid.forEach((tip) => {
       context += `- ${tip}\n`;
     });
   }
-  
+
   // Wind advice
   if (windSpeed && windSpeed > 15) {
     context += '\nWindy day tips:\n';
-    WEATHER_FASHION_ADVICE.windy.forEach(tip => {
+    WEATHER_FASHION_ADVICE.windy.forEach((tip) => {
       context += `- ${tip}\n`;
     });
   }
-  
+
   return context;
 }
 
@@ -165,23 +169,33 @@ interface WeatherData {
 // Fetch weather from WeatherAPI.com
 async function fetchWeatherAPI(lat: number, lon: number): Promise<WeatherData | null> {
   const apiKey = process.env.WEATHER_API_KEY;
-  if (!apiKey) {
-    console.log('WeatherAPI.com API key not configured');
+
+  console.log('🔑 WEATHER_API_KEY check:', {
+    exists: !!apiKey,
+    length: apiKey?.length || 0,
+    firstChars: apiKey?.substring(0, 5) || 'N/A',
+  });
+
+  if (!apiKey || apiKey === 'your_api_key_here') {
+    console.log('❌ WeatherAPI.com API key not configured or is placeholder');
     return null;
   }
-  
+
   try {
-    const response = await fetch(
-      `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${lat},${lon}&aqi=no`
-    );
-    
+    const url = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${lat},${lon}&aqi=no`;
+    console.log('🌐 Fetching weather from WeatherAPI.com for:', { lat, lon });
+
+    const response = await fetch(url);
+
     if (!response.ok) {
-      console.error('WeatherAPI.com error:', await response.text());
+      const errorText = await response.text();
+      console.error('❌ WeatherAPI.com error:', response.status, errorText);
       return null;
     }
-    
+
     const data = await response.json();
-    
+    console.log('✅ Successfully fetched real weather data from WeatherAPI.com');
+
     return {
       temperature: {
         fahrenheit: Math.round(data.current.temp_f),
@@ -210,7 +224,7 @@ async function fetchWeatherAPI(lat: number, lon: number): Promise<WeatherData | 
 function getMockWeather(lat: number, lon: number): WeatherData {
   const month = new Date().getMonth();
   const isNorthernHemisphere = lat >= 0;
-  
+
   // Determine season
   let season: 'winter' | 'spring' | 'summer' | 'fall';
   if (month >= 2 && month <= 4) {
@@ -222,7 +236,7 @@ function getMockWeather(lat: number, lon: number): WeatherData {
   } else {
     season = isNorthernHemisphere ? 'winter' : 'summer';
   }
-  
+
   // Mock temperatures by season
   const seasonalWeather: Record<string, WeatherData> = {
     winter: {
@@ -254,7 +268,7 @@ function getMockWeather(lat: number, lon: number): WeatherData {
       windSpeed: 10,
     },
   };
-  
+
   return {
     ...seasonalWeather[season],
     location: 'Your Area',
@@ -266,18 +280,18 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const lat = parseFloat(searchParams.get('lat') || '0');
   const lon = parseFloat(searchParams.get('lon') || '0');
-  
+
   // Try to get real weather data from WeatherAPI.com
   let weather = await fetchWeatherAPI(lat, lon);
-  
+
   // Fallback to mock data if API fails or is not configured
   if (!weather) {
     weather = getMockWeather(lat, lon);
     weather.location = 'Your Area (estimated)';
   }
-  
+
   const fashionContext = generateWeatherFashionContext(weather);
-  
+
   return NextResponse.json({
     success: true,
     weather,
@@ -290,24 +304,24 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { latitude, longitude, location } = body;
-    
+
     let lat = latitude || 0;
     let lon = longitude || 0;
-    
+
     // If location string provided but no coords, we could geocode it
     // For now, use provided coords or defaults
-    
+
     // Try to get real weather data from WeatherAPI.com
     let weather = await fetchWeatherAPI(lat, lon);
-    
+
     // Fallback to mock data
     if (!weather) {
       weather = getMockWeather(lat, lon);
       weather.location = location || 'Your Area (estimated)';
     }
-    
+
     const fashionContext = generateWeatherFashionContext(weather);
-    
+
     return NextResponse.json({
       success: true,
       weather,
@@ -316,9 +330,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Weather API error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch weather' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to fetch weather' }, { status: 500 });
   }
 }
