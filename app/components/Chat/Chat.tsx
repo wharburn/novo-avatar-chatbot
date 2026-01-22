@@ -2617,6 +2617,31 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         />
       )}
 
+      {/* Finish Session Button - shown during photo session */}
+      {isPhotoSession && !showPhotoGrid && (
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col items-center gap-2">
+          <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm">
+            {sessionPhotos.length} {sessionPhotos.length === 1 ? 'photo' : 'photos'} captured
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              console.log('📸 Finish button clicked - ending photo session');
+              setIsPhotoSession(false);
+              setShowPhotoGrid(true);
+              if (sendAssistantInput) {
+                sendAssistantInput(
+                  `[Session ended! Showing ${sessionPhotos.length} photos in grid.]`
+                );
+              }
+            }}
+            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold shadow-lg transition-all hover:scale-105"
+          >
+            Finish Session
+          </button>
+        </div>
+      )}
+
       {/* Flash effect for photo capture */}
       {showFlash && (
         <div className="fixed inset-0 bg-white z-[9999] pointer-events-none animate-flash" />
