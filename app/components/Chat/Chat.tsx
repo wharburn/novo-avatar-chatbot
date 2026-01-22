@@ -2276,6 +2276,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           transcriptVisible ? 'h-[55vh]' : 'flex-1'
         }`}
       >
+        {/* Vision Stream (camera preview when active) - positioned inside avatar space */}
+        <VisionStream
+          isActive={isVisionActive}
+          onFaceDetected={handleFaceDetected}
+          onEmotionsDetected={setVideoEmotions}
+        />
+
         {displayedImage ? (
           <div className="relative w-full h-full flex items-center justify-center bg-black">
             <img
@@ -2331,13 +2338,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           userProfile={userProfile}
         />
       </div>
-
-      {/* Vision Stream (camera preview when active) */}
-      <VisionStream
-        isActive={isVisionActive}
-        onFaceDetected={handleFaceDetected}
-        onEmotionsDetected={setVideoEmotions}
-      />
 
       {/* Transcript Section - Collapsible */}
       <div

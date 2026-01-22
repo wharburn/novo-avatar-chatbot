@@ -227,7 +227,7 @@ export default function VisionStream({
   if (!isActive) return null;
 
   return (
-    <div className="fixed top-20 left-4 z-[100]">
+    <div className="absolute top-2 left-4 z-[100]">
       {/* Small preview window */}
       <div className="relative w-40 h-30 rounded-lg overflow-hidden shadow-xl border-2 border-purple-500 bg-black">
         <video
