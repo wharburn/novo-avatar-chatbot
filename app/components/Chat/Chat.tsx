@@ -683,13 +683,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         return;
       }
 
-      // IMMEDIATELY tell NoVo the overlay is coming - don't wait for fetch
-      if (sendAssistantInput) {
-        sendAssistantInput(
-          '[WEATHER OVERLAY WILL APPEAR ON SCREEN IN 1 SECOND. DO NOT describe temperature, humidity, or conditions - the user will SEE them. Just say "There\'s the weather!" and give ONE brief outfit tip.]'
-        );
-      }
-
       // Get user's location
       const location = userLocationRef.current;
       const lat = location?.latitude ?? 40.7128; // Default NYC
@@ -706,23 +699,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setWeatherData(data.weather);
             setShowWeatherOverlay(true);
 
-            // Send weather info back to NoVo
-            const loc = data.weather.location;
-            const cond = data.weather.condition.toLowerCase();
-
-            // Determine a simple outfit tip based on condition
-            let outfitTip = 'dress comfortably';
-            if (cond.includes('rain')) outfitTip = 'grab an umbrella';
-            else if (cond.includes('snow') || cond.includes('cold')) outfitTip = 'bundle up warm';
-            else if (cond.includes('sun') || cond.includes('clear'))
-              outfitTip = 'sunglasses would be nice';
-            else if (cond.includes('cloud')) outfitTip = 'a light layer is good';
-            else if (cond.includes('wind')) outfitTip = 'secure loose items';
-
-            // Simple success message - the sendAssistantInput above already told her what to do
-            const weatherReport = `Weather overlay is now visible. Location: ${loc}. Outfit tip: ${outfitTip}.`;
-
-            pendingToolCall.send.success(weatherReport);
+            // Send simple success - let NoVo respond naturally
+            // The system prompt should tell her about the overlay
+            pendingToolCall.send.success('Weather overlay displayed successfully.');
           } else {
             pendingToolCall.send.error({
               error: 'Failed to fetch weather data',

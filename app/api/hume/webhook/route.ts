@@ -43,6 +43,15 @@ export async function POST(request: NextRequest) {
         result = await handleSendEmailSummary(params, chat_id, tool_call_id);
         break;
 
+      case 'get_weather':
+      case 'analyze_vision':
+        // These tools are handled client-side, not via webhook
+        console.log(`[Hume Webhook] ${name} - handled client-side, ignoring webhook`);
+        return NextResponse.json({
+          success: true,
+          message: 'Tool handled client-side',
+        });
+
       default:
         result = {
           success: false,
@@ -58,9 +67,9 @@ export async function POST(request: NextRequest) {
     if (name === 'take_picture' || name === 'send_email_summary') {
       console.log(`[Hume Webhook] ${name} - NOT sending response, client will handle it`);
       // Return 200 OK but no tool_response - client will send it
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Tool call received, client will handle response' 
+      return NextResponse.json({
+        success: true,
+        message: 'Tool call received, client will handle response',
       });
     }
 
@@ -115,8 +124,7 @@ async function handleTakePicture(parameters: any, chatId: string, toolCallId: st
   // We return a pending status here - the real result comes from the client
   return {
     success: true,
-    message:
-      'Opening camera to take a picture. Please look at the camera and smile!',
+    message: 'Opening camera to take a picture. Please look at the camera and smile!',
     data: {
       status: 'camera_opening',
       note: 'Actual capture will be handled by the client',
