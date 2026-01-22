@@ -1351,25 +1351,24 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
         if (command) {
           console.log(`🎯 Detected command: ${command.type}`);
-          processingCommandRef.current = true;
 
-          // Handle enable camera request
-          if (command.type === 'enable_camera') {
+          // Skip enable_camera if camera is already on - let it fall through to vision_request
+          if (command.type === 'enable_camera' && isVisionActive) {
+            console.log(
+              '📹 Camera already ON - ignoring enable_camera, checking for vision_request'
+            );
+            // Don't process this command, let it potentially match vision_request instead
+            processingCommandRef.current = false;
+          } else if (command.type === 'enable_camera') {
+            // Handle enable camera request
+            processingCommandRef.current = true;
             console.log('📹 Enable camera request detected');
 
-            if (isVisionActive) {
-              // Camera is already ON
-              console.log('📹 Camera already ON - notifying NoVo');
-              if (sendAssistantInput) {
-                sendAssistantInput('[Camera is already ON and streaming. You can see the user.]');
-              }
-            } else {
-              // Turn camera ON
-              console.log('📹 Turning camera ON');
-              toggleVision();
-              if (sendAssistantInput) {
-                sendAssistantInput('[Camera ON. Ask what they want to show you.]');
-              }
+            // Turn camera ON
+            console.log('📹 Turning camera ON');
+            toggleVision();
+            if (sendAssistantInput) {
+              sendAssistantInput('[Camera ON. Ask what they want to show you.]');
             }
             processingCommandRef.current = false;
           }
