@@ -67,6 +67,7 @@ export default function AvatarDisplay({
   // Track if initial greeting has been played
   const hasPlayedGreeting = useRef(false);
   const lastSpokenText = useRef('');
+  const isPlayingGreeting = useRef(false);
 
   // Color correction filter for videos
   const videoFilter = 'saturate(0.8) sepia(0.1) hue-rotate(-5deg)';
@@ -78,6 +79,7 @@ export default function AvatarDisplay({
   useEffect(() => {
     if (isConnected && !hasPlayedGreeting.current) {
       hasPlayedGreeting.current = true;
+      isPlayingGreeting.current = true;
       const greeting = getRandomGreeting();
       console.log(`🎬 Playing greeting (Hume connected): ${greeting.id}`);
       setGreetingVideo(greeting);
@@ -88,6 +90,7 @@ export default function AvatarDisplay({
   // Handle greeting video end
   const handleGreetingEnded = () => {
     console.log(`🎬 Greeting ended`);
+    isPlayingGreeting.current = false;
     setGreetingVideo(null);
     setMode('waiting');
     onGreetingComplete?.();
@@ -122,7 +125,16 @@ export default function AvatarDisplay({
 
   // Switch between talking, listening, and waiting based on state
   useEffect(() => {
-    if (mode === 'greeting' || mode === 'phrase') return; // Don't interrupt these
+    // Don't interrupt greeting or phrase videos
+    if (mode === 'greeting' || mode === 'phrase') {
+      console.log(`🎬 Mode switch blocked - currently in ${mode} mode`);
+      return;
+    }
+    // Also don't switch if greeting is currently playing
+    if (isPlayingGreeting.current) {
+      console.log(`🎬 Mode switch blocked - greeting is playing`);
+      return;
+    }
 
     if (isSpeaking) {
       console.log(`🎬 Speaking - showing talking video`);

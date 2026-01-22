@@ -683,6 +683,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         return;
       }
 
+      // IMMEDIATELY tell NoVo the overlay is coming - don't wait for fetch
+      if (sendAssistantInput) {
+        sendAssistantInput(
+          '[WEATHER OVERLAY WILL APPEAR ON SCREEN IN 1 SECOND. DO NOT describe temperature, humidity, or conditions - the user will SEE them. Just say "There\'s the weather!" and give ONE brief outfit tip.]'
+        );
+      }
+
       // Get user's location
       const location = userLocationRef.current;
       const lat = location?.latitude ?? 40.7128; // Default NYC
@@ -712,8 +719,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             else if (cond.includes('cloud')) outfitTip = 'a light layer is good';
             else if (cond.includes('wind')) outfitTip = 'secure loose items';
 
-            // VERY DIRECT: Give NoVo her EXACT response to say
-            const weatherReport = `SUCCESS. Weather overlay is now showing on the user's screen. They can see all the details. Your ONLY response should be exactly: "There's the weather for ${loc}! I'd suggest you ${outfitTip}." Say nothing else about temperature, humidity, or conditions.`;
+            // Simple success message - the sendAssistantInput above already told her what to do
+            const weatherReport = `Weather overlay is now visible. Location: ${loc}. Outfit tip: ${outfitTip}.`;
 
             pendingToolCall.send.success(weatherReport);
           } else {
