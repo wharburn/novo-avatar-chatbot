@@ -1331,9 +1331,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               console.log('📹 Turning camera ON');
               toggleVision();
               if (sendAssistantInput) {
-                sendAssistantInput(
-                  '[Camera turned ON - you can now see the user. Acknowledge this and ask what they want to show you.]'
-                );
+                sendAssistantInput('[Camera ON. Ask what they want to show you.]');
               }
             }
             processingCommandRef.current = false;
@@ -1352,26 +1350,23 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 .then((analysis) => {
                   console.log('👁️ Direct vision analysis complete');
                   if (sendAssistantInput) {
-                    sendAssistantInput(
-                      `[VISION ANALYSIS - Camera is ON and I can see the user: ${analysis}]`
-                    );
+                    // Truncate to 200 chars max to stay under 256 limit
+                    const truncated =
+                      analysis.length > 200 ? analysis.slice(0, 200) + '...' : analysis;
+                    sendAssistantInput(`[I see: ${truncated}]`);
                   }
                 })
                 .catch((error) => {
                   console.error('👁️ Vision analysis error:', error);
                   if (sendAssistantInput) {
-                    sendAssistantInput(
-                      '[Camera is on but I had trouble analyzing the image. Ask them to adjust position or lighting.]'
-                    );
+                    sendAssistantInput('[Trouble analyzing. Ask them to adjust lighting.]');
                   }
                 });
             } else {
               // Camera is OFF - tell NoVo to ask user to enable it
               console.log('👁️ Camera is OFF - telling NoVo to ask user to enable');
               if (sendAssistantInput) {
-                sendAssistantInput(
-                  '[CAMERA IS OFF. Ask the user to tap the eye button at the bottom left of the screen to enable the camera. It will glow red when on.]'
-                );
+                sendAssistantInput('[Camera OFF. Ask user to tap the eye button to enable it.]');
               }
             }
             processingCommandRef.current = false;
@@ -1522,7 +1517,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       }
 
       // Extract email address (including spoken format like "wayne at wharburn dot com")
-      let emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+      const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
       if (!emailMatch) {
         // Try to parse spoken email format: "wayne at wharburn dot com"
         const spokenEmailMatch = content.match(
