@@ -1002,10 +1002,23 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       // Notify NoVo about camera state change
       if (sendAssistantInput) {
         if (isVisionActive) {
-          // Camera just turned ON - tell NoVo she can now see
-          sendAssistantInput(
-            '[CAMERA IS NOW ON. You can now see the user! If they asked you to look at them, describe what you see.]'
-          );
+          // Camera just turned ON - analyze immediately and tell NoVo what we see
+          console.log('👁️ Camera turned ON - analyzing immediately...');
+          analyzeWithQuestion(
+            'Describe what you see - the person, their appearance, clothing, etc.'
+          )
+            .then((analysis) => {
+              console.log('👁️ Initial vision analysis complete');
+              sendAssistantInput(
+                `[CAMERA IS NOW ON! I can see the user. Here's what I observe: ${analysis}. Acknowledge that you can see them and comment on what you observe.]`
+              );
+            })
+            .catch((err) => {
+              console.error('👁️ Initial vision analysis failed:', err);
+              sendAssistantInput(
+                '[CAMERA IS NOW ON. You can now see the user! Acknowledge that the camera is active.]'
+              );
+            });
         } else {
           // Camera just turned OFF
           sendAssistantInput('[CAMERA IS NOW OFF. You can no longer see the user.]');
@@ -1014,7 +1027,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     } catch (error) {
       console.error('Failed to update vision status:', error);
     }
-  }, [isVisionActive, isConnected, sendSessionSettings, sendAssistantInput, userProfile]);
+  }, [
+    isVisionActive,
+    isConnected,
+    sendSessionSettings,
+    sendAssistantInput,
+    userProfile,
+    analyzeWithQuestion,
+  ]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
