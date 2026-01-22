@@ -699,21 +699,23 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setWeatherData(data.weather);
             setShowWeatherOverlay(true);
 
-            // Send weather info back to NoVo - IMPORTANT: Tell her NOT to repeat the visible info
+            // Send weather info back to NoVo
             const loc = data.weather.location;
-            const cond = data.weather.condition;
+            const cond = data.weather.condition.toLowerCase();
 
-            // CRITICAL: Tell NoVo the weather is VISIBLE and she should NOT describe it
-            const weatherReport = `WEATHER IS NOW VISIBLE ON SCREEN for ${loc}. The user can see the temperature, conditions, humidity - everything! DO NOT describe any weather details. Just say "There's the weather!" and give ONE brief outfit tip. Maximum 10 words total.`;
+            // Determine a simple outfit tip based on condition
+            let outfitTip = 'dress comfortably';
+            if (cond.includes('rain')) outfitTip = 'grab an umbrella';
+            else if (cond.includes('snow') || cond.includes('cold')) outfitTip = 'bundle up warm';
+            else if (cond.includes('sun') || cond.includes('clear'))
+              outfitTip = 'sunglasses would be nice';
+            else if (cond.includes('cloud')) outfitTip = 'a light layer is good';
+            else if (cond.includes('wind')) outfitTip = 'secure loose items';
+
+            // VERY DIRECT: Give NoVo her EXACT response to say
+            const weatherReport = `SUCCESS. Weather overlay is now showing on the user's screen. They can see all the details. Your ONLY response should be exactly: "There's the weather for ${loc}! I'd suggest you ${outfitTip}." Say nothing else about temperature, humidity, or conditions.`;
 
             pendingToolCall.send.success(weatherReport);
-
-            // Also inject a direct message to reinforce
-            if (sendAssistantInput) {
-              sendAssistantInput(
-                `[Weather overlay is now displayed to user. Do not describe the weather - they can see it. Just acknowledge briefly and give one outfit tip for ${cond} weather.]`
-              );
-            }
           } else {
             pendingToolCall.send.error({
               error: 'Failed to fetch weather data',
@@ -2239,6 +2241,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 isSpeaking={isSpeaking}
                 spokenText={currentSpokenText}
                 micVolume={micVolume}
+                isConnected={isConnected}
                 onGreetingComplete={() => {
                   console.log('🎬 Greeting complete');
                 }}
