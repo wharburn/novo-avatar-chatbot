@@ -227,8 +227,8 @@ export default function VisionStream({
   if (!isActive) return null;
 
   return (
-    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100]">
-      {/* Small preview window - positioned at top-center of avatar */}
+    <div className="absolute top-4 left-0 z-[100]">
+      {/* Small preview window - aligned to left side of avatar */}
       <div className="relative w-40 h-30 rounded-lg overflow-hidden shadow-xl border-2 border-purple-500 bg-black">
         <video
           ref={videoRef}
