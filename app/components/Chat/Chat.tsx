@@ -712,6 +712,15 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
             const w = data.weather;
 
+            // Check if this is mock data (location contains "estimated")
+            const isMockData = w.location?.includes('estimated');
+
+            if (isMockData) {
+              console.warn('⚠️ Using MOCK weather data - WEATHER_API_KEY not configured');
+            } else {
+              console.log('✅ Using REAL weather data from WeatherAPI.com');
+            }
+
             // Display weather visually
             setWeatherData(w);
             setShowWeatherOverlay(true);
