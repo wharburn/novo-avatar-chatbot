@@ -982,10 +982,17 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
   }, [isConnected]);
 
+  // Track previous vision state to detect actual changes
+  const prevVisionActiveRef = useRef<boolean>(false);
+
   // Update session variables when vision is toggled AND notify NoVo
   useEffect(() => {
     // Only update if we've already sent initial session variables
     if (!isConnected || !sendSessionSettings || !sessionVariablesSentRef.current) return;
+
+    // Check if vision state actually changed
+    const visionStateChanged = prevVisionActiveRef.current !== isVisionActive;
+    prevVisionActiveRef.current = isVisionActive;
 
     try {
       sendSessionSettings({
@@ -999,8 +1006,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       });
       console.log('👁️ Updated vision status:', isVisionActive ? 'ON' : 'OFF');
 
-      // Notify NoVo about camera state change
-      if (sendAssistantInput) {
+      // Only notify NoVo if vision state actually changed
+      if (visionStateChanged && sendAssistantInput) {
         if (isVisionActive) {
           // Camera just turned ON - analyze immediately and tell NoVo what we see
           console.log('👁️ Camera turned ON - analyzing immediately...');
@@ -1021,6 +1028,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             });
         } else {
           // Camera just turned OFF
+          console.log('👁️ Camera turned OFF - notifying NoVo');
           sendAssistantInput('[CAMERA IS NOW OFF. You can no longer see the user.]');
         }
       }
