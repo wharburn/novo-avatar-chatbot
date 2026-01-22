@@ -2408,8 +2408,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-center px-3 py-1 bg-gray-100 relative">
+        {/* Header - Ultra-thin centered dropdown */}
+        <div className="flex items-center justify-center px-3 py-0.5 bg-gray-100 relative">
           <button
             onClick={() => setTranscriptVisible(false)}
             className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
