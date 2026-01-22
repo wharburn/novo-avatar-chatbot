@@ -1,14 +1,22 @@
 'use client';
 
 import { useVoice, VoiceReadyState } from '@humeai/voice-react';
-import { Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
+import { Eye, EyeOff, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
 
 interface ChatControlsProps {
   accessToken: string;
   configId?: string;
+  isVisionActive?: boolean;
+  onVisionToggle?: () => void;
+  userProfile?: {
+    name?: string;
+    email?: string;
+    isReturningUser?: boolean;
+    visitCount?: number;
+  } | null;
 }
 
-export default function ChatControls({ accessToken, configId }: ChatControlsProps) {
+export default function ChatControls({ accessToken, configId, isVisionActive, onVisionToggle, userProfile }: ChatControlsProps) {
   const { 
     connect, 
     disconnect, 
@@ -38,6 +46,9 @@ export default function ChatControls({ accessToken, configId }: ChatControlsProp
         return;
       }
       
+      console.log('Connecting to Hume with user profile:', userProfile?.name || 'unknown');
+      
+      // Connect to Hume - session settings will be sent after connection
       await connect({
         auth: { type: 'accessToken', value: accessToken },
         configId: configId,
@@ -59,6 +70,35 @@ export default function ChatControls({ accessToken, configId }: ChatControlsProp
 
   return (
     <div className="absolute bottom-4 left-4 flex gap-2 z-50">
+      {/* Vision toggle button - user controls camera, glows red when active */}
+      <button
+        onClick={onVisionToggle}
+        className={`p-3 rounded-full shadow-lg transition-all ${
+          isVisionActive
+            ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/50'
+            : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-200'
+        }`}
+        aria-label={isVisionActive ? 'Turn off camera' : 'Turn on camera'}
+        title={isVisionActive ? 'NoVo can see you - tap to turn off' : 'Tap to let NoVo see you'}
+        style={{
+          // Pulsing glow animation when active
+          animation: isVisionActive ? 'pulse-glow 2s ease-in-out infinite' : 'none',
+        }}
+      >
+        <Eye className={`w-6 h-6 ${isVisionActive ? 'text-white' : 'text-gray-500'}`} />
+        {/* Add CSS for custom pulse animation */}
+        <style jsx>{`
+          @keyframes pulse-glow {
+            0%, 100% {
+              box-shadow: 0 0 5px 2px rgba(239, 68, 68, 0.5);
+            }
+            50% {
+              box-shadow: 0 0 20px 6px rgba(239, 68, 68, 0.8);
+            }
+          }
+        `}</style>
+      </button>
+
       {/* Connect/Disconnect button */}
       {isConnected ? (
         <button

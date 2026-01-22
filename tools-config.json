@@ -48,6 +48,13 @@
       "parameters": "{ \"type\": \"object\", \"properties\": { \"email\": { \"type\": \"string\", \"description\": \"User's confirmed email address in valid format (e.g., john@example.com)\" }, \"user_name\": { \"type\": \"string\", \"description\": \"User's full name. REQUIRED.\" }, \"image_url\": { \"type\": \"string\", \"description\": \"The URL of the image from the take_picture tool. This is provided by the take_picture tool response.\" }, \"caption\": { \"type\": \"string\", \"description\": \"Optional caption or message to include with the picture\" } }, \"required\": [\"email\", \"user_name\", \"image_url\"] }",
       "fallback_content": "I'm sorry, I couldn't send the picture via email. Please make sure you've taken a picture first and provided your email address.",
       "version_description": "Sends pictures via email using Resend - works with take_picture tool"
+    },
+    {
+      "name": "analyze_vision",
+      "description": "Analyzes what the AI can see through the user's camera when Vision mode is enabled. IMPORTANT: Vision must be turned ON first - ask the user to tap the eye button if it's not active. Use this tool when the user asks questions like 'what am I wearing?', 'do I look good?', 'describe my outfit', 'what color is my shirt?', 'give me fashion advice', or any question about their appearance. This tool provides detailed fashion analysis and supportive feedback to help users feel confident.",
+      "parameters": "{ \"type\": \"object\", \"properties\": { \"question\": { \"type\": \"string\", \"description\": \"The user's specific question about their appearance or outfit. Examples: 'What am I wearing?', 'Do I look good in this?', 'What colors do you see?', 'Give me fashion advice for this outfit'\" } }, \"required\": [\"question\"] }",
+      "fallback_content": "I need you to enable Vision mode first! Please tap the eye button (next to the start button) to give me access to your camera, then ask me again.",
+      "version_description": "Analyzes user appearance through camera using GPT-4 Vision and Hume emotion detection"
     }
   ],
   "instructions": {
@@ -110,6 +117,18 @@
         "Take a picture and send it to john@example.com",
         "Capture an image and email it to me",
         "Take a selfie and send it to my email"
+      ],
+      "analyze_vision_examples": [
+        "What am I wearing?",
+        "Do I look good in this outfit?",
+        "Describe my outfit",
+        "What color is my shirt?",
+        "Give me some fashion advice",
+        "Does this coat suit me?",
+        "What do you think of my style?",
+        "Can you see what I'm wearing?",
+        "How do I look today?",
+        "Tell me about my appearance"
       ]
     }
   },
@@ -172,6 +191,13 @@
         "description": "URL to your web-based translation application",
         "example": "https://your-translator-app.com",
         "used_for": "open_translator tool"
+      },
+      {
+        "name": "OPENAI_API_KEY",
+        "description": "OpenAI API key for GPT-4 Vision (fashion/clothing analysis)",
+        "example": "sk_abc123def456...",
+        "get_from": "https://platform.openai.com/api-keys",
+        "used_for": "analyze_vision tool - fashion/clothing/object recognition"
       }
     ]
   }

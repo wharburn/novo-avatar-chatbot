@@ -1,13 +1,18 @@
 'use client';
 
-import { Emotion } from '@/app/types/avatar';
+import { useCommandDetection } from '@/app/hooks/useCommandDetection';
 import { useMicrophoneVolume } from '@/app/hooks/useMicrophoneVolume';
+import { useVision } from '@/app/hooks/useVision';
+import { Emotion } from '@/app/types/avatar';
 import { playCameraClick } from '@/app/utils/sounds';
 import { useVoice, VoiceProvider, VoiceReadyState } from '@humeai/voice-react';
 import { ChevronDown, ChevronUp, MessageSquare, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import AvatarDisplay from '../Avatar/AvatarDisplay';
 import CameraCapture from '../Camera/CameraCapture';
+import EmotionDisplay, { EmotionScore } from '../Vision/EmotionDisplay';
+import VisionStream from '../Vision/VisionStream';
+import WeatherOverlay from '../Weather/WeatherOverlay';
 import ChatControls from './ChatControls';
 import ChatMessages from './ChatMessages';
 import ImageViewer from './ImageViewer';
@@ -240,6 +245,33 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   // Current spoken text for phrase video matching
   const [currentSpokenText, setCurrentSpokenText] = useState('');
 
+  // Voice emotion tracking for display
+  const [voiceEmotions, setVoiceEmotions] = useState<EmotionScore[]>([]);
+
+  // Vision state management
+  const {
+    isVisionActive,
+    videoEmotions,
+    lastAnalysis: visionAnalysis,
+    isAnalyzing: isVisionAnalyzing,
+    faceDetected,
+    toggleVision,
+    handleFaceDetected,
+    analyzeWithQuestion,
+    setVideoEmotions,
+  } = useVision({
+    onAnalysisComplete: (result) => {
+      console.log('Vision analysis complete:', result.type);
+    },
+  });
+
+  // Store vision analysis for AI context
+  const visionContextRef = useRef<string | null>(null);
+
+  // Command detection for bypassing Hume tool calls
+  const { detectCommand } = useCommandDetection();
+  const processingCommandRef = useRef<boolean>(false);
+
   // Session tracking
   const sessionIdRef = useRef<string | null>(null);
   const lastRecordedMessageRef = useRef<string>('');
@@ -256,6 +288,48 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const [showCamera, setShowCamera] = useState(false);
   const pendingToolCallIdRef = useRef<string | null>(null);
 
+  // Weather overlay state
+  const [weatherData, setWeatherData] = useState<{
+    temperature: { fahrenheit: number; celsius: number };
+    condition: string;
+    description: string;
+    humidity?: number;
+    windSpeed?: number;
+    icon?: string;
+    location?: string;
+    feelsLike?: { fahrenheit: number; celsius: number };
+    uv?: number;
+    isDay?: boolean;
+  } | null>(null);
+  const [showWeatherOverlay, setShowWeatherOverlay] = useState(false);
+
+  // Quiet mode state - when true, NoVo stays quiet
+  const [isQuietMode, setIsQuietMode] = useState(false);
+  const quietModeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // User location for weather (cached)
+  const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+
+  // Get user location on mount
+  useEffect(() => {
+    if (userLocationRef.current) return;
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          userLocationRef.current = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          };
+          console.log('User location cached for weather');
+        },
+        (error) => {
+          console.log('Geolocation not available:', error.message);
+        },
+        { timeout: 5000, maximumAge: 3600000 }
+      );
+    }
+  }, []);
+
   const {
     readyState,
     messages,
@@ -264,6 +338,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     sendToolMessage,
     sendAssistantInput,
     sendSessionSettings,
+    sendUserInput,
   } = useVoice();
 
   const isConnected = readyState === VoiceReadyState.OPEN;
@@ -344,11 +419,15 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       if (result.success) {
         console.log('✅ User profile saved:', result.user);
         // Update local state
-        setUserProfile((prev) => prev ? { ...prev, ...updates } : {
-          ...updates,
-          isReturningUser: false,
-          visitCount: 1,
-        });
+        setUserProfile((prev) =>
+          prev
+            ? { ...prev, ...updates }
+            : {
+                ...updates,
+                isReturningUser: false,
+                visitCount: 1,
+              }
+        );
       } else {
         console.error('❌ Failed to save user profile:', result.error);
       }
@@ -404,11 +483,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
 
     // Handle send_picture_email / send_email_picture
-    if (pendingToolCall.name === 'send_picture_email' || pendingToolCall.name === 'send_email_picture') {
+    if (
+      pendingToolCall.name === 'send_picture_email' ||
+      pendingToolCall.name === 'send_email_picture'
+    ) {
       console.log('📧 Handling send_email_picture from onToolCall handler');
-      
+
       const params = JSON.parse(pendingToolCall.parameters || '{}');
-      
+
       // Inject stored image URL
       if (lastCapturedImageRef.current) {
         params.image_url = lastCapturedImageRef.current;
@@ -438,8 +520,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         .then((result) => {
           console.log('📧 Email result:', result);
           if (result.success) {
-            pendingToolCall.send.success({ 
-              message: `Picture sent successfully to ${params.email}!` 
+            pendingToolCall.send.success({
+              message: `Picture sent successfully to ${params.email}!`,
             });
           } else {
             pendingToolCall.send.error({
@@ -468,33 +550,39 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     if (pendingToolCall.name === 'send_email_summary') {
       console.log('📧 Handling send_email_summary from client');
       console.log('📧 Total messages in state:', messages.length);
-      
+
       const params = JSON.parse(pendingToolCall.parameters || '{}');
-      
+
       // Get conversation messages from the messages array
-      const filteredMessages = messages.filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message');
+      const filteredMessages = messages.filter(
+        (msg) => msg.type === 'user_message' || msg.type === 'assistant_message'
+      );
       console.log('📧 Filtered messages (user/assistant):', filteredMessages.length);
-      
+
       // Log first few messages to debug structure
       if (filteredMessages.length > 0) {
         console.log('📧 Sample message structure:', JSON.stringify(filteredMessages[0], null, 2));
       }
-      
+
       const conversationMessages = filteredMessages.map((msg) => {
-          const typedMsg = msg as { type: string; message?: { role: string; content: string }; receivedAt?: Date };
-          const extracted = {
-            role: typedMsg.message?.role === 'user' ? 'user' : 'assistant',
-            content: typedMsg.message?.content || '',
-            timestamp: typedMsg.receivedAt ? new Date(typedMsg.receivedAt).getTime() : Date.now(),
-          };
-          return extracted;
-        });
+        const typedMsg = msg as {
+          type: string;
+          message?: { role: string; content: string };
+          receivedAt?: Date;
+        };
+        const extracted = {
+          role: typedMsg.message?.role === 'user' ? 'user' : 'assistant',
+          content: typedMsg.message?.content || '',
+          timestamp: typedMsg.receivedAt ? new Date(typedMsg.receivedAt).getTime() : Date.now(),
+        };
+        return extracted;
+      });
 
       console.log('📧 Collected', conversationMessages.length, 'messages for summary');
       if (conversationMessages.length > 0) {
         console.log('📧 First extracted message:', conversationMessages[0]);
       }
-      
+
       // Include user profile in the request
       console.log('📧 Including user profile:', userProfile);
 
@@ -515,7 +603,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         .then((result) => {
           console.log('📧 Summary email result:', result);
           if (result.success) {
-            pendingToolCall.send.success({ 
+            pendingToolCall.send.success({
               message: `Conversation summary sent to ${params.email}!`,
               messageCount: conversationMessages.length,
             });
@@ -542,9 +630,178 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       return;
     }
 
+    // Handle analyze_vision tool - analyze what the user is wearing/looks like
+    if (pendingToolCall.name === 'analyze_vision') {
+      console.log('👁️ Handling analyze_vision from onToolCall handler');
+
+      const params = JSON.parse(pendingToolCall.parameters || '{}');
+      const question = params.question || 'What can you see?';
+
+      // User controls the camera - if it's not on, tell NoVo to ask them to turn it on
+      if (!isVisionActive) {
+        console.log('👁️ Vision not active - telling NoVo to ask user to enable it');
+        pendingToolCall.send.success(
+          'CAMERA IS OFF. Say to the user: "I cannot see you yet. Please tap the eye button at the bottom left of your screen to let me see you. It will glow red when the camera is on."'
+        );
+        onToolCallHandled?.();
+        return;
+      }
+
+      // Vision is active - analyze what we see
+      console.log('👁️ Analyzing vision with question:', question);
+      analyzeWithQuestion(question)
+        .then((analysis) => {
+          console.log('👁️ Vision analysis complete:', analysis.slice(0, 100) + '...');
+          pendingToolCall.send.success({
+            analysis,
+            question,
+            faceDetected,
+          });
+        })
+        .catch((error) => {
+          console.error('👁️ Vision analysis error:', error);
+          pendingToolCall.send.error({
+            error: error.message || 'Failed to analyze vision',
+            code: 'VISION_ERROR',
+            level: 'error',
+            content: '',
+          });
+        });
+
+      onToolCallHandled?.();
+      return;
+    }
+
+    // Handle get_weather tool - fetch weather and show overlay
+    if (pendingToolCall.name === 'get_weather') {
+      console.log('🌤️ Handling get_weather tool');
+
+      // If weather overlay is already showing, don't fetch again
+      if (showWeatherOverlay) {
+        console.log('🌤️ Weather overlay already showing, skipping duplicate call');
+        pendingToolCall.send.success(
+          'Weather is already being displayed to the user. Just describe what they can see and give outfit advice.'
+        );
+        onToolCallHandled?.();
+        return;
+      }
+
+      // Get user's location
+      const location = userLocationRef.current;
+      const lat = location?.latitude ?? 40.7128; // Default NYC
+      const lon = location?.longitude ?? -74.006;
+
+      // Fetch weather data
+      fetch(`/api/weather?lat=${lat}&lon=${lon}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.weather) {
+            console.log('🌤️ Weather data received:', data.weather.location, data.weather.condition);
+
+            // Show weather overlay
+            setWeatherData(data.weather);
+            setShowWeatherOverlay(true);
+
+            // Send weather info back to NoVo as a simple string she can use
+            const tempC = data.weather.temperature.celsius;
+            const feelsC = data.weather.feelsLike?.celsius;
+            const loc = data.weather.location;
+            const cond = data.weather.condition;
+            const humidity = data.weather.humidity;
+
+            // Send as a simple content string that NoVo will use directly
+            const weatherReport = `SUCCESS! Weather retrieved for ${loc}: Currently ${tempC} degrees Celsius and ${cond.toLowerCase()}. ${feelsC ? `Feels like ${feelsC} degrees.` : ''} Humidity is ${humidity}%. The weather is now displayed on the user's screen. Tell them about the weather in ${loc} and suggest appropriate clothing.`;
+
+            pendingToolCall.send.success(weatherReport);
+          } else {
+            pendingToolCall.send.error({
+              error: 'Failed to fetch weather data',
+              code: 'WEATHER_ERROR',
+              level: 'error',
+              content: '',
+            });
+          }
+        })
+        .catch((error) => {
+          console.error('🌤️ Weather fetch error:', error);
+          pendingToolCall.send.error({
+            error: error.message || 'Failed to fetch weather',
+            code: 'WEATHER_ERROR',
+            level: 'error',
+            content: '',
+          });
+        });
+
+      onToolCallHandled?.();
+      return;
+    }
+
+    // Handle be_quiet tool - NoVo stays quiet for a specified duration
+    if (pendingToolCall.name === 'be_quiet') {
+      console.log('🤫 Handling be_quiet tool');
+
+      const params = JSON.parse(pendingToolCall.parameters || '{}');
+      const durationSeconds = params.duration_seconds || 60; // Default 1 minute
+      const durationMs = Math.min(durationSeconds, 300) * 1000; // Max 5 minutes
+
+      // Clear any existing timer
+      if (quietModeTimerRef.current) {
+        clearTimeout(quietModeTimerRef.current);
+      }
+
+      // Enter quiet mode
+      setIsQuietMode(true);
+      console.log(`🤫 Entering quiet mode for ${durationSeconds} seconds`);
+
+      // Set timer to exit quiet mode
+      quietModeTimerRef.current = setTimeout(() => {
+        setIsQuietMode(false);
+        console.log('🤫 Quiet mode ended');
+        quietModeTimerRef.current = null;
+      }, durationMs);
+
+      pendingToolCall.send.success({
+        quiet_mode: true,
+        duration_seconds: Math.min(durationSeconds, 300),
+        message: `Okay, I'll be quiet for ${Math.min(durationSeconds, 300)} seconds. Just say my name or "NoVo" when you want me to talk again.`,
+      });
+
+      onToolCallHandled?.();
+      return;
+    }
+
+    // Handle resume_talking tool - exit quiet mode early
+    if (pendingToolCall.name === 'resume_talking') {
+      console.log('🗣️ Handling resume_talking tool');
+
+      // Clear timer and exit quiet mode
+      if (quietModeTimerRef.current) {
+        clearTimeout(quietModeTimerRef.current);
+        quietModeTimerRef.current = null;
+      }
+      setIsQuietMode(false);
+
+      pendingToolCall.send.success({
+        quiet_mode: false,
+        message: "I'm back! What can I help you with?",
+      });
+
+      onToolCallHandled?.();
+      return;
+    }
+
     // For other tools, mark as handled
     onToolCallHandled?.();
-  }, [pendingToolCall, onToolCallHandled, messages]);
+  }, [
+    pendingToolCall,
+    onToolCallHandled,
+    messages,
+    isVisionActive,
+    analyzeWithQuestion,
+    faceDetected,
+    toggleVision,
+    showWeatherOverlay,
+  ]);
 
   // Ref to store the send function for tool calls that need async completion (like camera)
   const pendingToolCallSendRef = useRef<{
@@ -560,33 +817,40 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       try {
         const response = await fetch('/api/tool-calls?chatId=default');
         const data = await response.json();
-        
+
         if (data.hasPending && data.toolCall) {
           console.log('🔧 Received pending tool call from webhook:', data.toolCall.name);
-          
+
           // Handle take_picture
           if (data.toolCall.name === 'take_picture') {
             console.log('📸 Opening camera from webhook notification...');
             pendingToolCallIdRef.current = data.toolCall.toolCallId;
             setShowCamera(true);
           }
-          
+
           // Handle send_email_summary
           if (data.toolCall.name === 'send_email_summary') {
             console.log('📧 Handling send_email_summary from webhook notification...');
-            const params = typeof data.toolCall.parameters === 'string' 
-              ? JSON.parse(data.toolCall.parameters) 
-              : data.toolCall.parameters;
-            
+            const params =
+              typeof data.toolCall.parameters === 'string'
+                ? JSON.parse(data.toolCall.parameters)
+                : data.toolCall.parameters;
+
             // Get conversation messages
             const conversationMessages = messages
               .filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message')
               .map((msg) => {
-                const typedMsg = msg as { type: string; message?: { role: string; content: string }; receivedAt?: Date };
+                const typedMsg = msg as {
+                  type: string;
+                  message?: { role: string; content: string };
+                  receivedAt?: Date;
+                };
                 return {
                   role: typedMsg.message?.role === 'user' ? 'user' : 'assistant',
                   content: typedMsg.message?.content || '',
-                  timestamp: typedMsg.receivedAt ? new Date(typedMsg.receivedAt).getTime() : Date.now(),
+                  timestamp: typedMsg.receivedAt
+                    ? new Date(typedMsg.receivedAt).getTime()
+                    : Date.now(),
                 };
               });
 
@@ -616,7 +880,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                     toolCallId: data.toolCall.toolCallId,
                     content: JSON.stringify({
                       success: result.success,
-                      message: result.success 
+                      message: result.success
                         ? `Conversation summary sent to ${params.email}!`
                         : result.error,
                       messageCount: conversationMessages.length,
@@ -647,12 +911,12 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   // 2. User profile is loaded (userProfile changes from null to object)
   useEffect(() => {
     if (!isConnected || !sendSessionSettings) return;
-    
+
     // Reset the ref when disconnected (handled by the cleanup or connection state)
     // Send variables if we haven't sent them yet, OR if profile just loaded and we only sent defaults before
-    const shouldSend = !sessionVariablesSentRef.current || 
-      (userProfile?.name && !identityConfirmedRef.current);
-    
+    const shouldSend =
+      !sessionVariablesSentRef.current || (userProfile?.name && !identityConfirmedRef.current);
+
     if (!shouldSend) return;
 
     // Build context variables - always include all variables with defaults
@@ -661,34 +925,102 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       user_email: userProfile?.email || '',
       is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
       visit_count: String(userProfile?.visitCount || 1),
+      vision_enabled: isVisionActive ? 'true' : 'false',
     };
 
     if (userProfile?.isReturningUser && userProfile?.name) {
-      console.log(`👤 Returning user detected: ${userProfile.name} (visit #${userProfile.visitCount})`);
+      console.log(
+        `👤 Returning user detected: ${userProfile.name} (visit #${userProfile.visitCount})`
+      );
       identityConfirmedRef.current = true;
     } else {
       console.log('👤 New user or profile not loaded - sending session variables');
     }
 
-    // Send session settings with user context (or defaults)
-    try {
-      sendSessionSettings({
-        variables: contextVariables,
-      });
-      console.log('👤 Sent session variables to Hume AI:', contextVariables);
-      sessionVariablesSentRef.current = true;
-    } catch (error) {
-      console.error('Failed to send session settings:', error);
-    }
+    // Send session settings with user context (variables only)
+    // Use a small delay to ensure WebSocket is fully ready
+    const timer = setTimeout(() => {
+      try {
+        sendSessionSettings({
+          variables: contextVariables,
+        });
+        console.log('👤 Sent session variables to Hume AI:', contextVariables);
+        sessionVariablesSentRef.current = true;
+      } catch (error) {
+        console.error('Failed to send session settings:', error);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [isConnected, userProfile, sendSessionSettings]);
+
+  // Track if we've sent the initial greeting trigger
+  const greetingSentRef = useRef(false);
+
+  // For returning users, send a greeting trigger after session settings are sent
+  // This makes NoVo greet the user by name
+  useEffect(() => {
+    if (
+      !isConnected ||
+      !sendUserInput ||
+      !sessionVariablesSentRef.current ||
+      greetingSentRef.current
+    )
+      return;
+
+    // Only send greeting for returning users with a known name
+    if (userProfile?.isReturningUser && userProfile?.name) {
+      // Small delay to ensure session settings are processed
+      const timer = setTimeout(() => {
+        if (greetingSentRef.current) return; // Double-check
+
+        // Send greeting with name - phrased to get a single simple welcome back
+        const greetingMessage = `Hi, it's ${userProfile.name}.`;
+
+        console.log('👤 Sending greeting trigger for returning user:', greetingMessage);
+
+        try {
+          sendUserInput(greetingMessage);
+          greetingSentRef.current = true;
+          console.log('✅ Greeting trigger sent');
+        } catch (error) {
+          console.error('Failed to send greeting trigger:', error);
+        }
+      }, 300); // Wait for session settings to be processed
+
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, userProfile, sendUserInput, sessionVariablesSentRef.current]);
 
   // Reset session tracking when disconnected
   useEffect(() => {
     if (!isConnected) {
       sessionVariablesSentRef.current = false;
       identityConfirmedRef.current = false;
+      greetingSentRef.current = false;
     }
   }, [isConnected]);
+
+  // Update session variables when vision is toggled
+  useEffect(() => {
+    // Only update if we've already sent initial session variables
+    if (!isConnected || !sendSessionSettings || !sessionVariablesSentRef.current) return;
+
+    try {
+      sendSessionSettings({
+        variables: {
+          user_name: userProfile?.name || '',
+          user_email: userProfile?.email || '',
+          is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
+          visit_count: String(userProfile?.visitCount || 1),
+          vision_enabled: isVisionActive ? 'true' : 'false',
+        },
+      });
+      console.log('👁️ Updated vision status:', isVisionActive ? 'ON' : 'OFF');
+    } catch (error) {
+      console.error('Failed to update vision status:', error);
+    }
+  }, [isVisionActive, isConnected, sendSessionSettings, userProfile]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
@@ -789,9 +1121,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       pendingToolCallIdRef.current = null;
     } else {
-      console.warn('📸 No way to send tool response! pendingToolCallIdRef:', pendingToolCallIdRef.current, 'sendToolMessage:', !!sendToolMessage);
+      console.warn(
+        '📸 No way to send tool response! pendingToolCallIdRef:',
+        pendingToolCallIdRef.current,
+        'sendToolMessage:',
+        !!sendToolMessage
+      );
     }
-    
+
     // Note: Don't call sendAssistantInput here - the tool response already triggers NoVo to respond
     // Calling both would result in duplicate audio responses
   };
@@ -849,15 +1186,20 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     // Debug: Log all message types to help troubleshoot tool calls
     const msgType = lastMessage.type;
     console.log(`📨 Message received [${messages.length}]: type="${msgType}"`);
-    
+
     // Log full message for any tool-related or unknown message types
-    if (msgType === 'tool_call' || msgType?.includes('tool') || 
-        (msgType !== 'user_message' && msgType !== 'assistant_message' && 
-         msgType !== 'user_interruption' && msgType !== 'assistant_end' && 
-         msgType !== 'assistant_prosody')) {
+    if (
+      msgType === 'tool_call' ||
+      msgType?.includes('tool') ||
+      (msgType !== 'user_message' &&
+        msgType !== 'assistant_message' &&
+        msgType !== 'user_interruption' &&
+        msgType !== 'assistant_end' &&
+        msgType !== 'assistant_prosody')
+    ) {
       console.log('📨 Full message:', JSON.stringify(lastMessage, null, 2));
     }
-    
+
     // Also check if the message has toolCall nested inside (some SDK versions)
     const msgAny = lastMessage as any;
     if (msgAny.toolCall || msgAny.tool_call) {
@@ -870,6 +1212,134 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       const content = userMsg.message?.content || '';
 
       console.log('👤 User message:', content);
+
+      // === COMMAND DETECTION (Bypass Hume tool calls) ===
+      if (!processingCommandRef.current) {
+        const command = detectCommand(content);
+
+        if (command) {
+          console.log(`🎯 Detected command: ${command.type}`);
+          processingCommandRef.current = true;
+
+          // Handle vision request - NOTE: We handle this via the Hume tool call now
+          // The analyze_vision tool in Hume will trigger and we handle it in the tool call handler
+          // This command detection is just a backup
+          if (command.type === 'vision_request') {
+            console.log('👁️ Vision request detected - will be handled by Hume tool call');
+            // Don't do anything here - let Hume's analyze_vision tool handle it
+            // The tool call handler will check isVisionActive and respond appropriately
+            processingCommandRef.current = false;
+          }
+
+          // Handle take picture request
+          else if (command.type === 'take_picture') {
+            console.log('📸 Opening camera from command detection');
+            setShowCamera(true);
+            processingCommandRef.current = false;
+          }
+
+          // Handle email picture request
+          else if (command.type === 'send_email_picture') {
+            console.log('📧 Email picture request detected');
+            if (!lastCapturedImageRef.current) {
+              // No picture taken yet
+              if (sendAssistantInput) {
+                sendAssistantInput('[No photo yet - ask if they want to take one first]');
+              }
+            } else if (!userProfile?.email && !command.extractedData?.email) {
+              // Need email address
+              if (sendAssistantInput) {
+                sendAssistantInput('[Need email address to send the picture]');
+              }
+            } else {
+              // We have picture and email - send it
+              const emailToUse = command.extractedData?.email || userProfile?.email;
+              console.log('📧 Sending picture to:', emailToUse);
+              fetch('/api/tools/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  toolName: 'send_email_picture',
+                  parameters: {
+                    email: emailToUse,
+                    user_name: userProfile?.name || 'Friend',
+                    image_url: lastCapturedImageRef.current,
+                    caption: 'Picture from NoVo!',
+                  },
+                }),
+              })
+                .then((res) => res.json())
+                .then((result) => {
+                  if (result.success && sendAssistantInput) {
+                    sendAssistantInput(`[Picture sent to ${emailToUse}]`);
+                  }
+                })
+                .catch((error) => {
+                  console.error('📧 Email error:', error);
+                });
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle email summary request
+          else if (command.type === 'send_email_summary') {
+            console.log('📧 Email summary request detected');
+            if (!userProfile?.email && !command.extractedData?.email) {
+              // Need email address
+              if (sendAssistantInput) {
+                sendAssistantInput('[Need email address for summary]');
+              }
+            } else {
+              // We have email - send summary
+              const emailToUse = command.extractedData?.email || userProfile?.email;
+              const conversationMessages = messages
+                .filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message')
+                .map((msg) => {
+                  const typedMsg = msg as {
+                    type: string;
+                    message?: { role: string; content: string };
+                    receivedAt?: Date;
+                  };
+                  return {
+                    role: typedMsg.message?.role === 'user' ? 'user' : 'assistant',
+                    content: typedMsg.message?.content || '',
+                    timestamp: typedMsg.receivedAt
+                      ? new Date(typedMsg.receivedAt).getTime()
+                      : Date.now(),
+                  };
+                });
+
+              console.log('📧 Sending summary to:', emailToUse);
+              fetch('/api/tools/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  toolName: 'send_email_summary',
+                  parameters: {
+                    email: emailToUse,
+                    user_name: userProfile?.name || 'Friend',
+                    messages: conversationMessages,
+                    userProfile: userProfile,
+                  },
+                }),
+              })
+                .then((res) => res.json())
+                .then((result) => {
+                  if (result.success && sendAssistantInput) {
+                    sendAssistantInput(`[Summary sent to ${emailToUse}]`);
+                  }
+                })
+                .catch((error) => {
+                  console.error('📧 Summary email error:', error);
+                });
+            }
+            processingCommandRef.current = false;
+          } else {
+            processingCommandRef.current = false;
+          }
+        }
+      }
+      // === END COMMAND DETECTION ===
 
       // Check if user wants to email the picture
       if (
@@ -886,7 +1356,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       let emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
       if (!emailMatch) {
         // Try to parse spoken email format: "wayne at wharburn dot com"
-        const spokenEmailMatch = content.match(/([a-zA-Z0-9._%+-]+)\s+at\s+([a-zA-Z0-9.-]+)\s+dot\s+([a-zA-Z]{2,})/i);
+        const spokenEmailMatch = content.match(
+          /([a-zA-Z0-9._%+-]+)\s+at\s+([a-zA-Z0-9.-]+)\s+dot\s+([a-zA-Z]{2,})/i
+        );
         if (spokenEmailMatch) {
           const constructedEmail = `${spokenEmailMatch[1]}@${spokenEmailMatch[2]}.${spokenEmailMatch[3]}`;
           console.log('📧 Constructed email from spoken format:', constructedEmail);
@@ -904,30 +1376,97 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       // Extract name from various patterns
       // Common words to exclude - these are NOT names
       const excludedWords = new Set([
-        'sure', 'okay', 'ok', 'yes', 'no', 'yeah', 'yep', 'nope', 'great', 'good', 
-        'fine', 'thanks', 'thank', 'please', 'hello', 'hi', 'hey', 'bye', 'goodbye',
-        'well', 'actually', 'really', 'just', 'right', 'correct', 'true', 'false',
-        'maybe', 'perhaps', 'probably', 'definitely', 'absolutely', 'certainly',
-        'perfect', 'awesome', 'cool', 'nice', 'alright', 'sorry', 'wow', 'oh',
-        'the', 'and', 'but', 'for', 'are', 'was', 'were', 'been', 'being',
-        'have', 'has', 'had', 'having', 'will', 'would', 'could', 'should',
-        'email', 'photo', 'picture', 'camera', 'send', 'take', 'call'
+        'sure',
+        'okay',
+        'ok',
+        'yes',
+        'no',
+        'yeah',
+        'yep',
+        'nope',
+        'great',
+        'good',
+        'fine',
+        'thanks',
+        'thank',
+        'please',
+        'hello',
+        'hi',
+        'hey',
+        'bye',
+        'goodbye',
+        'well',
+        'actually',
+        'really',
+        'just',
+        'right',
+        'correct',
+        'true',
+        'false',
+        'maybe',
+        'perhaps',
+        'probably',
+        'definitely',
+        'absolutely',
+        'certainly',
+        'perfect',
+        'awesome',
+        'cool',
+        'nice',
+        'alright',
+        'sorry',
+        'wow',
+        'oh',
+        'the',
+        'and',
+        'but',
+        'for',
+        'are',
+        'was',
+        'were',
+        'been',
+        'being',
+        'have',
+        'has',
+        'had',
+        'having',
+        'will',
+        'would',
+        'could',
+        'should',
+        'email',
+        'photo',
+        'picture',
+        'camera',
+        'send',
+        'take',
+        'call',
       ]);
 
       if (!emailIntentRef.current.name) {
         let extractedName: string | null = null;
 
         // Pattern 1: "my name is [name]" or "I'm [name]" or "I am [name]" or "call me [name]"
-        const namePattern1 = content.match(/(?:my\s+name\s+is|i'?m|i\s+am|call\s+me)\s+([a-zA-Z]+)/i);
+        const namePattern1 = content.match(
+          /(?:my\s+name\s+is|i'?m|i\s+am|call\s+me)\s+([a-zA-Z]+)/i
+        );
         if (namePattern1 && namePattern1[1]) {
           extractedName = namePattern1[1];
         }
-        
-        // Pattern 2: "it's [name]" when responding to "what's your name"
+
+        // Pattern 2: "it's [name]" - removed $ to allow "it's wayne and the email..."
         if (!extractedName) {
-          const namePattern2 = content.match(/^(?:it'?s|this\s+is)\s+([a-zA-Z]+)$/i);
+          const namePattern2 = content.match(/(?:it'?s|this\s+is)\s+([a-zA-Z]+)/i);
           if (namePattern2 && namePattern2[1]) {
             extractedName = namePattern2[1];
+          }
+        }
+
+        // Pattern 3: "yes, [name]" or "yes it's [name]" at the start
+        if (!extractedName) {
+          const namePattern3 = content.match(/^yes[,\s]+(?:it'?s\s+)?([a-zA-Z]+)/i);
+          if (namePattern3 && namePattern3[1]) {
+            extractedName = namePattern3[1];
           }
         }
 
@@ -935,10 +1474,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         if (extractedName && extractedName.length > 1) {
           const nameLower = extractedName.toLowerCase();
           if (!excludedWords.has(nameLower)) {
-            const name = extractedName.charAt(0).toUpperCase() + extractedName.slice(1).toLowerCase();
+            const name =
+              extractedName.charAt(0).toUpperCase() + extractedName.slice(1).toLowerCase();
             emailIntentRef.current.name = name;
             console.log('👤 Extracted name from user message:', name);
-            
+
             // Save to Redis
             saveUserProfile({ name });
           } else {
@@ -996,7 +1536,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'newUser' }),
         });
-        setUserProfile((prev) => prev ? { ...prev, name: undefined } : null);
+        setUserProfile((prev) => (prev ? { ...prev, name: undefined } : null));
       }
 
       // Extract additional personal information from user messages
@@ -1004,7 +1544,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       const profileUpdates: Record<string, string | number> = {};
 
       // Birthday patterns: "my birthday is", "I was born on", "born on"
-      const birthdayMatch = content.match(/(?:birthday\s+is|born\s+on|born\s+in)\s+([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?|\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i);
+      const birthdayMatch = content.match(
+        /(?:birthday\s+is|born\s+on|born\s+in)\s+([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?|\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i
+      );
       if (birthdayMatch) {
         profileUpdates.birthday = birthdayMatch[1];
         console.log('🎂 Extracted birthday:', birthdayMatch[1]);
@@ -1018,7 +1560,12 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       }
 
       // Relationship status patterns
-      if (lowerContent.includes('married') || lowerContent.includes('spouse') || lowerContent.includes('husband') || lowerContent.includes('wife')) {
+      if (
+        lowerContent.includes('married') ||
+        lowerContent.includes('spouse') ||
+        lowerContent.includes('husband') ||
+        lowerContent.includes('wife')
+      ) {
         profileUpdates.relationshipStatus = 'married';
         console.log('💍 Extracted relationship status: married');
       } else if (lowerContent.includes('single') || lowerContent.includes('not married')) {
@@ -1033,28 +1580,36 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       }
 
       // Occupation patterns: "I work as", "I'm a", "my job is", "I do"
-      const occupationMatch = content.match(/(?:i\s+work\s+as\s+(?:a\s+)?|i'?m\s+a\s+|my\s+job\s+is\s+(?:a\s+)?|i\s+am\s+a\s+|profession\s+is\s+(?:a\s+)?)([a-zA-Z\s]+?)(?:\.|,|$|\s+at\s+|\s+for\s+|\s+and\s+)/i);
+      const occupationMatch = content.match(
+        /(?:i\s+work\s+as\s+(?:a\s+)?|i'?m\s+a\s+|my\s+job\s+is\s+(?:a\s+)?|i\s+am\s+a\s+|profession\s+is\s+(?:a\s+)?)([a-zA-Z\s]+?)(?:\.|,|$|\s+at\s+|\s+for\s+|\s+and\s+)/i
+      );
       if (occupationMatch && occupationMatch[1].trim().length > 2) {
         profileUpdates.occupation = occupationMatch[1].trim();
         console.log('💼 Extracted occupation:', occupationMatch[1].trim());
       }
 
       // Employer patterns: "I work at", "I work for", "employed at/by"
-      const employerMatch = content.match(/(?:i\s+work\s+(?:at|for)|employed\s+(?:at|by)|company\s+is)\s+([A-Za-z0-9\s&]+?)(?:\.|,|$|\s+as\s+)/i);
+      const employerMatch = content.match(
+        /(?:i\s+work\s+(?:at|for)|employed\s+(?:at|by)|company\s+is)\s+([A-Za-z0-9\s&]+?)(?:\.|,|$|\s+as\s+)/i
+      );
       if (employerMatch && employerMatch[1].trim().length > 1) {
         profileUpdates.employer = employerMatch[1].trim();
         console.log('🏢 Extracted employer:', employerMatch[1].trim());
       }
 
       // Location patterns: "I live in", "I'm from", "located in"
-      const locationMatch = content.match(/(?:i\s+live\s+in|i'?m\s+from|located\s+in|i\s+am\s+from|based\s+in)\s+([A-Za-z\s,]+?)(?:\.|$|and\s+)/i);
+      const locationMatch = content.match(
+        /(?:i\s+live\s+in|i'?m\s+from|located\s+in|i\s+am\s+from|based\s+in)\s+([A-Za-z\s,]+?)(?:\.|$|and\s+)/i
+      );
       if (locationMatch && locationMatch[1].trim().length > 2) {
         profileUpdates.location = locationMatch[1].trim();
         console.log('📍 Extracted location:', locationMatch[1].trim());
       }
 
       // Phone number patterns
-      const phoneMatch = content.match(/(?:phone\s+(?:number\s+)?is|number\s+is|call\s+me\s+(?:at|on))\s*[:\s]*([+]?[\d\s\-\(\)]{10,})/i);
+      const phoneMatch = content.match(
+        /(?:phone\s+(?:number\s+)?is|number\s+is|call\s+me\s+(?:at|on))\s*[:\s]*([+]?[\d\s\-\(\)]{10,})/i
+      );
       if (phoneMatch) {
         profileUpdates.phone = phoneMatch[1].replace(/\s/g, '');
         console.log('📱 Extracted phone:', phoneMatch[1]);
@@ -1084,11 +1639,16 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       }
 
       // If NoVo says she's sending the email, extract email and name from her message
-      if (
-        content.toLowerCase().includes('send') &&
-        content.toLowerCase().includes('photo') &&
-        lastCapturedImageRef.current
-      ) {
+      // Triggers on: "send photo", "sending to", "I'll send that", etc.
+      const lowerContent = content.toLowerCase();
+      const isSendingMessage =
+        (lowerContent.includes('send') || lowerContent.includes('sending')) &&
+        (lowerContent.includes('photo') ||
+          lowerContent.includes('picture') ||
+          lowerContent.includes('to') ||
+          lowerContent.includes('email'));
+
+      if (isSendingMessage && lastCapturedImageRef.current) {
         console.log("📧 NoVo says she's sending the photo");
 
         // Extract email from NoVo's message
@@ -1102,26 +1662,77 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         // Extract name from NoVo's message (look for capitalized words that might be names)
         // Common words to exclude - these are NOT names
         const excludedNovoWords = new Set([
-          'sure', 'okay', 'ok', 'yes', 'no', 'yeah', 'great', 'good', 'perfect',
-          'fine', 'thanks', 'thank', 'please', 'hello', 'hi', 'hey', 'bye',
-          'well', 'actually', 'really', 'just', 'right', 'alright', 'got',
-          'email', 'photo', 'picture', 'camera', 'send', 'sending', 'sent',
-          'would', 'could', 'should', 'will', 'the', 'and', 'for', 'that',
-          'this', 'your', 'you', 'now', 'away', 'right', 'done', 'here'
+          'sure',
+          'okay',
+          'ok',
+          'yes',
+          'no',
+          'yeah',
+          'great',
+          'good',
+          'perfect',
+          'fine',
+          'thanks',
+          'thank',
+          'please',
+          'hello',
+          'hi',
+          'hey',
+          'bye',
+          'well',
+          'actually',
+          'really',
+          'just',
+          'right',
+          'alright',
+          'got',
+          'email',
+          'photo',
+          'picture',
+          'camera',
+          'send',
+          'sending',
+          'sent',
+          'would',
+          'could',
+          'should',
+          'will',
+          'the',
+          'and',
+          'for',
+          'that',
+          'this',
+          'your',
+          'you',
+          'now',
+          'away',
+          'right',
+          'done',
+          'here',
         ]);
 
         let extractedName: string | null = null;
 
         // Pattern 1: "Got it, [Name]" or "Perfect, [Name]" - name after greeting
-        const namePattern1 = content.match(/(?:got\s+it|perfect|great|okay|alright),?\s+([A-Z][a-z]+)/i);
-        if (namePattern1 && namePattern1[1] && !excludedNovoWords.has(namePattern1[1].toLowerCase())) {
+        const namePattern1 = content.match(
+          /(?:got\s+it|perfect|great|okay|alright),?\s+([A-Z][a-z]+)/i
+        );
+        if (
+          namePattern1 &&
+          namePattern1[1] &&
+          !excludedNovoWords.has(namePattern1[1].toLowerCase())
+        ) {
           extractedName = namePattern1[1];
         }
 
         // Pattern 2: "send...to [Name]" - name before email
         if (!extractedName) {
           const namePattern2 = content.match(/(?:send|email).*?to\s+([A-Z][a-z]+)(?:@|\s+at\s+)/i);
-          if (namePattern2 && namePattern2[1] && !excludedNovoWords.has(namePattern2[1].toLowerCase())) {
+          if (
+            namePattern2 &&
+            namePattern2[1] &&
+            !excludedNovoWords.has(namePattern2[1].toLowerCase())
+          ) {
             extractedName = namePattern2[1];
           }
         }
@@ -1129,7 +1740,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         // Pattern 3: "[Name]," at the start when addressing user
         if (!extractedName) {
           const namePattern3 = content.match(/^([A-Z][a-z]+),/);
-          if (namePattern3 && namePattern3[1] && !excludedNovoWords.has(namePattern3[1].toLowerCase())) {
+          if (
+            namePattern3 &&
+            namePattern3[1] &&
+            !excludedNovoWords.has(namePattern3[1].toLowerCase())
+          ) {
             extractedName = namePattern3[1];
           }
         }
@@ -1138,11 +1753,23 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           emailIntentRef.current.name = extractedName;
           console.log('👤 Extracted name from NoVo:', extractedName);
         } else {
-          console.log('👤 Could not extract valid name from NoVo message');
+          // Fallback: use stored user profile name
+          if (userProfile?.name) {
+            emailIntentRef.current.name = userProfile.name;
+            console.log('👤 Using stored user profile name:', userProfile.name);
+          } else {
+            console.log('👤 Could not extract valid name from NoVo message');
+          }
         }
 
         // Trigger email immediately if we have all info
         const intent = emailIntentRef.current;
+        console.log('📧 Email trigger check:', {
+          wantsEmail: intent.wantsEmail,
+          email: intent.email,
+          name: intent.name,
+          hasImage: !!lastCapturedImageRef.current,
+        });
         if (intent.wantsEmail && intent.email && intent.name && lastCapturedImageRef.current) {
           console.log('📧 Auto-triggering email NOW with collected info:', intent);
 
@@ -1419,6 +2046,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           .sort(([, a], [, b]) => b - a)
           .slice(0, 5);
 
+        // Update voice emotions for display (top 3)
+        const topThreeEmotions = sortedEmotions.slice(0, 3).map(([emotion, score]) => ({
+          emotion,
+          score,
+        }));
+        setVoiceEmotions(topThreeEmotions);
+
         console.log('=== Top 5 Prosody Emotions ===');
         sortedEmotions.forEach(([emotion, score]) => {
           console.log(`  ${emotion}: ${(score * 100).toFixed(1)}%`);
@@ -1523,6 +2157,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         </div>
       </header>
 
+      {/* Emotion Display - Voice and Video emotions */}
+      <EmotionDisplay
+        voiceEmotions={voiceEmotions}
+        videoEmotions={videoEmotions}
+        isVisionActive={isVisionActive}
+      />
+
       {/* Avatar Section - Dynamic Height */}
       <div
         className={`relative transition-all duration-300 ease-in-out ${
@@ -1545,19 +2186,50 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             </button>
           </div>
         ) : (
-          <AvatarDisplay
-            isListening={isListening}
-            isSpeaking={isSpeaking}
-            spokenText={currentSpokenText}
-            micVolume={micVolume}
-            onGreetingComplete={() => {
-              console.log('🎬 Greeting complete');
-            }}
-          />
+          <>
+            {/* Avatar with fade effect when weather is showing */}
+            <div
+              className="w-full h-full transition-opacity duration-500"
+              style={{ opacity: showWeatherOverlay ? 0.1 : 1 }}
+            >
+              <AvatarDisplay
+                isListening={isListening}
+                isSpeaking={isSpeaking}
+                spokenText={currentSpokenText}
+                micVolume={micVolume}
+                onGreetingComplete={() => {
+                  console.log('🎬 Greeting complete');
+                }}
+              />
+            </div>
+
+            {/* Weather overlay - shows on top of faded avatar */}
+            <WeatherOverlay
+              weather={weatherData}
+              isVisible={showWeatherOverlay}
+              duration={4000}
+              onComplete={() => {
+                setShowWeatherOverlay(false);
+              }}
+            />
+          </>
         )}
 
-        <ChatControls accessToken={accessToken} configId={configId} />
+        <ChatControls
+          accessToken={accessToken}
+          configId={configId}
+          isVisionActive={isVisionActive}
+          onVisionToggle={toggleVision}
+          userProfile={userProfile}
+        />
       </div>
+
+      {/* Vision Stream (camera preview when active) */}
+      <VisionStream
+        isActive={isVisionActive}
+        onFaceDetected={handleFaceDetected}
+        onEmotionsDetected={setVideoEmotions}
+      />
 
       {/* Transcript Section - Collapsible */}
       <div
@@ -1649,16 +2321,21 @@ export default function Chat({ accessToken, configId }: ChatProps) {
   } | null>(null);
 
   const handleMessage = (message: unknown) => {
-    const msg = message as { type?: string; name?: string; toolCallId?: string; parameters?: string };
+    const msg = message as {
+      type?: string;
+      name?: string;
+      toolCallId?: string;
+      parameters?: string;
+    };
     console.log(`Hume message [${msg.type}]:`, message);
-    
+
     // Check if this is a tool_call message
     if (msg.type === 'tool_call') {
       console.log('🔧🔧🔧 TOOL CALL detected in onMessage! 🔧🔧🔧');
       console.log('🔧 Tool name:', msg.name);
       console.log('🔧 Tool call ID:', msg.toolCallId);
       console.log('🔧 Full message:', JSON.stringify(msg, null, 2));
-      
+
       // Handle take_picture by setting state
       if (msg.name === 'take_picture') {
         console.log('📸 Setting pending tool call for camera...');
@@ -1682,13 +2359,15 @@ export default function Chat({ accessToken, configId }: ChatProps) {
   };
 
   const handleError = (error: unknown) => {
-    console.error('Hume error:', error);
     // Log detailed error info for debugging WebSocket issues
+    console.error('Hume error (raw):', JSON.stringify(error, null, 2));
+
     if (error && typeof error === 'object') {
-      const err = error as { type?: string; reason?: string; message?: string };
-      console.error('Error type:', err.type);
-      console.error('Error reason:', err.reason);
-      console.error('Error message:', err.message);
+      const err = error as Record<string, unknown>;
+      console.error('Hume error details:');
+      Object.keys(err).forEach((key) => {
+        console.error(`  ${key}:`, err[key]);
+      });
     }
   };
 
@@ -1700,77 +2379,116 @@ export default function Chat({ accessToken, configId }: ChatProps) {
       error: (e: { error: string; code: string; level: string; content: string }) => unknown;
     }
   ) => {
-    console.log('🔧🔧🔧 TOOL CALL RECEIVED via onToolCall! 🔧🔧🔧');
-    console.log('🔧 Tool name:', toolCall.name);
-    console.log('🔧 Tool call ID:', toolCall.toolCallId);
-    console.log('🔧 Parameters:', toolCall.parameters);
+    try {
+      console.log('🔧🔧🔧 TOOL CALL RECEIVED via onToolCall! 🔧🔧🔧');
+      console.log('🔧 Tool name:', toolCall.name);
+      console.log('🔧 Tool call ID:', toolCall.toolCallId);
+      console.log('🔧 Parameters:', toolCall.parameters);
 
-    // Pass to ChatInner via state
-    setPendingToolCall({
-      name: toolCall.name,
-      toolCallId: toolCall.toolCallId,
-      parameters: toolCall.parameters,
-      send,
-    });
+      // Pass to ChatInner via state
+      setPendingToolCall({
+        name: toolCall.name,
+        toolCallId: toolCall.toolCallId,
+        parameters: toolCall.parameters,
+        send,
+      });
 
-    // Return a promise that will be resolved when ChatInner handles the tool call
-    // For now, we'll handle simple tools here and complex ones (like camera) in ChatInner
-    
-    const params = JSON.parse(toolCall.parameters || '{}');
+      // Return a promise that will be resolved when ChatInner handles the tool call
+      // For now, we'll handle simple tools here and complex ones (like camera) in ChatInner
 
-    // Handle take_picture - this needs to open the camera in ChatInner
-    if (toolCall.name === 'take_picture') {
-      // Don't send any response here - ChatInner will handle it when photo is captured
-      // The send function is passed to ChatInner via pendingToolCall state
-      console.log('📸 take_picture: Deferring response to ChatInner (camera capture)');
-      return; // Don't call send.success() - let ChatInner do it after capture
-    }
+      const params = JSON.parse(toolCall.parameters || '{}');
 
-    // Handle send_email_summary - needs conversation messages from ChatInner
-    if (toolCall.name === 'send_email_summary') {
-      // Don't send any response here - ChatInner will handle it with conversation messages
-      // The send function is passed to ChatInner via pendingToolCall state
-      console.log('📧 send_email_summary: Deferring response to ChatInner (needs messages)');
-      return; // Don't call send.success() - let ChatInner do it after sending email
-    }
-
-    // Handle send_email_picture / send_picture_email - needs stored image from ChatInner
-    if (toolCall.name === 'send_email_picture' || toolCall.name === 'send_picture_email') {
-      // Don't send any response here - ChatInner will handle it with the stored image URL
-      // The send function is passed to ChatInner via pendingToolCall state
-      console.log('📧 send_email_picture: Deferring response to ChatInner (needs image URL)');
-      return; // Don't call send.success() - let ChatInner do it after sending email
-    }
-
-    // Handle other tools that can be executed immediately
-    if (toolCall.name === 'open_browser') {
-      const url = params.url;
-      if (url) {
-        window.open(url, '_blank');
-        return send.success({ message: `Opened ${url} in a new tab` });
+      // Handle take_picture - this needs to open the camera in ChatInner
+      if (toolCall.name === 'take_picture') {
+        // Don't send any response here - ChatInner will handle it when photo is captured
+        // The send function is passed to ChatInner via pendingToolCall state
+        console.log('📸 take_picture: Deferring response to ChatInner (camera capture)');
+        return; // Don't call send.success() - let ChatInner do it after capture
       }
-      return send.error({ error: 'No URL provided', code: 'MISSING_PARAM', level: 'error', content: '' });
-    }
 
-    if (toolCall.name === 'open_translator') {
-      const translatorUrl = process.env.NEXT_PUBLIC_TRANSLATOR_URL || 'https://translate.google.com';
-      window.open(translatorUrl, '_blank');
-      return send.success({ message: 'Opened translator' });
-    }
+      // Handle send_email_summary - needs conversation messages from ChatInner
+      if (toolCall.name === 'send_email_summary') {
+        // Don't send any response here - ChatInner will handle it with conversation messages
+        // The send function is passed to ChatInner via pendingToolCall state
+        console.log('📧 send_email_summary: Deferring response to ChatInner (needs messages)');
+        return; // Don't call send.success() - let ChatInner do it after sending email
+      }
 
-    // For other tools, return a generic success
-    return send.success({ message: `Tool ${toolCall.name} acknowledged` });
+      // Handle send_email_picture / send_picture_email - needs stored image from ChatInner
+      if (toolCall.name === 'send_email_picture' || toolCall.name === 'send_picture_email') {
+        // Don't send any response here - ChatInner will handle it with the stored image URL
+        // The send function is passed to ChatInner via pendingToolCall state
+        console.log('📧 send_email_picture: Deferring response to ChatInner (needs image URL)');
+        return; // Don't call send.success() - let ChatInner do it after sending email
+      }
+
+      // Handle analyze_vision - needs vision stream from ChatInner
+      if (toolCall.name === 'analyze_vision') {
+        // Don't send any response here - ChatInner will handle it with the vision stream
+        // The send function is passed to ChatInner via pendingToolCall state
+        console.log('👁️ analyze_vision: Deferring response to ChatInner (needs vision stream)');
+        return; // Don't call send.success() - let ChatInner do it after analysis
+      }
+
+      // Handle get_weather - needs to show overlay in ChatInner
+      if (toolCall.name === 'get_weather') {
+        // Don't send any response here - ChatInner will handle it with the weather overlay
+        // The send function is passed to ChatInner via pendingToolCall state
+        console.log('🌤️ get_weather: Deferring response to ChatInner (needs overlay)');
+        return; // Don't call send.success() - let ChatInner do it after showing weather
+      }
+
+      // Handle be_quiet - needs quiet mode state from ChatInner
+      if (toolCall.name === 'be_quiet') {
+        console.log('🤫 be_quiet: Deferring response to ChatInner (needs state)');
+        return;
+      }
+
+      // Handle resume_talking - needs quiet mode state from ChatInner
+      if (toolCall.name === 'resume_talking') {
+        console.log('🗣️ resume_talking: Deferring response to ChatInner (needs state)');
+        return;
+      }
+
+      // Handle other tools that can be executed immediately
+      if (toolCall.name === 'open_browser') {
+        const url = params.url;
+        if (url) {
+          window.open(url, '_blank');
+          return send.success({ message: `Opened ${url} in a new tab` });
+        }
+        return send.error({
+          error: 'No URL provided',
+          code: 'MISSING_PARAM',
+          level: 'error',
+          content: '',
+        });
+      }
+
+      if (toolCall.name === 'open_translator') {
+        const translatorUrl =
+          process.env.NEXT_PUBLIC_TRANSLATOR_URL || 'https://translate.google.com';
+        window.open(translatorUrl, '_blank');
+        return send.success({ message: 'Opened translator' });
+      }
+
+      // For other tools, return a generic success
+      return send.success({ message: `Tool ${toolCall.name} acknowledged` });
+    } catch (error) {
+      // Suppress Hume SDK internal errors
+      console.warn('🔧 Tool call handler error (suppressed):', error);
+    }
   };
 
   return (
-    <VoiceProvider 
-      onMessage={handleMessage} 
+    <VoiceProvider
+      onMessage={handleMessage}
       onError={handleError}
       onToolCall={handleToolCall as any}
     >
-      <ChatInner 
-        accessToken={accessToken} 
-        configId={configId} 
+      <ChatInner
+        accessToken={accessToken}
+        configId={configId}
         pendingToolCall={pendingToolCall}
         onToolCallHandled={() => setPendingToolCall(null)}
       />

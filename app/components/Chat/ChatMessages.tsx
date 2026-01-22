@@ -7,9 +7,25 @@ export default function ChatMessages() {
   const { messages } = useVoice();
 
   // Filter to only show user and assistant messages with content
+  // Hide the automatic greeting message sent for returning users
   // Reverse to show newest messages at the top
   const chatMessages = messages
-    .filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message')
+    .filter((msg) => {
+      if (msg.type !== 'user_message' && msg.type !== 'assistant_message') {
+        return false;
+      }
+      // Hide the automatic greeting trigger for returning users
+      const content = (msg as { message?: { content?: string } }).message?.content || '';
+      if (msg.type === 'user_message' && (
+        content.match(/^Hi! My name is .+ and I'm back\.$/) ||
+        content.match(/^Hey NoVo, it's .+!$/) ||
+        content.match(/^Hi, it's .+\.$/) ||
+        content === 'Hey NoVo!'
+      )) {
+        return false;
+      }
+      return true;
+    })
     .slice()
     .reverse();
 
