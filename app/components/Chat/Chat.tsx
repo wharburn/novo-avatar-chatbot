@@ -10,6 +10,7 @@ import { ChevronDown, ChevronUp, MessageSquare, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import AvatarDisplay from '../Avatar/AvatarDisplay';
 import CameraCapture from '../Camera/CameraCapture';
+import PhotoGrid from '../Photo/PhotoGrid';
 import EmotionDisplay, { EmotionScore } from '../Vision/EmotionDisplay';
 import VisionStream from '../Vision/VisionStream';
 import WeatherOverlay from '../Weather/WeatherOverlay';
@@ -2415,6 +2416,26 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     (msg) => msg.type === 'user_message' || msg.type === 'assistant_message'
   );
 
+  // Photo grid handlers
+  const handlePhotoDelete = (id: string) => {
+    setSessionPhotos((prev) => prev.filter((photo) => photo.id !== id));
+  };
+
+  const handleClosePhotoGrid = () => {
+    setShowPhotoGrid(false);
+    setIsPhotoSession(false);
+  };
+
+  const handleEmailPhotos = () => {
+    // TODO: Implement email functionality for multiple photos
+    console.log('📧 Emailing photos:', sessionPhotos.length);
+    if (sendAssistantInput) {
+      sendAssistantInput(`[Preparing to email ${sessionPhotos.length} photos to user]`);
+    }
+    // For now, just close the grid
+    handleClosePhotoGrid();
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
@@ -2592,6 +2613,16 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           caption={displayedImage.caption}
           timestamp={displayedImage.timestamp}
           onClose={() => setDisplayedImage(null)}
+        />
+      )}
+
+      {/* Photo Grid Modal */}
+      {showPhotoGrid && (
+        <PhotoGrid
+          photos={sessionPhotos}
+          onPhotoDelete={handlePhotoDelete}
+          onClose={handleClosePhotoGrid}
+          onEmailPhotos={handleEmailPhotos}
         />
       )}
     </div>
