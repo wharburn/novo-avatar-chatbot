@@ -694,7 +694,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
             console.log('🌤️ Sending weather report to NoVo:', weatherReport);
             pendingToolCall.send.success(weatherReport);
+            console.log('🌤️ Weather tool response sent successfully');
           } else {
+            console.error('🌤️ Weather API returned error:', data);
             pendingToolCall.send.error({
               error: 'Failed to fetch weather data',
               code: 'WEATHER_ERROR',
@@ -702,6 +704,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               content: '',
             });
           }
+          // Call handler AFTER response is sent
+          onToolCallHandled?.();
         })
         .catch((error) => {
           console.error('🌤️ Weather fetch error:', error);
@@ -711,9 +715,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             level: 'error',
             content: '',
           });
+          // Call handler AFTER error is sent
+          onToolCallHandled?.();
         });
 
-      onToolCallHandled?.();
+      // Don't call onToolCallHandled here - wait for async operation to complete
       return;
     }
 
