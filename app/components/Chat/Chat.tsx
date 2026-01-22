@@ -310,6 +310,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const [isQuietMode, setIsQuietMode] = useState(false);
   const quietModeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Silence detection for proactive photo session mode offer
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasOfferedPhotoSessionRef = useRef(false);
+  const lastUserMessageTimeRef = useRef<number>(Date.now());
+
   // Email confirmation state
   const [emailConfirmation, setEmailConfirmation] = useState<{
     email: string;
@@ -1546,6 +1551,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           // Handle explain photo session request
           else if (command.type === 'explain_photo_session') {
             console.log('📸 Explain photo session request detected');
+            // Reset the flag so we can offer again in future sessions
+            hasOfferedPhotoSessionRef.current = false;
             if (sendAssistantInput) {
               sendAssistantInput(
                 "[Explain: \"Photo Session Mode lets you take multiple photos! Say 'take a series of photos' to start. Camera enlarges, say 'shoot' for each photo. Say 'that's it' when done to see grid. Tap photos to view/delete. Want to try?\"]"
@@ -2237,6 +2244,41 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       setCurrentSpokenText('');
     }
   }, [isPlaying, isSpeaking]);
+
+  // Silence detection - offer photo session mode after 30 seconds of silence
+  useEffect(() => {
+    if (!isConnected || isQuietMode || hasOfferedPhotoSessionRef.current) return;
+
+    // Reset timer when user speaks
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.type === 'user_message') {
+      lastUserMessageTimeRef.current = Date.now();
+
+      // Clear existing timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+
+      // Start new timer - offer photo session mode after 30 seconds of silence
+      silenceTimerRef.current = setTimeout(() => {
+        if (!hasOfferedPhotoSessionRef.current && sendAssistantInput) {
+          console.log('⏰ 30 seconds of silence - offering photo session mode');
+          hasOfferedPhotoSessionRef.current = true;
+          sendAssistantInput(
+            '[After silence, ask: "Would you like to know about Photo Session Mode? It\'s a great way to take multiple photos easily!"]'
+          );
+        }
+      }, 30000); // 30 seconds
+    }
+
+    // Cleanup
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, [messages, isConnected, isQuietMode, sendAssistantInput]);
 
   // Extract emotion from prosody AND text content
   // Blends voice analysis with text-based keyword detection
