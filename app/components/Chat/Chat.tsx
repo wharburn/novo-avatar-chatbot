@@ -1287,7 +1287,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
 
     // Also check if the message has toolCall nested inside (some SDK versions)
-    const msgAny = lastMessage as any;
     if (msgAny.toolCall || msgAny.tool_call) {
       console.log('🔧 Found nested toolCall in message!', msgAny.toolCall || msgAny.tool_call);
     }
