@@ -1345,14 +1345,15 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               // Camera IS on - analyze and tell NoVo what we see
               console.log('👁️ Camera is ON - analyzing directly...');
               analyzeWithQuestion(
-                'Describe what you see - the person, their appearance, clothing, etc.'
+                'Describe everything you see in detail - the person, their appearance, clothing, colors, style, and any other visual details.'
               )
                 .then((analysis) => {
-                  console.log('👁️ Direct vision analysis complete');
+                  console.log('👁️ Direct vision analysis complete:', analysis);
                   if (sendAssistantInput) {
                     // Truncate to 200 chars max to stay under 256 limit
                     const truncated =
                       analysis.length > 200 ? analysis.slice(0, 200) + '...' : analysis;
+                    console.log('👁️ Sending to NoVo:', `[I see: ${truncated}]`);
                     sendAssistantInput(`[I see: ${truncated}]`);
                   }
                 })

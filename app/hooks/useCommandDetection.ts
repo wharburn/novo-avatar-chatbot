@@ -28,7 +28,7 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
   vision_request: [
     /what\s*(am\s*i|are\s*you\s*seeing|do\s*you\s*see|can\s*you\s*see)/i,
     /what('?m|\s*am)\s*i\s*wearing/i,
-    /describe\s*(my|what\s*i('?m|\s*am)\s*wearing|my\s*outfit|my\s*clothes)/i,
+    /describe\s*(my|what\s*i('?m|\s*am)\s*wearing|my\s*outfit|my\s*clothes|what\s*you\s*see)/i,
     /do\s*i\s*look\s*(good|nice|okay|ok|alright|great|bad)/i,
     /how\s*do\s*i\s*look/i,
     /can\s*you\s*see\s*(me|what\s*i)/i,
@@ -38,7 +38,9 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
     /what\s*do\s*you\s*think\s*(of|about)\s*(my|this|the)\s*(outfit|look|style|clothes)/i,
     /does\s*this\s*(look|suit|fit)/i,
     /see\s*what\s*i('?m|\s*am)\s*wearing/i,
-    /tell\s*me\s*(about|what)\s*(my|you\s*see)/i,
+    /tell\s*me\s*(about|what)\s*(my|you\s*see|you('?re|\s*are)\s*seeing)/i,
+    /analyze\s*(what\s*you\s*see|my\s*outfit|my\s*look)/i,
+    /what\s*(are|do)\s*you\s*see/i,
   ],
   take_picture: [
     /^shoot$/i, // Quick "shoot" command when camera is on
