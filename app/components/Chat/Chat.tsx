@@ -1044,26 +1044,27 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   analysis.includes('Unable to capture')
                 ) {
                   console.warn('👁️ Camera stream not ready yet, sending generic message');
-                  sendAssistantInput(
-                    '[CAMERA IS NOW ON. You can now see the user! Acknowledge that the camera is active and you can see them.]'
-                  );
+                  sendAssistantInput('[Camera ON. Acknowledge you can see the user.]');
                 } else {
-                  sendAssistantInput(
-                    `[CAMERA IS NOW ON! I can see the user. Here's what I observe: ${analysis}. Acknowledge that you can see them and comment on what you observe.]`
-                  );
+                  // Truncate analysis to fit within 256 char limit (leaving room for prefix)
+                  const maxAnalysisLength = 200;
+                  const truncatedAnalysis =
+                    analysis.length > maxAnalysisLength
+                      ? analysis.slice(0, maxAnalysisLength) + '...'
+                      : analysis;
+
+                  sendAssistantInput(`[Camera ON. I see: ${truncatedAnalysis}]`);
                 }
               })
               .catch((err) => {
                 console.error('👁️ Initial vision analysis failed:', err);
-                sendAssistantInput(
-                  '[CAMERA IS NOW ON. You can now see the user! Acknowledge that the camera is active.]'
-                );
+                sendAssistantInput('[Camera ON. Acknowledge you can see the user.]');
               });
           }, 1000); // Wait 1 second for camera to initialize
         } else {
           // Camera just turned OFF
           console.log('👁️ Camera turned OFF - notifying NoVo');
-          sendAssistantInput('[CAMERA IS NOW OFF. You can no longer see the user.]');
+          sendAssistantInput('[Camera OFF. You cannot see the user.]');
         }
       }
     } catch (error) {
