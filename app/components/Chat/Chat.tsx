@@ -669,7 +669,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       return;
     }
 
-    // Handle get_weather tool - fetch weather and show overlay
+    // Handle get_weather tool - fetch weather and send to NoVo
     if (pendingToolCall.name === 'get_weather') {
       console.log('🌤️ Handling get_weather tool');
 
@@ -693,28 +693,40 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             const weatherReport = `Current weather in ${w.location}: It's ${w.temperature.celsius}°C and ${w.condition.toLowerCase()}. Humidity is ${w.humidity}%, wind speed is ${w.windSpeed} mph, and the UV index is ${w.uv}.`;
 
             console.log('🌤️ Sending weather report to NoVo:', weatherReport);
-            pendingToolCall.send.success(weatherReport);
-            console.log('🌤️ Weather tool response sent successfully');
+
+            // Use sendToolMessage instead of pendingToolCall.send to avoid SDK bug
+            if (sendToolMessage && pendingToolCall.toolCallId) {
+              sendToolMessage({
+                type: 'tool_response',
+                toolCallId: pendingToolCall.toolCallId,
+                content: weatherReport,
+              } as any);
+              console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
+            }
           } else {
             console.error('🌤️ Weather API returned error:', data);
-            pendingToolCall.send.error({
-              error: 'Failed to fetch weather data',
-              code: 'WEATHER_ERROR',
-              level: 'error',
-              content: '',
-            });
+            if (sendToolMessage && pendingToolCall.toolCallId) {
+              sendToolMessage({
+                type: 'tool_error',
+                toolCallId: pendingToolCall.toolCallId,
+                error: 'Failed to fetch weather data',
+                content: '',
+              } as any);
+            }
           }
           // Call handler AFTER response is sent
           onToolCallHandled?.();
         })
         .catch((error) => {
           console.error('🌤️ Weather fetch error:', error);
-          pendingToolCall.send.error({
-            error: error.message || 'Failed to fetch weather',
-            code: 'WEATHER_ERROR',
-            level: 'error',
-            content: '',
-          });
+          if (sendToolMessage && pendingToolCall.toolCallId) {
+            sendToolMessage({
+              type: 'tool_error',
+              toolCallId: pendingToolCall.toolCallId,
+              error: error.message || 'Failed to fetch weather',
+              content: '',
+            } as any);
+          }
           // Call handler AFTER error is sent
           onToolCallHandled?.();
         });
