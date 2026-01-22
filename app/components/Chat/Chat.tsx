@@ -2404,12 +2404,12 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Transcript Section - Collapsible */}
       <div
-        className={`bg-white border-t border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
+        className={`bg-white transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
           transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-center px-3 py-1 bg-gray-50 border-b border-gray-200 relative">
+        <div className="flex items-center justify-center px-3 py-1 bg-gray-100 relative">
           <button
             onClick={() => setTranscriptVisible(false)}
             className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
