@@ -2409,9 +2409,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+        <div className="flex items-center justify-between px-4 py-1.5 bg-gray-50 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-gray-600" />
+            <MessageSquare className="w-4 h-4 text-gray-600" />
             <h3 className="text-sm font-medium text-gray-700">Conversation</h3>
             {chatMessages.length > 0 && (
               <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
@@ -2429,7 +2429,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         </div>
 
         {/* Messages */}
-        <div className="h-[calc(100%-48px)] overflow-y-auto px-4 py-1">
+        <div className="h-[calc(100%-36px)] overflow-y-auto px-4 py-1">
           <ChatMessages />
         </div>
       </div>
