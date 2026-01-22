@@ -700,14 +700,20 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setShowWeatherOverlay(true);
 
             // Send weather info back to NoVo - IMPORTANT: Tell her NOT to repeat the visible info
-            const tempC = data.weather.temperature.celsius;
             const loc = data.weather.location;
             const cond = data.weather.condition;
 
             // CRITICAL: Tell NoVo the weather is VISIBLE and she should NOT describe it
-            const weatherReport = `WEATHER IS NOW VISIBLE ON SCREEN. The user can see: ${loc}, ${tempC}°C, ${cond}. DO NOT describe the temperature, humidity, or conditions - they can already see all of this! Just say something brief like "There's the weather for ${loc}!" and give ONE short outfit tip based on ${cond} conditions. Keep your response under 15 words.`;
+            const weatherReport = `WEATHER IS NOW VISIBLE ON SCREEN for ${loc}. The user can see the temperature, conditions, humidity - everything! DO NOT describe any weather details. Just say "There's the weather!" and give ONE brief outfit tip. Maximum 10 words total.`;
 
             pendingToolCall.send.success(weatherReport);
+
+            // Also inject a direct message to reinforce
+            if (sendAssistantInput) {
+              sendAssistantInput(
+                `[Weather overlay is now displayed to user. Do not describe the weather - they can see it. Just acknowledge briefly and give one outfit tip for ${cond} weather.]`
+              );
+            }
           } else {
             pendingToolCall.send.error({
               error: 'Failed to fetch weather data',
@@ -996,7 +1002,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
   }, [isConnected]);
 
-  // Update session variables when vision is toggled
+  // Update session variables when vision is toggled AND notify NoVo
   useEffect(() => {
     // Only update if we've already sent initial session variables
     if (!isConnected || !sendSessionSettings || !sessionVariablesSentRef.current) return;
@@ -1012,10 +1018,23 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         },
       });
       console.log('👁️ Updated vision status:', isVisionActive ? 'ON' : 'OFF');
+
+      // Notify NoVo about camera state change
+      if (sendAssistantInput) {
+        if (isVisionActive) {
+          // Camera just turned ON - tell NoVo she can now see
+          sendAssistantInput(
+            '[CAMERA IS NOW ON. You can now see the user! If they asked you to look at them, describe what you see.]'
+          );
+        } else {
+          // Camera just turned OFF
+          sendAssistantInput('[CAMERA IS NOW OFF. You can no longer see the user.]');
+        }
+      }
     } catch (error) {
       console.error('Failed to update vision status:', error);
     }
-  }, [isVisionActive, isConnected, sendSessionSettings, userProfile]);
+  }, [isVisionActive, isConnected, sendSessionSettings, sendAssistantInput, userProfile]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
@@ -1216,13 +1235,41 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           console.log(`🎯 Detected command: ${command.type}`);
           processingCommandRef.current = true;
 
-          // Handle vision request - NOTE: We handle this via the Hume tool call now
-          // The analyze_vision tool in Hume will trigger and we handle it in the tool call handler
-          // This command detection is just a backup
+          // Handle vision request - if camera is ON, analyze directly and inject result
           if (command.type === 'vision_request') {
-            console.log('👁️ Vision request detected - will be handled by Hume tool call');
-            // Don't do anything here - let Hume's analyze_vision tool handle it
-            // The tool call handler will check isVisionActive and respond appropriately
+            console.log('👁️ Vision request detected');
+
+            if (isVisionActive) {
+              // Camera IS on - analyze and tell NoVo what we see
+              console.log('👁️ Camera is ON - analyzing directly...');
+              analyzeWithQuestion(
+                'Describe what you see - the person, their appearance, clothing, etc.'
+              )
+                .then((analysis) => {
+                  console.log('👁️ Direct vision analysis complete');
+                  if (sendAssistantInput) {
+                    sendAssistantInput(
+                      `[VISION ANALYSIS - Camera is ON and I can see the user: ${analysis}]`
+                    );
+                  }
+                })
+                .catch((error) => {
+                  console.error('👁️ Vision analysis error:', error);
+                  if (sendAssistantInput) {
+                    sendAssistantInput(
+                      '[Camera is on but I had trouble analyzing the image. Ask them to adjust position or lighting.]'
+                    );
+                  }
+                });
+            } else {
+              // Camera is OFF - tell NoVo to ask user to enable it
+              console.log('👁️ Camera is OFF - telling NoVo to ask user to enable');
+              if (sendAssistantInput) {
+                sendAssistantInput(
+                  '[CAMERA IS OFF. Ask the user to tap the eye button at the bottom left of the screen to enable the camera. It will glow red when on.]'
+                );
+              }
+            }
             processingCommandRef.current = false;
           }
 
