@@ -1467,7 +1467,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               }
             } else {
               // We have email - show confirmation dialog
-              const emailToUse = command.extractedData?.email || userProfile?.email;
+              const emailToUse = command.extractedData?.email || userProfile?.email || '';
               const conversationMessages = messages
                 .filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message')
                 .map((msg) => {
