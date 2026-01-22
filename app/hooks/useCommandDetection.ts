@@ -38,7 +38,10 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
     /look\s*at\s*me/i,
     /what\s*color\s*(is|are)\s*(my|the)/i,
     /give\s*me\s*(some\s*)?(fashion|style)\s*advice/i,
-    /what\s*do\s*you\s*think\s*(of|about)\s*(my|this|the)\s*(outfit|look|style|clothes)/i,
+    /what\s*do\s*you\s*think\s*(of|about)\s*(my|this|the)\s*(outfit|look|style|clothes|t[\s-]?shirt|shirt|wearing)/i,
+    /what\s*do\s*you\s*think\?/i, // Generic "what do you think?" when camera is on
+    /what('?s|\s*is)\s*your\s*opinion/i, // "what's your opinion?"
+    /your\s*opinion/i, // "your opinion"
     /does\s*this\s*(look|suit|fit)/i,
     /see\s*what\s*i('?m|\s*am)\s*wearing/i,
     /tell\s*me\s*(about|what)\s*(my|you\s*see|you('?re|\s*are)\s*seeing)/i,
