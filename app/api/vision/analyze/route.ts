@@ -20,15 +20,15 @@ async function fetchWeatherContext(latitude?: number, longitude?: number): Promi
   try {
     // Default to a reasonable location if not provided
     const lat = latitude ?? 40.7128; // NYC default
-    const lon = longitude ?? -74.0060;
-    
+    const lon = longitude ?? -74.006;
+
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const response = await fetch(`${baseUrl}/api/weather?lat=${lat}&lon=${lon}`, {
       cache: 'no-store',
     });
-    
+
     if (!response.ok) return null;
-    
+
     const data = await response.json();
     return data.fashionContext || null;
   } catch (error) {
@@ -44,9 +44,9 @@ async function fetchFashionTrends(): Promise<string | null> {
     const response = await fetch(`${baseUrl}/api/fashion/trends`, {
       cache: 'no-store',
     });
-    
+
     if (!response.ok) return null;
-    
+
     const data = await response.json();
     return data.context || null;
   } catch (error) {
@@ -83,10 +83,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+    if (!openrouterApiKey) {
       return NextResponse.json(
-        { success: false, error: 'OpenAI API key not configured' },
+        { success: false, error: 'OpenRouter API key not configured' },
         { status: 500 }
       );
     }
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     // Fetch weather and fashion context in parallel for fashion-related analysis
     let weatherContext: string | null = null;
     let fashionContext: string | null = null;
-    
+
     if (analysisType !== 'emotion') {
       // Fetch both contexts in parallel
       const [weather, fashion] = await Promise.all([
@@ -107,32 +107,39 @@ export async function POST(request: NextRequest) {
 
     // Build enhanced system prompt with context
     let systemPrompt = FASHION_SYSTEM_PROMPT;
-    
+
     if (weatherContext || fashionContext) {
       systemPrompt += '\n\n--- CONTEXT FOR YOUR RESPONSE ---\n';
-      
+
       if (weatherContext) {
         systemPrompt += '\n' + weatherContext;
       }
-      
+
       if (fashionContext) {
         systemPrompt += '\n' + fashionContext;
       }
-      
-      systemPrompt += '\n\nUse this context to give weather-appropriate advice (like suggesting an umbrella if it\'s raining) and to comment on how their outfit aligns with current trends. Be natural about it - weave it into your response conversationally.';
+
+      systemPrompt +=
+        "\n\nUse this context to give weather-appropriate advice (like suggesting an umbrella if it's raining) and to comment on how their outfit aligns with current trends. Be natural about it - weave it into your response conversationally.";
     }
 
     // Determine the user prompt based on analysis type
-    let userPrompt = question || 'Please describe what you see, focusing on the clothing, colors, and overall style.';
-    
+    let userPrompt =
+      question ||
+      'Please describe what you see, focusing on the clothing, colors, and overall style.';
+
     if (analysisType === 'emotion') {
       systemPrompt = EMOTION_SYSTEM_PROMPT;
       userPrompt = 'Analyze the emotional state of the person in this image.';
     } else if (analysisType === 'fashion') {
       // Use user's specific question or default fashion analysis
-      userPrompt = question || 'Describe the outfit and provide a supportive fashion assessment. What colors and styles do you see? How could the look be enhanced? Consider the current weather and fashion trends.';
+      userPrompt =
+        question ||
+        'Describe the outfit and provide a supportive fashion assessment. What colors and styles do you see? How could the look be enhanced? Consider the current weather and fashion trends.';
     } else if (analysisType === 'describe') {
-      userPrompt = question || 'What am I wearing? Please describe my outfit in detail including colors, patterns, and style. Also give me practical advice for today\'s weather.';
+      userPrompt =
+        question ||
+        "What am I wearing? Please describe my outfit in detail including colors, patterns, and style. Also give me practical advice for today's weather.";
     }
 
     // Prepare image for GPT-4 Vision
@@ -142,45 +149,51 @@ export async function POST(request: NextRequest) {
       base64Image = imageData.split(',')[1];
     }
 
-    // Call OpenAI GPT-4 Vision API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call Anthropic Claude 3.5 Sonnet API (unrestricted vision)
+    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+    if (!anthropicApiKey) {
+      console.error('ANTHROPIC_API_KEY not configured');
+      return NextResponse.json(
+        { success: false, error: 'Vision API not configured' },
+        { status: 500 }
+      );
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o', // Use GPT-4o for best vision capabilities
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1024,
         messages: [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
           {
             role: 'user',
             content: [
               {
-                type: 'text',
-                text: userPrompt,
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: 'image/jpeg',
+                  data: base64Image,
+                },
               },
               {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                  detail: 'low', // Use low detail for faster/cheaper analysis
-                },
+                type: 'text',
+                text: `${systemPrompt}\n\n${userPrompt}`,
               },
             ],
           },
         ],
-        max_tokens: 600, // Increased slightly to accommodate weather/trend advice
-        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', errorText);
+      console.error('Anthropic API error:', errorText);
       return NextResponse.json(
         { success: false, error: 'Failed to analyze image' },
         { status: 500 }
@@ -188,7 +201,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json();
-    const analysis = result.choices?.[0]?.message?.content || 'Unable to analyze image';
+    const analysis = result.content?.[0]?.text || 'Unable to analyze image';
 
     // For emotion analysis, try to parse as JSON
     if (analysisType === 'emotion') {
@@ -216,12 +229,8 @@ export async function POST(request: NextRequest) {
       type: analysisType || 'fashion',
       analysis,
     });
-
   } catch (error) {
     console.error('Vision analysis error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

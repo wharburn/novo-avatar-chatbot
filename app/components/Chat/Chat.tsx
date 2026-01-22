@@ -307,6 +307,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const [isQuietMode, setIsQuietMode] = useState(false);
   const quietModeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Email confirmation state
+  const [emailConfirmation, setEmailConfirmation] = useState<{
+    email: string;
+    type: 'picture' | 'summary';
+    data: any; // Store the data needed to send the email
+  } | null>(null);
+
   // User location for weather (cached)
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
@@ -1365,31 +1372,24 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 sendAssistantInput('[Need email address to send the picture]');
               }
             } else {
-              // We have picture and email - send it
+              // We have picture and email - show confirmation dialog
               const emailToUse = command.extractedData?.email || userProfile?.email;
-              console.log('📧 Sending picture to:', emailToUse);
-              fetch('/api/tools/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  toolName: 'send_email_picture',
-                  parameters: {
-                    email: emailToUse,
-                    user_name: userProfile?.name || 'Friend',
-                    image_url: lastCapturedImageRef.current,
-                    caption: 'Picture from NoVo!',
-                  },
-                }),
-              })
-                .then((res) => res.json())
-                .then((result) => {
-                  if (result.success && sendAssistantInput) {
-                    sendAssistantInput(`[Picture sent to ${emailToUse}]`);
-                  }
-                })
-                .catch((error) => {
-                  console.error('📧 Email error:', error);
-                });
+              console.log('📧 Showing email confirmation for:', emailToUse);
+
+              setEmailConfirmation({
+                email: emailToUse,
+                type: 'picture',
+                data: {
+                  user_name: userProfile?.name || 'Friend',
+                  image_url: lastCapturedImageRef.current,
+                  caption: 'Picture from NoVo!',
+                },
+              });
+
+              // Tell NoVo we're asking for confirmation
+              if (sendAssistantInput) {
+                sendAssistantInput('[Asking user to confirm email address before sending]');
+              }
             }
             processingCommandRef.current = false;
           }
@@ -1403,7 +1403,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 sendAssistantInput('[Need email address for summary]');
               }
             } else {
-              // We have email - send summary
+              // We have email - show confirmation dialog
               const emailToUse = command.extractedData?.email || userProfile?.email;
               const conversationMessages = messages
                 .filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message')
@@ -1422,29 +1422,22 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   };
                 });
 
-              console.log('📧 Sending summary to:', emailToUse);
-              fetch('/api/tools/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  toolName: 'send_email_summary',
-                  parameters: {
-                    email: emailToUse,
-                    user_name: userProfile?.name || 'Friend',
-                    messages: conversationMessages,
-                    userProfile: userProfile,
-                  },
-                }),
-              })
-                .then((res) => res.json())
-                .then((result) => {
-                  if (result.success && sendAssistantInput) {
-                    sendAssistantInput(`[Summary sent to ${emailToUse}]`);
-                  }
-                })
-                .catch((error) => {
-                  console.error('📧 Summary email error:', error);
-                });
+              console.log('📧 Showing email confirmation for summary:', emailToUse);
+
+              setEmailConfirmation({
+                email: emailToUse,
+                type: 'summary',
+                data: {
+                  user_name: userProfile?.name || 'Friend',
+                  messages: conversationMessages,
+                  userProfile: userProfile,
+                },
+              });
+
+              // Tell NoVo we're asking for confirmation
+              if (sendAssistantInput) {
+                sendAssistantInput('[Asking user to confirm email address before sending]');
+              }
             }
             processingCommandRef.current = false;
           } else {
