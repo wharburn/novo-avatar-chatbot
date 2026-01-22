@@ -1413,7 +1413,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
                   if (sendAssistantInput) {
                     sendAssistantInput(
-                      '[Photo captured! Ask: "Would you like to know about Photo Session Mode? It lets you take multiple photos in a row by just saying \'shoot\' each time!"]'
+                      '[Photo captured! Ask: "Want to know about Photo Session Mode? You can take multiple photos by saying \'shoot\'!"]'
                     );
                   }
                 } else {
@@ -1555,7 +1555,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             hasOfferedPhotoSessionRef.current = false;
             if (sendAssistantInput) {
               sendAssistantInput(
-                "[Explain: \"Photo Session Mode lets you take multiple photos! Say 'take a series of photos' to start. Camera enlarges, say 'shoot' for each photo. Say 'that's it' when done to see grid. Tap photos to view/delete. Want to try?\"]"
+                "[Explain: \"Say 'take a series of photos' to start. Say 'shoot' for each photo. Say 'done' to see grid and delete unwanted ones.\"]"
               );
             }
             processingCommandRef.current = false;
@@ -2266,7 +2266,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           console.log('⏰ 30 seconds of silence - offering photo session mode');
           hasOfferedPhotoSessionRef.current = true;
           sendAssistantInput(
-            '[After silence, ask: "Would you like to know about Photo Session Mode? It\'s a great way to take multiple photos easily!"]'
+            '[After silence, ask: "Want to know about Photo Session Mode? It\'s great for taking multiple photos!"]'
           );
         }
       }, 30000); // 30 seconds
