@@ -2499,12 +2499,13 @@ export default function Chat({ accessToken, configId }: ChatProps) {
         return; // Don't call send.success() - let ChatInner do it after analysis
       }
 
-      // Handle get_weather - needs to show overlay in ChatInner
+      // Handle get_weather - send response immediately via sendToolMessage
       if (toolCall.name === 'get_weather') {
-        // Don't send any response here - ChatInner will handle it with the weather overlay
-        // The send function is passed to ChatInner via pendingToolCall state
-        console.log('🌤️ get_weather: Deferring response to ChatInner (needs overlay)');
-        return; // Don't call send.success() - let ChatInner do it after showing weather
+        console.log('🌤️ get_weather: Handling in ChatInner via message polling');
+        // Don't use send.success() here - it causes TypeError in SDK
+        // ChatInner will handle this via message polling and use sendToolMessage
+        // Return empty to prevent SDK error
+        return Promise.resolve();
       }
 
       // Handle be_quiet - needs quiet mode state from ChatInner
