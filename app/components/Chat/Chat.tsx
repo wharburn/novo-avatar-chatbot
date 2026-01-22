@@ -1436,7 +1436,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               }
             } else {
               // We have picture and email - show confirmation dialog
-              const emailToUse = command.extractedData?.email || userProfile?.email;
+              const emailToUse = command.extractedData?.email || userProfile?.email || '';
               console.log('📧 Showing email confirmation for:', emailToUse);
 
               setEmailConfirmation({
