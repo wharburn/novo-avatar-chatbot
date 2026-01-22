@@ -7,6 +7,9 @@ export type CommandType =
   | 'enable_camera' // "turn on camera", "show you something", "see my clothes"
   | 'vision_request' // "what am I wearing?", "do I look good?"
   | 'take_picture' // "take a picture", "take a photo"
+  | 'photo_session' // "take a series of photos", "photo shoot"
+  | 'end_photo_session' // "that's it", "I'm finished", "done with photos"
+  | 'explain_photo_session' // "tell me about photo session", "how does it work"
   | 'send_email_picture' // "email me the picture", "send the photo"
   | 'send_email_summary' // "email me a summary", "send conversation recap"
   | null;
@@ -51,6 +54,31 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
     /capture\s*(a\s*)?(picture|photo|image|me)/i,
     /photograph\s*(me)?/i,
     /get\s*(a\s*)?(picture|photo|shot)/i,
+  ],
+  photo_session: [
+    /take\s*(a\s*)?(series|bunch|set)\s*of\s*(pictures|photos|pics|shots)/i,
+    /photo\s*(shoot|session)/i,
+    /multiple\s*(pictures|photos|shots)/i,
+    /several\s*(pictures|photos|shots)/i,
+    /want\s*you\s*to\s*take\s*(some|multiple|several)\s*(pictures|photos)/i,
+  ],
+  end_photo_session: [
+    /that('?s|\s*is)\s*(it|all|enough)/i,
+    /i('?m|\s*am)\s*(done|finished)/i,
+    /^done$/i,
+    /^finished$/i,
+    /no\s*more\s*(pictures|photos|shots)/i,
+    /that('?s|\s*is)\s*all\s*(i\s*need|we\s*need)/i,
+  ],
+  explain_photo_session: [
+    /tell\s*me\s*about\s*photo\s*session/i,
+    /how\s*does\s*(photo\s*session|it)\s*work/i,
+    /what('?s|\s*is)\s*photo\s*session/i,
+    /explain\s*photo\s*session/i,
+    /^yes$/i, // When AI asks "do you want to know about photo session mode?"
+    /^yeah$/i,
+    /^sure$/i,
+    /tell\s*me/i,
   ],
   send_email_picture: [
     /email\s*(me\s*)?(the\s*)?(picture|photo|pic|image)/i,

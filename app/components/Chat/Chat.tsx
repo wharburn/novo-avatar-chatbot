@@ -1408,7 +1408,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
                   if (sendAssistantInput) {
                     sendAssistantInput(
-                      '[Photo captured! Ask if they want to take another or if they want to email it.]'
+                      '[Photo captured! Ask: "Would you like to know about Photo Session Mode? It lets you take multiple photos in a row by just saying \'shoot\' each time!"]'
                     );
                   }
                 } else {
@@ -1506,6 +1506,72 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               if (sendAssistantInput) {
                 sendAssistantInput('[Asking user to confirm email address before sending]');
               }
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle explain photo session request
+          else if (command.type === 'explain_photo_session') {
+            console.log('📸 Explain photo session request detected');
+            if (sendAssistantInput) {
+              sendAssistantInput(
+                "[Explain Photo Session Mode: \"Photo Session Mode lets you take multiple photos easily! Just say 'I want you to take a series of photos for me' to start. Then the camera will show a large preview, and you can say 'shoot' each time you want to capture a photo. The camera keeps streaming so you can see yourself between shots. When you're done, say 'that's it' or 'I'm finished', and I'll show you all your photos in a grid. You can tap any photo to view it full screen, and delete the ones you don't want with the trash button. Finally, I can email all your favorite shots to you! Want to try it?\"]"
+              );
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle photo session start request
+          else if (command.type === 'photo_session') {
+            console.log('📸 Photo session start request detected');
+            // TODO: Implement photo session mode
+            if (sendAssistantInput) {
+              sendAssistantInput(
+                '[Photo session mode starting! Camera will enlarge. Say "shoot" to capture each photo.]'
+              );
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle end photo session request
+          else if (command.type === 'end_photo_session') {
+            console.log('📸 End photo session request detected');
+            // TODO: Implement photo session end and grid view
+            if (sendAssistantInput) {
+              sendAssistantInput('[Photo session ended! Showing grid of all photos captured.]');
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle explain photo session request
+          else if (command.type === 'explain_photo_session') {
+            console.log('📸 Explain photo session request detected');
+            if (sendAssistantInput) {
+              sendAssistantInput(
+                "[Explain: \"Photo Session Mode lets you take multiple photos! Say 'take a series of photos' to start. Camera enlarges, say 'shoot' for each photo. Say 'that's it' when done to see grid. Tap photos to view/delete. Want to try?\"]"
+              );
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle photo session start request
+          else if (command.type === 'photo_session') {
+            console.log('📸 Photo session start request detected');
+            // TODO: Implement photo session mode
+            if (sendAssistantInput) {
+              sendAssistantInput(
+                '[Photo session starting! Camera enlarging. Say "shoot" for each photo.]'
+              );
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle end photo session request
+          else if (command.type === 'end_photo_session') {
+            console.log('📸 End photo session request detected');
+            // TODO: Implement photo session end and grid view
+            if (sendAssistantInput) {
+              sendAssistantInput('[Session ended! Showing photo grid.]');
             }
             processingCommandRef.current = false;
           } else {
