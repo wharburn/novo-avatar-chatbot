@@ -666,6 +666,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           // CRITICAL: Send as a clear string, not an object, telling NoVo we CAN see
           const visionResponse = `CAMERA IS ON - I CAN SEE THE USER! Here is what I observe: ${analysis}`;
           pendingToolCall.send.success(visionResponse);
+          onToolCallHandled?.();
         })
         .catch((error) => {
           console.error('👁️ Vision analysis error:', error);
@@ -673,9 +674,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           pendingToolCall.send.success(
             'CAMERA IS ON but I had trouble analyzing the image. I can see the user though! Ask them to adjust their position or lighting.'
           );
+          onToolCallHandled?.();
         });
 
-      onToolCallHandled?.();
       return;
     }
 
