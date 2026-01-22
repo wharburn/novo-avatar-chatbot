@@ -2530,7 +2530,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               isVisible={showWeatherOverlay}
               duration={4000}
               onComplete={() => {
+                console.log('🌤️ Weather overlay complete - hiding');
                 setShowWeatherOverlay(false);
+                setWeatherData(null);
               }}
             />
           </>

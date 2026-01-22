@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 interface WeatherData {
   temperature: {
@@ -29,11 +29,11 @@ interface WeatherOverlayProps {
   duration?: number; // Duration in ms before auto-hiding
 }
 
-export default function WeatherOverlay({ 
-  weather, 
-  isVisible, 
+export default function WeatherOverlay({
+  weather,
+  isVisible,
   onComplete,
-  duration = 4000 
+  duration = 4000,
 }: WeatherOverlayProps) {
   const [opacity, setOpacity] = useState(0);
   const [shouldRender, setShouldRender] = useState(false);
@@ -69,9 +69,7 @@ export default function WeatherOverlay({
   if (!shouldRender || !weather) return null;
 
   // Get weather icon URL - WeatherAPI returns protocol-relative URLs
-  const iconUrl = weather.icon?.startsWith('//') 
-    ? `https:${weather.icon}` 
-    : weather.icon;
+  const iconUrl = weather.icon?.startsWith('//') ? `https:${weather.icon}` : weather.icon;
 
   // Determine background gradient based on conditions
   const getBackgroundGradient = () => {
@@ -91,21 +89,48 @@ export default function WeatherOverlay({
     return 'from-indigo-900/90 to-slate-900/90';
   };
 
-  const textColor = weather.condition.toLowerCase().includes('snow') 
-    ? 'text-slate-800' 
+  const textColor = weather.condition.toLowerCase().includes('snow')
+    ? 'text-slate-800'
     : 'text-white';
 
   return (
-    <div 
+    <div
       className={`absolute inset-0 z-50 flex items-center justify-center transition-opacity duration-500 ${getBackgroundGradient()} bg-gradient-to-b`}
       style={{ opacity }}
     >
+      {/* Close button */}
+      <button
+        onClick={() => {
+          setOpacity(0);
+          setTimeout(() => {
+            setShouldRender(false);
+            onComplete?.();
+          }, 500);
+        }}
+        className={`absolute top-4 right-4 ${textColor} opacity-50 hover:opacity-100 transition-opacity p-2 rounded-full hover:bg-white/10`}
+        aria-label="Close weather"
+        type="button"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+
       <div className={`text-center p-6 ${textColor}`}>
         {/* Location */}
-        <p className="text-lg opacity-80 mb-2">
-          {weather.location || 'Your Location'}
-        </p>
-        
+        <p className="text-lg opacity-80 mb-2">{weather.location || 'Your Location'}</p>
+
         {/* Weather Icon */}
         {iconUrl && (
           <div className="flex justify-center mb-2">
@@ -119,20 +144,14 @@ export default function WeatherOverlay({
             />
           </div>
         )}
-        
+
         {/* Temperature - Celsius primary */}
-        <div className="text-6xl font-light mb-1">
-          {weather.temperature.celsius}°C
-        </div>
-        <div className="text-xl opacity-70 mb-2">
-          {weather.temperature.fahrenheit}°F
-        </div>
-        
+        <div className="text-6xl font-light mb-1">{weather.temperature.celsius}°C</div>
+        <div className="text-xl opacity-70 mb-2">{weather.temperature.fahrenheit}°F</div>
+
         {/* Condition */}
-        <p className="text-2xl font-medium mb-4 capitalize">
-          {weather.condition}
-        </p>
-        
+        <p className="text-2xl font-medium mb-4 capitalize">{weather.condition}</p>
+
         {/* Additional info */}
         <div className="flex justify-center gap-6 text-sm opacity-80">
           {weather.feelsLike && (
@@ -160,11 +179,11 @@ export default function WeatherOverlay({
             </div>
           )}
         </div>
-        
+
         {/* Attribution */}
         <div className="mt-6 opacity-50 text-xs">
-          <a 
-            href="https://www.weatherapi.com/" 
+          <a
+            href="https://www.weatherapi.com/"
             title="Free Weather API"
             target="_blank"
             rel="noopener noreferrer"
