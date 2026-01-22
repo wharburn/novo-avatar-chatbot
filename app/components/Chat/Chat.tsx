@@ -1009,6 +1009,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       identityConfirmedRef.current = false;
       greetingSentRef.current = false;
       greetingVideoFinishedRef.current = false;
+      processedMessageIdsRef.current.clear(); // Clear processed messages
     }
   }, [isConnected]);
 
@@ -1245,12 +1246,28 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
   }, [messages]);
 
+  // Track processed messages to avoid duplicate processing
+  const processedMessageIdsRef = useRef<Set<string>>(new Set());
+
   // Listen for tool calls (take_picture, show_image, etc.)
   useEffect(() => {
     if (messages.length === 0) return;
 
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage) return;
+
+    // Create a unique ID for this message to prevent duplicate processing
+    const msgAny = lastMessage as any;
+    const messageId =
+      msgAny.id || msgAny.receivedAt?.toString() || `${lastMessage.type}-${messages.length}`;
+
+    // Skip if we've already processed this message
+    if (processedMessageIdsRef.current.has(messageId)) {
+      return;
+    }
+
+    // Mark this message as processed
+    processedMessageIdsRef.current.add(messageId);
 
     // Debug: Log all message types to help troubleshoot tool calls
     const msgType = lastMessage.type;
