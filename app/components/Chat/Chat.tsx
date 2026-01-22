@@ -1344,10 +1344,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       const content = userMsg.message?.content || '';
 
       console.log('👤 User message:', content);
+      console.log('📸 Photo session active:', isPhotoSession);
+      console.log('📹 Vision active:', isVisionActive);
+      console.log('🔒 Processing command:', processingCommandRef.current);
 
       // === COMMAND DETECTION (Bypass Hume tool calls) ===
       if (!processingCommandRef.current) {
         const command = detectCommand(content);
+        console.log('🎯 Command detection result:', command);
 
         if (command) {
           console.log(`🎯 Detected command: ${command.type}`);
@@ -2441,13 +2445,77 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     setIsPhotoSession(false);
   };
 
-  const handleEmailPhotos = () => {
-    // TODO: Implement email functionality for multiple photos
+  const handleEmailPhotos = async () => {
     console.log('📧 Emailing photos:', sessionPhotos.length);
-    if (sendAssistantInput) {
-      sendAssistantInput(`[Preparing to email ${sessionPhotos.length} photos to user]`);
+
+    // Get user profile for email and name
+    const userProfile = await fetch('/api/user/profile')
+      .then((res) => res.json())
+      .catch(() => null);
+
+    if (!userProfile?.email || !userProfile?.name) {
+      console.error('📧 Missing user email or name');
+      if (sendAssistantInput) {
+        sendAssistantInput('[Need email and name to send photos. Ask user for this info.]');
+      }
+      return;
     }
-    // For now, just close the grid
+
+    console.log('📧 Sending', sessionPhotos.length, 'photos to', userProfile.email);
+
+    // Send each photo via email
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < sessionPhotos.length; i++) {
+      const photo = sessionPhotos[i];
+      console.log(`📧 Sending photo ${i + 1}/${sessionPhotos.length}...`);
+
+      try {
+        const result = await fetch('/api/tools/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolName: 'send_email_picture',
+            parameters: {
+              email: userProfile.email,
+              user_name: userProfile.name,
+              image_url: photo.url,
+              caption: `Photo ${i + 1} of ${sessionPhotos.length} from your photo session`,
+            },
+          }),
+        }).then((res) => res.json());
+
+        if (result.success) {
+          console.log(`📧 Photo ${i + 1} sent successfully`);
+          successCount++;
+        } else {
+          console.error(`📧 Photo ${i + 1} failed:`, result.error);
+          failCount++;
+        }
+      } catch (error) {
+        console.error(`📧 Photo ${i + 1} error:`, error);
+        failCount++;
+      }
+    }
+
+    console.log(`📧 Email complete: ${successCount} sent, ${failCount} failed`);
+
+    if (sendAssistantInput) {
+      if (successCount === sessionPhotos.length) {
+        sendAssistantInput(
+          `[All ${sessionPhotos.length} photos sent successfully to ${userProfile.email}!]`
+        );
+      } else if (successCount > 0) {
+        sendAssistantInput(
+          `[Sent ${successCount} of ${sessionPhotos.length} photos to ${userProfile.email}. ${failCount} failed.]`
+        );
+      } else {
+        sendAssistantInput('[Failed to send photos. Please try again.]');
+      }
+    }
+
+    // Close the grid after sending
     handleClosePhotoGrid();
   };
 
