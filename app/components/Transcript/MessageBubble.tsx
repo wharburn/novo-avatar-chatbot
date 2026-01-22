@@ -23,7 +23,7 @@ export default function MessageBubble({ message, isLatest }: MessageBubbleProps)
 
   return (
     <div
-      className={`flex gap-2 py-1.5 px-3 w-full ${
+      className={`flex gap-2 py-0.5 px-3 w-full ${
         isAI ? 'flex-row bg-blue-500/15' : 'flex-row-reverse bg-green-500/15'
       } ${isLatest ? 'animate-fade-in' : ''}`}
     >
@@ -42,7 +42,7 @@ export default function MessageBubble({ message, isLatest }: MessageBubbleProps)
 
       {/* Message content */}
       <div className={`flex flex-col max-w-[75%] ${isAI ? 'items-start' : 'items-end'}`}>
-        <div className="px-4 py-2">
+        <div className="px-4 py-1">
           <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
 
           {/* Emotion indicator */}

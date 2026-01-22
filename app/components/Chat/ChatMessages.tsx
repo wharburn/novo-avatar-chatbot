@@ -54,7 +54,7 @@ export default function ChatMessages() {
         return (
           <div
             key={`${msg.type}-${index}`}
-            className={`flex gap-2 py-1.5 px-3 w-full ${
+            className={`flex gap-2 py-0.5 px-3 w-full ${
               isAssistant ? 'flex-row bg-blue-500/15' : 'flex-row-reverse bg-green-500/15'
             }`}
           >
@@ -75,7 +75,7 @@ export default function ChatMessages() {
             <div
               className={`flex flex-col max-w-[75%] ${isAssistant ? 'items-start' : 'items-end'}`}
             >
-              <div className="px-4 py-2">
+              <div className="px-4 py-1">
                 <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
               </div>
 
