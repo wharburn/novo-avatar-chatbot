@@ -2499,13 +2499,17 @@ export default function Chat({ accessToken, configId }: ChatProps) {
         return; // Don't call send.success() - let ChatInner do it after analysis
       }
 
-      // Handle get_weather - send response immediately via sendToolMessage
+      // Handle get_weather - ChatInner will send the actual response via sendToolMessage
       if (toolCall.name === 'get_weather') {
-        console.log('🌤️ get_weather: Handling in ChatInner via message polling');
-        // Don't use send.success() here - it causes TypeError in SDK
-        // ChatInner will handle this via message polling and use sendToolMessage
-        // Return empty to prevent SDK error
-        return Promise.resolve();
+        console.log('🌤️ get_weather: Deferring to ChatInner');
+        // Return a dummy success to satisfy the SDK, but ChatInner will send the real response
+        try {
+          return send.success('Processing weather request...');
+        } catch (error) {
+          // Ignore SDK errors - ChatInner will send the real response via sendToolMessage
+          console.log('🌤️ Ignoring SDK error (expected):', error);
+          return;
+        }
       }
 
       // Handle be_quiet - needs quiet mode state from ChatInner
