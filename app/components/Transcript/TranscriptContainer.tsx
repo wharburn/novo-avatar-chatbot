@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
-import { ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
-import MessageBubble from './MessageBubble';
 import { Message } from '@/app/types/message';
+import { ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import MessageBubble from './MessageBubble';
 
 interface TranscriptContainerProps {
   messages: Message[];
@@ -14,7 +14,7 @@ interface TranscriptContainerProps {
 export default function TranscriptContainer({
   messages,
   isVisible,
-  onToggle
+  onToggle,
 }: TranscriptContainerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -28,7 +28,7 @@ export default function TranscriptContainer({
   return (
     <>
       {/* Transcript Section */}
-      <div 
+      <div
         className={`bg-white border-t-2 border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${
           isVisible ? 'h-[25vh] min-h-[200px] opacity-100' : 'h-0 opacity-0'
         }`}
@@ -54,17 +54,10 @@ export default function TranscriptContainer({
         </div>
 
         {/* Messages - Latest at top, scroll down for older */}
-        <div 
-          ref={scrollRef}
-          className="h-[calc(100%-48px)] overflow-y-auto px-4 py-2 space-y-3"
-        >
+        <div ref={scrollRef} className="h-[calc(100%-48px)] overflow-y-auto">
           {messages.length > 0 ? (
             messages.map((message, index) => (
-              <MessageBubble 
-                key={message.id}
-                message={message}
-                isLatest={index === 0}
-              />
+              <MessageBubble key={message.id} message={message} isLatest={index === 0} />
             ))
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -73,7 +66,7 @@ export default function TranscriptContainer({
               </p>
             </div>
           )}
-          
+
           {messages.length > 0 && (
             <div className="text-center text-xs text-gray-400 py-2">
               Scroll down for older messages

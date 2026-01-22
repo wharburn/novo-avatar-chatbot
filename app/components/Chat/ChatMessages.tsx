@@ -41,7 +41,7 @@ export default function ChatMessages() {
   }
 
   return (
-    <div className="space-y-1.5">
+    <div>
       {chatMessages.map((msg, index) => {
         if (msg.type !== 'user_message' && msg.type !== 'assistant_message') {
           return null;
@@ -54,7 +54,9 @@ export default function ChatMessages() {
         return (
           <div
             key={`${msg.type}-${index}`}
-            className={`flex gap-2 ${isAssistant ? 'flex-row' : 'flex-row-reverse'}`}
+            className={`flex gap-2 py-1.5 px-3 w-full ${
+              isAssistant ? 'flex-row bg-blue-500/15' : 'flex-row-reverse bg-green-500/15'
+            }`}
           >
             {/* Avatar icon */}
             <div
@@ -73,16 +75,12 @@ export default function ChatMessages() {
             <div
               className={`flex flex-col max-w-[75%] ${isAssistant ? 'items-start' : 'items-end'}`}
             >
-              <div
-                className={`rounded-2xl px-4 py-2 ${
-                  isAssistant ? 'bg-blue-50 text-gray-800' : 'bg-gray-100 text-gray-800'
-                }`}
-              >
+              <div className="px-4 py-2">
                 <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
               </div>
 
               {/* Role label */}
-              <span className="text-xs text-gray-400 mt-1 px-1 capitalize">{role}</span>
+              <span className="text-xs text-gray-400 px-1 capitalize">{role}</span>
             </div>
           </div>
         );
