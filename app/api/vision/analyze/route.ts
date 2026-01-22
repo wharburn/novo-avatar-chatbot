@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
 
     const openrouterApiKey = process.env.OPENROUTER_API_KEY;
     if (!openrouterApiKey) {
+      console.error('OPENROUTER_API_KEY not configured');
       return NextResponse.json(
         { success: false, error: 'OpenRouter API key not configured' },
         { status: 500 }
@@ -149,36 +150,27 @@ export async function POST(request: NextRequest) {
       base64Image = imageData.split(',')[1];
     }
 
-    // Call Anthropic Claude 3.5 Sonnet API (unrestricted vision)
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-    if (!anthropicApiKey) {
-      console.error('ANTHROPIC_API_KEY not configured');
-      return NextResponse.json(
-        { success: false, error: 'Vision API not configured' },
-        { status: 500 }
-      );
-    }
+    // Call Claude 3.5 Sonnet via OpenRouter (unrestricted vision)
+    console.log('🔍 Using OpenRouter with Claude 3.5 Sonnet for vision analysis');
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
+        Authorization: `Bearer ${openrouterApiKey}`,
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'X-Title': 'NoVo Avatar Chatbot',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
+        model: 'anthropic/claude-3.5-sonnet',
         messages: [
           {
             role: 'user',
             content: [
               {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: 'image/jpeg',
-                  data: base64Image,
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
                 },
               },
               {
@@ -188,12 +180,13 @@ export async function POST(request: NextRequest) {
             ],
           },
         ],
+        max_tokens: 1024,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Anthropic API error:', errorText);
+      console.error('OpenRouter API error:', errorText);
       return NextResponse.json(
         { success: false, error: 'Failed to analyze image' },
         { status: 500 }
@@ -201,7 +194,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json();
-    const analysis = result.content?.[0]?.text || 'Unable to analyze image';
+    const analysis = result.choices?.[0]?.message?.content || 'Unable to analyze image';
 
     // For emotion analysis, try to parse as JSON
     if (analysisType === 'emotion') {

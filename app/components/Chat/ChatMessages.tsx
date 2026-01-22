@@ -16,12 +16,13 @@ export default function ChatMessages() {
       }
       // Hide the automatic greeting trigger for returning users
       const content = (msg as { message?: { content?: string } }).message?.content || '';
-      if (msg.type === 'user_message' && (
-        content.match(/^Hi! My name is .+ and I'm back\.$/) ||
-        content.match(/^Hey NoVo, it's .+!$/) ||
-        content.match(/^Hi, it's .+\.$/) ||
-        content === 'Hey NoVo!'
-      )) {
+      if (
+        msg.type === 'user_message' &&
+        (content.match(/^Hi! My name is .+ and I'm back\.$/) ||
+          content.match(/^Hey NoVo, it's .+!$/) ||
+          content.match(/^Hi, it's .+\.$/) ||
+          content === 'Hey NoVo!')
+      ) {
         return false;
       }
       return true;
@@ -40,7 +41,7 @@ export default function ChatMessages() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {chatMessages.map((msg, index) => {
         if (msg.type !== 'user_message' && msg.type !== 'assistant_message') {
           return null;

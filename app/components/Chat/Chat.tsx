@@ -288,6 +288,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const [showCamera, setShowCamera] = useState(false);
   const pendingToolCallIdRef = useRef<string | null>(null);
 
+  // Flash effect state for photo capture
+  const [showFlash, setShowFlash] = useState(false);
+
   // Weather overlay state
   const [weatherData, setWeatherData] = useState<{
     temperature: { fahrenheit: number; celsius: number };
@@ -1313,8 +1316,31 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           console.log(`🎯 Detected command: ${command.type}`);
           processingCommandRef.current = true;
 
+          // Handle enable camera request
+          if (command.type === 'enable_camera') {
+            console.log('📹 Enable camera request detected');
+
+            if (isVisionActive) {
+              // Camera is already ON
+              console.log('📹 Camera already ON - notifying NoVo');
+              if (sendAssistantInput) {
+                sendAssistantInput('[Camera is already ON and streaming. You can see the user.]');
+              }
+            } else {
+              // Turn camera ON
+              console.log('📹 Turning camera ON');
+              toggleVision();
+              if (sendAssistantInput) {
+                sendAssistantInput(
+                  '[Camera turned ON - you can now see the user. Acknowledge this and ask what they want to show you.]'
+                );
+              }
+            }
+            processingCommandRef.current = false;
+          }
+
           // Handle vision request - if camera is ON, analyze directly and inject result
-          if (command.type === 'vision_request') {
+          else if (command.type === 'vision_request') {
             console.log('👁️ Vision request detected');
 
             if (isVisionActive) {
@@ -1353,8 +1379,45 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
           // Handle take picture request
           else if (command.type === 'take_picture') {
-            console.log('📸 Opening camera from command detection');
-            setShowCamera(true);
+            console.log('📸 Take picture command detected');
+
+            // If camera is on and user says "shoot", capture directly from vision stream
+            if (
+              isVisionActive &&
+              (content.toLowerCase().trim() === 'shoot' ||
+                content.toLowerCase().trim() === 'shot' ||
+                content.toLowerCase().trim() === 'snap')
+            ) {
+              console.log('📸 Quick capture from vision stream');
+
+              // Capture from vision stream
+              if (typeof window !== 'undefined' && (window as any).__visionCaptureFrame) {
+                const imageData = (window as any).__visionCaptureFrame();
+                if (imageData) {
+                  lastCapturedImageRef.current = imageData;
+                  console.log('📸 Photo captured from vision stream');
+
+                  // Trigger flash effect
+                  setShowFlash(true);
+                  setTimeout(() => setShowFlash(false), 300);
+
+                  if (sendAssistantInput) {
+                    sendAssistantInput(
+                      '[Photo captured! Ask if they want to take another or if they want to email it.]'
+                    );
+                  }
+                } else {
+                  console.error('📸 Failed to capture from vision stream');
+                  if (sendAssistantInput) {
+                    sendAssistantInput('[Had trouble capturing the photo. Please try again.]');
+                  }
+                }
+              }
+            } else {
+              // Open camera capture modal
+              console.log('📸 Opening camera capture modal');
+              setShowCamera(true);
+            }
             processingCommandRef.current = false;
           }
 
@@ -2366,7 +2429,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         </div>
 
         {/* Messages */}
-        <div className="h-[calc(100%-48px)] overflow-y-auto px-4 py-2">
+        <div className="h-[calc(100%-48px)] overflow-y-auto px-4 py-1">
           <ChatMessages />
         </div>
       </div>
@@ -2399,6 +2462,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             pendingToolCallIdRef.current = null;
           }}
         />
+      )}
+
+      {/* Flash effect for photo capture */}
+      {showFlash && (
+        <div className="fixed inset-0 bg-white z-[9999] pointer-events-none animate-flash" />
       )}
 
       {/* Image Viewer Modal */}

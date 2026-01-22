@@ -3,15 +3,28 @@
 import { useCallback, useRef } from 'react';
 
 // Command types that can be detected
-export type CommandType = 
-  | 'vision_request'      // "what am I wearing?", "do I look good?"
-  | 'take_picture'        // "take a picture", "take a photo"
-  | 'send_email_picture'  // "email me the picture", "send the photo"
-  | 'send_email_summary'  // "email me a summary", "send conversation recap"
+export type CommandType =
+  | 'enable_camera' // "turn on camera", "show you something", "see my clothes"
+  | 'vision_request' // "what am I wearing?", "do I look good?"
+  | 'take_picture' // "take a picture", "take a photo"
+  | 'send_email_picture' // "email me the picture", "send the photo"
+  | 'send_email_summary' // "email me a summary", "send conversation recap"
   | null;
 
 // Patterns for detecting commands in user speech
 const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
+  enable_camera: [
+    /turn\s*(on|the)\s*(camera|vision)/i,
+    /(enable|activate|start)\s*(the\s*)?(camera|vision)/i,
+    /(show|let\s*me\s*show)\s*you\s*something/i,
+    /want\s*to\s*show\s*you/i,
+    /see\s*my\s*(clothes|outfit|look)/i,
+    /look\s*at\s*(my|this)/i,
+    /record\s*something/i,
+    /can\s*you\s*(see|watch|observe)\s*me/i,
+    /i\s*want\s*you\s*to\s*see/i,
+    /check\s*out\s*(my|this)/i,
+  ],
   vision_request: [
     /what\s*(am\s*i|are\s*you\s*seeing|do\s*you\s*see|can\s*you\s*see)/i,
     /what('?m|\s*am)\s*i\s*wearing/i,
@@ -28,6 +41,9 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
     /tell\s*me\s*(about|what)\s*(my|you\s*see)/i,
   ],
   take_picture: [
+    /^shoot$/i, // Quick "shoot" command when camera is on
+    /^shot$/i, // Alternative
+    /^snap$/i, // Quick snap
     /take\s*(a\s*)?(picture|photo|pic|selfie|shot|image)/i,
     /snap\s*(a\s*)?(picture|photo|pic)/i,
     /capture\s*(a\s*)?(picture|photo|image|me)/i,
@@ -53,8 +69,18 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
 
 // Additional context hints that strengthen detection
 const CONTEXT_HINTS: Record<Exclude<CommandType, null>, string[]> = {
-  vision_request: ['outfit', 'wearing', 'clothes', 'fashion', 'style', 'look', 'see me', 'appearance'],
-  take_picture: ['picture', 'photo', 'selfie', 'camera', 'capture', 'snap'],
+  enable_camera: ['camera', 'vision', 'show', 'see', 'look', 'watch', 'record', 'observe'],
+  vision_request: [
+    'outfit',
+    'wearing',
+    'clothes',
+    'fashion',
+    'style',
+    'look',
+    'see me',
+    'appearance',
+  ],
+  take_picture: ['picture', 'photo', 'selfie', 'camera', 'capture', 'snap', 'shoot', 'shot'],
   send_email_picture: ['email', 'send', 'picture', 'photo'],
   send_email_summary: ['email', 'summary', 'recap', 'conversation'],
 };
@@ -79,7 +105,7 @@ export function useCommandDetection() {
     if (!text || text.length < 3) return null;
 
     const lowerText = text.toLowerCase().trim();
-    
+
     // Debounce - don't detect same message twice within 2 seconds
     const now = Date.now();
     if (recentDetectionsRef.current.has(lowerText) && now - lastDetectionTimeRef.current < 2000) {
@@ -92,25 +118,27 @@ export function useCommandDetection() {
         if (pattern.test(lowerText)) {
           // Calculate confidence based on pattern match and context hints
           let confidence = 0.7; // Base confidence for pattern match
-          
+
           const hints = CONTEXT_HINTS[commandType as Exclude<CommandType, null>];
-          const hintMatches = hints.filter(hint => lowerText.includes(hint)).length;
+          const hintMatches = hints.filter((hint) => lowerText.includes(hint)).length;
           confidence += (hintMatches / hints.length) * 0.3;
-          
+
           // Extract email if present
           const emailMatch = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
-          
+
           // Track this detection
           recentDetectionsRef.current.add(lowerText);
           lastDetectionTimeRef.current = now;
-          
+
           // Clean up old detections after 5 seconds
           setTimeout(() => {
             recentDetectionsRef.current.delete(lowerText);
           }, 5000);
 
-          console.log(`🎯 Command detected: ${commandType} (confidence: ${(confidence * 100).toFixed(0)}%)`);
-          
+          console.log(
+            `🎯 Command detected: ${commandType} (confidence: ${(confidence * 100).toFixed(0)}%)`
+          );
+
           return {
             type: commandType as CommandType,
             confidence: Math.min(confidence, 1),
