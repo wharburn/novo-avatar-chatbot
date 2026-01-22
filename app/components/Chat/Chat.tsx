@@ -1027,23 +1027,39 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       // Only notify NoVo if vision state actually changed
       if (visionStateChanged && sendAssistantInput) {
         if (isVisionActive) {
-          // Camera just turned ON - analyze immediately and tell NoVo what we see
-          console.log('👁️ Camera turned ON - analyzing immediately...');
-          analyzeWithQuestion(
-            'Describe what you see - the person, their appearance, clothing, etc.'
-          )
-            .then((analysis) => {
-              console.log('👁️ Initial vision analysis complete');
-              sendAssistantInput(
-                `[CAMERA IS NOW ON! I can see the user. Here's what I observe: ${analysis}. Acknowledge that you can see them and comment on what you observe.]`
-              );
-            })
-            .catch((err) => {
-              console.error('👁️ Initial vision analysis failed:', err);
-              sendAssistantInput(
-                '[CAMERA IS NOW ON. You can now see the user! Acknowledge that the camera is active.]'
-              );
-            });
+          // Camera just turned ON - wait for stream to be ready, then analyze
+          console.log('👁️ Camera turned ON - waiting for stream to be ready...');
+
+          // Wait 1 second for camera stream to initialize
+          setTimeout(() => {
+            analyzeWithQuestion(
+              'Describe what you see - the person, their appearance, clothing, etc.'
+            )
+              .then((analysis) => {
+                console.log('👁️ Initial vision analysis complete:', analysis.slice(0, 100));
+
+                // Check if we got an error message instead of actual analysis
+                if (
+                  analysis.includes('Vision is not active') ||
+                  analysis.includes('Unable to capture')
+                ) {
+                  console.warn('👁️ Camera stream not ready yet, sending generic message');
+                  sendAssistantInput(
+                    '[CAMERA IS NOW ON. You can now see the user! Acknowledge that the camera is active and you can see them.]'
+                  );
+                } else {
+                  sendAssistantInput(
+                    `[CAMERA IS NOW ON! I can see the user. Here's what I observe: ${analysis}. Acknowledge that you can see them and comment on what you observe.]`
+                  );
+                }
+              })
+              .catch((err) => {
+                console.error('👁️ Initial vision analysis failed:', err);
+                sendAssistantInput(
+                  '[CAMERA IS NOW ON. You can now see the user! Acknowledge that the camera is active.]'
+                );
+              });
+          }, 1000); // Wait 1 second for camera to initialize
         } else {
           // Camera just turned OFF
           console.log('👁️ Camera turned OFF - notifying NoVo');
