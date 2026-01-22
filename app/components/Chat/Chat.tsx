@@ -955,28 +955,33 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
   // Track if we've sent the initial greeting trigger
   const greetingSentRef = useRef(false);
+  const greetingVideoFinishedRef = useRef(false);
 
-  // For returning users, send a greeting trigger after session settings are sent
-  // This makes NoVo greet the user by name
+  // For returning users, send a greeting trigger ONLY after greeting video finishes
+  // This prevents two audio streams playing at once
   useEffect(() => {
     if (
       !isConnected ||
       !sendUserInput ||
       !sessionVariablesSentRef.current ||
-      greetingSentRef.current
+      greetingSentRef.current ||
+      !greetingVideoFinishedRef.current // Wait for greeting video to finish
     )
       return;
 
     // Only send greeting for returning users with a known name
     if (userProfile?.isReturningUser && userProfile?.name) {
-      // Small delay to ensure session settings are processed
+      // Small delay to ensure greeting video has fully finished
       const timer = setTimeout(() => {
         if (greetingSentRef.current) return; // Double-check
 
         // Send greeting with name - phrased to get a single simple welcome back
         const greetingMessage = `Hi, it's ${userProfile.name}.`;
 
-        console.log('👤 Sending greeting trigger for returning user:', greetingMessage);
+        console.log(
+          '👤 Sending greeting trigger for returning user (after video):',
+          greetingMessage
+        );
 
         try {
           sendUserInput(greetingMessage);
@@ -985,11 +990,17 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         } catch (error) {
           console.error('Failed to send greeting trigger:', error);
         }
-      }, 300); // Wait for session settings to be processed
+      }, 500); // Wait a bit after video finishes
 
       return () => clearTimeout(timer);
     }
-  }, [isConnected, userProfile, sendUserInput, sessionVariablesSentRef.current]);
+  }, [
+    isConnected,
+    userProfile,
+    sendUserInput,
+    sessionVariablesSentRef.current,
+    greetingVideoFinishedRef.current,
+  ]);
 
   // Reset session tracking when disconnected
   useEffect(() => {
@@ -997,6 +1008,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       sessionVariablesSentRef.current = false;
       identityConfirmedRef.current = false;
       greetingSentRef.current = false;
+      greetingVideoFinishedRef.current = false;
     }
   }, [isConnected]);
 
@@ -2284,7 +2296,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 micVolume={micVolume}
                 isConnected={isConnected}
                 onGreetingComplete={() => {
-                  console.log('🎬 Greeting complete');
+                  console.log('🎬 Greeting video complete - ready to send greeting message');
+                  greetingVideoFinishedRef.current = true;
                 }}
               />
             </div>
