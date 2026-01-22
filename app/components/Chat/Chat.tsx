@@ -633,6 +633,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     // Handle analyze_vision tool - analyze what the user is wearing/looks like
     if (pendingToolCall.name === 'analyze_vision') {
       console.log('👁️ Handling analyze_vision from onToolCall handler');
+      console.log('👁️ Current vision state - isVisionActive:', isVisionActive);
 
       const params = JSON.parse(pendingToolCall.parameters || '{}');
       const question = params.question || 'What can you see?';
@@ -641,31 +642,27 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       if (!isVisionActive) {
         console.log('👁️ Vision not active - telling NoVo to ask user to enable it');
         pendingToolCall.send.success(
-          'CAMERA IS OFF. Say to the user: "I cannot see you yet. Please tap the eye button at the bottom left of your screen to let me see you. It will glow red when the camera is on."'
+          'CAMERA IS OFF. The user needs to enable it. Say exactly: "I would love to see you! Please tap the eye button at the bottom left of your screen - it will glow red when the camera is on, and then I can see you."'
         );
         onToolCallHandled?.();
         return;
       }
 
-      // Vision is active - analyze what we see
-      console.log('👁️ Analyzing vision with question:', question);
+      // Vision IS active - tell NoVo immediately that we CAN see, then analyze
+      console.log('👁️ Camera IS ON - analyzing vision with question:', question);
       analyzeWithQuestion(question)
         .then((analysis) => {
           console.log('👁️ Vision analysis complete:', analysis.slice(0, 100) + '...');
-          pendingToolCall.send.success({
-            analysis,
-            question,
-            faceDetected,
-          });
+          // CRITICAL: Send as a clear string, not an object, telling NoVo we CAN see
+          const visionResponse = `CAMERA IS ON - I CAN SEE THE USER! Here is what I observe: ${analysis}`;
+          pendingToolCall.send.success(visionResponse);
         })
         .catch((error) => {
           console.error('👁️ Vision analysis error:', error);
-          pendingToolCall.send.error({
-            error: error.message || 'Failed to analyze vision',
-            code: 'VISION_ERROR',
-            level: 'error',
-            content: '',
-          });
+          // Even if analysis fails, camera IS on - don't ask user to enable it
+          pendingToolCall.send.success(
+            'CAMERA IS ON but I had trouble analyzing the image. I can see the user though! Ask them to adjust their position or lighting.'
+          );
         });
 
       onToolCallHandled?.();
@@ -680,7 +677,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       if (showWeatherOverlay) {
         console.log('🌤️ Weather overlay already showing, skipping duplicate call');
         pendingToolCall.send.success(
-          'Weather is already being displayed to the user. Just describe what they can see and give outfit advice.'
+          'STOP! Weather is already visible on screen. Do not describe it again. The user can see it. Just acknowledge briefly if needed.'
         );
         onToolCallHandled?.();
         return;
@@ -702,15 +699,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setWeatherData(data.weather);
             setShowWeatherOverlay(true);
 
-            // Send weather info back to NoVo as a simple string she can use
+            // Send weather info back to NoVo - IMPORTANT: Tell her NOT to repeat the visible info
             const tempC = data.weather.temperature.celsius;
-            const feelsC = data.weather.feelsLike?.celsius;
             const loc = data.weather.location;
             const cond = data.weather.condition;
-            const humidity = data.weather.humidity;
 
-            // Send as a simple content string that NoVo will use directly
-            const weatherReport = `SUCCESS! Weather retrieved for ${loc}: Currently ${tempC} degrees Celsius and ${cond.toLowerCase()}. ${feelsC ? `Feels like ${feelsC} degrees.` : ''} Humidity is ${humidity}%. The weather is now displayed on the user's screen. Tell them about the weather in ${loc} and suggest appropriate clothing.`;
+            // CRITICAL: Tell NoVo the weather is VISIBLE and she should NOT describe it
+            const weatherReport = `WEATHER IS NOW VISIBLE ON SCREEN. The user can see: ${loc}, ${tempC}°C, ${cond}. DO NOT describe the temperature, humidity, or conditions - they can already see all of this! Just say something brief like "There's the weather for ${loc}!" and give ONE short outfit tip based on ${cond} conditions. Keep your response under 15 words.`;
 
             pendingToolCall.send.success(weatherReport);
           } else {
