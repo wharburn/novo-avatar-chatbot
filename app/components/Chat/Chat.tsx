@@ -673,35 +673,27 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     if (pendingToolCall.name === 'get_weather') {
       console.log('🌤️ Handling get_weather tool');
 
-      // If weather overlay is already showing, don't fetch again
-      if (showWeatherOverlay) {
-        console.log('🌤️ Weather overlay already showing, skipping duplicate call');
-        pendingToolCall.send.success(
-          'STOP! Weather is already visible on screen. Do not describe it again. The user can see it. Just acknowledge briefly if needed.'
-        );
-        onToolCallHandled?.();
-        return;
-      }
-
       // Get user's location
       const location = userLocationRef.current;
       const lat = location?.latitude ?? 40.7128; // Default NYC
       const lon = location?.longitude ?? -74.006;
+
+      console.log('🌤️ Fetching weather for location:', { lat, lon });
 
       // Fetch weather data
       fetch(`/api/weather?lat=${lat}&lon=${lon}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.weather) {
-            console.log('🌤️ Weather data received:', data.weather.location, data.weather.condition);
+            console.log('🌤️ Weather data received:', data.weather);
 
-            // Show weather overlay
-            setWeatherData(data.weather);
-            setShowWeatherOverlay(true);
+            const w = data.weather;
 
-            // Send simple success - let NoVo respond naturally
-            // The system prompt should tell her about the overlay
-            pendingToolCall.send.success('Weather overlay displayed successfully.');
+            // Build a natural weather report for NoVo to speak
+            const weatherReport = `Current weather in ${w.location}: It's ${w.temperature.celsius}°C and ${w.condition.toLowerCase()}. Humidity is ${w.humidity}%, wind speed is ${w.windSpeed} mph, and the UV index is ${w.uv}.`;
+
+            console.log('🌤️ Sending weather report to NoVo:', weatherReport);
+            pendingToolCall.send.success(weatherReport);
           } else {
             pendingToolCall.send.error({
               error: 'Failed to fetch weather data',
