@@ -1518,39 +1518,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           // Handle explain photo session request
           else if (command.type === 'explain_photo_session') {
             console.log('📸 Explain photo session request detected');
-            if (sendAssistantInput) {
-              sendAssistantInput(
-                "[Explain Photo Session Mode: \"Photo Session Mode lets you take multiple photos easily! Just say 'I want you to take a series of photos for me' to start. Then the camera will show a large preview, and you can say 'shoot' each time you want to capture a photo. The camera keeps streaming so you can see yourself between shots. When you're done, say 'that's it' or 'I'm finished', and I'll show you all your photos in a grid. You can tap any photo to view it full screen, and delete the ones you don't want with the trash button. Finally, I can email all your favorite shots to you! Want to try it?\"]"
-              );
-            }
-            processingCommandRef.current = false;
-          }
-
-          // Handle photo session start request
-          else if (command.type === 'photo_session') {
-            console.log('📸 Photo session start request detected');
-            // TODO: Implement photo session mode
-            if (sendAssistantInput) {
-              sendAssistantInput(
-                '[Photo session mode starting! Camera will enlarge. Say "shoot" to capture each photo.]'
-              );
-            }
-            processingCommandRef.current = false;
-          }
-
-          // Handle end photo session request
-          else if (command.type === 'end_photo_session') {
-            console.log('📸 End photo session request detected');
-            // TODO: Implement photo session end and grid view
-            if (sendAssistantInput) {
-              sendAssistantInput('[Photo session ended! Showing grid of all photos captured.]');
-            }
-            processingCommandRef.current = false;
-          }
-
-          // Handle explain photo session request
-          else if (command.type === 'explain_photo_session') {
-            console.log('📸 Explain photo session request detected');
             // Reset the flag so we can offer again in future sessions
             hasOfferedPhotoSessionRef.current = false;
             if (sendAssistantInput) {
