@@ -41,7 +41,7 @@ export default function ChatMessages() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {chatMessages.map((msg, index) => {
         if (msg.type !== 'user_message' && msg.type !== 'assistant_message') {
           return null;

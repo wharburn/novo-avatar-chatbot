@@ -2404,32 +2404,30 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Transcript Section - Collapsible */}
       <div
-        className={`bg-white border-t-2 border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
+        className={`bg-white border-t border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
           transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-1.5 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-gray-600" />
-            <h3 className="text-sm font-medium text-gray-700">Conversation</h3>
-            {chatMessages.length > 0 && (
-              <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
-                {chatMessages.length}
-              </span>
-            )}
-          </div>
+        <div className="flex items-center justify-center px-3 py-1 bg-gray-50 border-b border-gray-200 relative">
           <button
             onClick={() => setTranscriptVisible(false)}
-            className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+            className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
             aria-label="Hide transcript"
           >
-            <ChevronDown className="w-5 h-5 text-gray-600" />
+            <ChevronDown className="w-4 h-4 text-gray-600" />
           </button>
+
+          {/* Message count badge - positioned on the right */}
+          {chatMessages.length > 0 && (
+            <span className="absolute right-3 text-[10px] text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded-full">
+              {chatMessages.length}
+            </span>
+          )}
         </div>
 
         {/* Messages */}
-        <div className="h-[calc(100%-36px)] overflow-y-auto px-4 py-1">
+        <div className="h-[calc(100%-28px)] overflow-y-auto px-3 py-0.5">
           <ChatMessages />
         </div>
       </div>
