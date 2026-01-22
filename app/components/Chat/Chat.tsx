@@ -718,8 +718,10 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('🌤️ Weather overlay displayed');
 
             // Build a natural weather report for NoVo to speak
-            const weatherReport = `Current weather in ${w.location}: It's ${w.temperature.celsius}°C and ${w.condition.toLowerCase()}. Humidity is ${w.humidity}%, wind speed is ${w.windSpeed} mph, and the UV index is ${w.uv}.`;
+            // Use the EXACT data from the API - don't make anything up
+            const weatherReport = `Current weather in ${w.location}: ${w.temperature.fahrenheit}°F (${w.temperature.celsius}°C), ${w.condition}. Feels like ${w.feelsLike?.fahrenheit}°F. Humidity ${w.humidity}%, wind ${w.windSpeed} mph, UV index ${w.uv}.`;
 
+            console.log('🌤️ Weather data from API:', w);
             console.log('🌤️ Sending weather report to NoVo:', weatherReport);
 
             // Use sendToolMessage instead of pendingToolCall.send to avoid SDK bug
