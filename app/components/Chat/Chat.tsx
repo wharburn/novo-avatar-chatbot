@@ -315,6 +315,12 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const hasOfferedPhotoSessionRef = useRef(false);
   const lastUserMessageTimeRef = useRef<number>(Date.now());
 
+  // Photo session mode state
+  const [isPhotoSession, setIsPhotoSession] = useState(false);
+  const [sessionPhotos, setSessionPhotos] = useState<Array<{ url: string; id: string }>>([]);
+  const [showPhotoGrid, setShowPhotoGrid] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; id: string } | null>(null);
+
   // Email confirmation state
   const [emailConfirmation, setEmailConfirmation] = useState<{
     email: string;
@@ -1404,17 +1410,31 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               if (typeof window !== 'undefined' && (window as any).__visionCaptureFrame) {
                 const imageData = (window as any).__visionCaptureFrame();
                 if (imageData) {
-                  lastCapturedImageRef.current = imageData;
-                  console.log('📸 Photo captured from vision stream');
-
                   // Trigger flash effect
                   setShowFlash(true);
                   setTimeout(() => setShowFlash(false), 300);
 
-                  if (sendAssistantInput) {
-                    sendAssistantInput(
-                      '[Photo captured! Ask: "Want to know about Photo Session Mode? You can take multiple photos by saying \'shoot\'!"]'
-                    );
+                  if (isPhotoSession) {
+                    // Photo session mode - add to session array
+                    const photoId = `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    setSessionPhotos((prev) => [...prev, { url: imageData, id: photoId }]);
+                    console.log(`📸 Photo ${sessionPhotos.length + 1} added to session`);
+
+                    if (sendAssistantInput) {
+                      sendAssistantInput(
+                        `[Photo ${sessionPhotos.length + 1} captured! Say "shoot" for more, or "done" to finish.]`
+                      );
+                    }
+                  } else {
+                    // Single photo mode
+                    lastCapturedImageRef.current = imageData;
+                    console.log('📸 Photo captured from vision stream');
+
+                    if (sendAssistantInput) {
+                      sendAssistantInput(
+                        '[Photo captured! Ask: "Want to know about Photo Session Mode? You can take multiple photos by saying \'shoot\'!"]'
+                      );
+                    }
                   }
                 } else {
                   console.error('📸 Failed to capture from vision stream');
@@ -1531,7 +1551,17 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           // Handle photo session start request
           else if (command.type === 'photo_session') {
             console.log('📸 Photo session start request detected');
-            // TODO: Implement photo session mode
+
+            // Start photo session mode
+            setIsPhotoSession(true);
+            setSessionPhotos([]);
+            setShowPhotoGrid(false);
+
+            // Turn on camera if not already on
+            if (!isVisionActive) {
+              toggleVision();
+            }
+
             if (sendAssistantInput) {
               sendAssistantInput(
                 '[Photo session starting! Camera enlarging. Say "shoot" for each photo.]'
@@ -1543,9 +1573,15 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           // Handle end photo session request
           else if (command.type === 'end_photo_session') {
             console.log('📸 End photo session request detected');
-            // TODO: Implement photo session end and grid view
+
+            // End photo session and show grid
+            setIsPhotoSession(false);
+            setShowPhotoGrid(true);
+
             if (sendAssistantInput) {
-              sendAssistantInput('[Session ended! Showing photo grid.]');
+              sendAssistantInput(
+                `[Session ended! Showing ${sessionPhotos.length} photos in grid.]`
+              );
             }
             processingCommandRef.current = false;
           } else {
@@ -2424,6 +2460,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           isActive={isVisionActive}
           onFaceDetected={handleFaceDetected}
           onEmotionsDetected={setVideoEmotions}
+          isPhotoSession={isPhotoSession}
         />
 
         {displayedImage ? (

@@ -13,6 +13,7 @@ interface VisionStreamProps {
   onFaceDetected?: (detected: boolean, faceSize: number) => void;
   onEmotionsDetected?: (emotions: EmotionResult[]) => void;
   analysisInterval?: number; // ms between analysis requests
+  isPhotoSession?: boolean; // Whether in photo session mode (enlarges camera)
 }
 
 // Simple face detection using canvas analysis
@@ -71,6 +72,7 @@ export default function VisionStream({
   onFaceDetected,
   onEmotionsDetected,
   analysisInterval = 3000,
+  isPhotoSession = false,
 }: VisionStreamProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -227,9 +229,21 @@ export default function VisionStream({
   if (!isActive) return null;
 
   return (
-    <div className="absolute top-4 left-4 z-[100]">
-      {/* Small preview window - aligned to left side of avatar */}
-      <div className="relative w-40 h-30 rounded-lg overflow-hidden shadow-xl border-2 border-purple-500 bg-black">
+    <div
+      className={`absolute z-[100] transition-all duration-500 ${
+        isPhotoSession
+          ? 'inset-0 flex items-center justify-center' // Full screen centered
+          : 'top-4 left-4' // Small preview in corner
+      }`}
+    >
+      {/* Camera preview - small in corner or large centered during photo session */}
+      <div
+        className={`relative rounded-lg overflow-hidden shadow-xl border-2 border-purple-500 bg-black transition-all duration-500 ${
+          isPhotoSession
+            ? 'w-[90%] h-[90%] max-w-4xl max-h-[80vh]' // Large centered view
+            : 'w-40 h-30' // Small preview
+        }`}
+      >
         <video
           ref={videoRef}
           autoPlay
@@ -247,8 +261,12 @@ export default function VisionStream({
         </div>
 
         {/* Vision ON label */}
-        <div className="absolute bottom-1 left-1 bg-purple-500/80 text-white text-[8px] px-1 py-0.5 rounded">
-          VISION ON
+        <div
+          className={`absolute bottom-1 left-1 bg-purple-500/80 text-white px-1 py-0.5 rounded ${
+            isPhotoSession ? 'text-sm' : 'text-[8px]'
+          }`}
+        >
+          {isPhotoSession ? 'PHOTO SESSION MODE' : 'VISION ON'}
         </div>
 
         {error && (
