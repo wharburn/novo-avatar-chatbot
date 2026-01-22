@@ -50,6 +50,13 @@
       "version_description": "Sends pictures via email using Resend - works with take_picture tool"
     },
     {
+      "name": "get_weather",
+      "description": "Get local weather and display it visually. Call immediately when user asks about weather or what to wear. Never make up weather.",
+      "parameters": "{ \"type\": \"object\", \"properties\": {}, \"required\": [] }",
+      "fallback_content": "I'm sorry, I couldn't fetch the weather information right now. Please try again later.",
+      "version_description": "Fetches real-time weather data and displays it visually over the avatar"
+    },
+    {
       "name": "analyze_vision",
       "description": "Analyzes what the AI can see through the user's camera when Vision mode is enabled. IMPORTANT: Vision must be turned ON first - ask the user to tap the eye button if it's not active. Use this tool when the user asks questions like 'what am I wearing?', 'do I look good?', 'describe my outfit', 'what color is my shirt?', 'give me fashion advice', or any question about their appearance. This tool provides detailed fashion analysis and supportive feedback to help users feel confident.",
       "parameters": "{ \"type\": \"object\", \"properties\": { \"question\": { \"type\": \"string\", \"description\": \"The user's specific question about their appearance or outfit. Examples: 'What am I wearing?', 'Do I look good in this?', 'What colors do you see?', 'Give me fashion advice for this outfit'\" } }, \"required\": [\"question\"] }",

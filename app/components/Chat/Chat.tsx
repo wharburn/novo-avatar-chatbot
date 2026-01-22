@@ -712,6 +712,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
             const w = data.weather;
 
+            // Display weather visually
+            setWeatherData(w);
+            setShowWeatherOverlay(true);
+            console.log('🌤️ Weather overlay displayed');
+
             // Build a natural weather report for NoVo to speak
             const weatherReport = `Current weather in ${w.location}: It's ${w.temperature.celsius}°C and ${w.condition.toLowerCase()}. Humidity is ${w.humidity}%, wind speed is ${w.windSpeed} mph, and the UV index is ${w.uv}.`;
 
