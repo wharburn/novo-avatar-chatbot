@@ -1885,7 +1885,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setIsPhotoSession(false);
             setShowPhotoGrid(true);
 
-            if (sendAssistantInput) {
+            // Only send message if there are actually photos
+            if (sendAssistantInput && sessionPhotos.length > 0) {
               sendAssistantInput(
                 `[Session ended! Showing ${sessionPhotos.length} photos in grid.]`
               );
@@ -2792,6 +2793,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const handleClosePhotoGrid = () => {
     setShowPhotoGrid(false);
     setIsPhotoSession(false);
+    setSessionPhotos([]); // Clear photos when closing grid
   };
 
   const handleEmailPhotos = async () => {
