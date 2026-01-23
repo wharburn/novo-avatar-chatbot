@@ -2644,7 +2644,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           <>
             {/* Avatar with fade effect when weather is showing */}
             <div
-              className="w-full h-full transition-opacity duration-500"
+              className="w-full h-full transition-opacity duration-500 relative"
               style={{ opacity: showWeatherOverlay ? 0.1 : 1 }}
             >
               <AvatarDisplay
@@ -2658,6 +2658,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   greetingVideoFinishedRef.current = true;
                 }}
               />
+
+              {/* Development in Progress Banner */}
+              <div className="absolute top-8 left-0 right-0 bg-gradient-to-r from-yellow-500/50 via-yellow-400/50 to-yellow-500/50 text-black py-3 px-6 transform -rotate-2 shadow-lg z-50">
+                <p className="text-center text-xl font-bold tracking-wider">
+                  🚧 DEVELOPMENT IN PROGRESS 🚧
+                </p>
+              </div>
             </div>
 
             {/* Weather overlay - shows on top of faded avatar */}
