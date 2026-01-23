@@ -496,14 +496,31 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     name?: string;
     email?: string;
     phone?: string;
+    location?: string;
     isReturningUser: boolean;
     visitCount: number;
   } | null>(null);
   const userProfileLoadedRef = useRef(false);
   const identityConfirmedRef = useRef(false);
 
+  // User matching state
+  const [potentialMatches, setPotentialMatches] = useState<any[]>([]);
+  const [showMatchConfirmation, setShowMatchConfirmation] = useState(false);
+  const [selectedMatchIp, setSelectedMatchIp] = useState<string | null>(null);
+  const collectedInfoForMatchingRef = useRef<{
+    email?: string;
+    name?: string;
+    location?: string;
+    phone?: string;
+  }>({});
+
   // Helper function to save user profile to Redis
-  const saveUserProfile = async (updates: { name?: string; email?: string; phone?: string }) => {
+  const saveUserProfile = async (updates: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+  }) => {
     try {
       console.log('💾 Saving user profile:', updates);
       const response = await fetch('/api/users', {
@@ -527,6 +544,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 visitCount: 1,
               }
         );
+        // Update matching info
+        collectedInfoForMatchingRef.current = {
+          ...collectedInfoForMatchingRef.current,
+          ...updates,
+        };
       } else {
         console.error('❌ Failed to save user profile:', result.error);
       }
@@ -2847,13 +2869,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const handleEmailPhotos = async (selectedPhotoIds: string[]) => {
     console.log('📧 Emailing selected photos:', selectedPhotoIds.length);
 
-    // Get user profile for email and name
-    const userProfile = await fetch('/api/user/profile')
-      .then((res) => res.json())
-      .catch(() => null);
-
+    // Use the already-loaded user profile
     if (!userProfile?.email || !userProfile?.name) {
-      console.error('📧 Missing user email or name');
+      console.error('📧 Missing user email or name in profile:', userProfile);
+      // Prompt user to provide email and name
+      sendAssistantInput('[Please provide your email and name to send the photos]');
       return;
     }
 

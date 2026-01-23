@@ -102,7 +102,7 @@ export default function PhotoGrid({
                     newSelected.delete(photo.id);
                     setSelectedForEmail(newSelected);
                   }}
-                  className="absolute bottom-2 right-2 p-2 bg-red-500/80 hover:bg-red-600 rounded-full transition-colors"
+                  className="absolute bottom-2 left-2 p-2 bg-red-500/80 hover:bg-red-600 rounded-full transition-colors"
                   aria-label="Delete photo"
                 >
                   <Trash2 className="w-4 h-4 text-white" />
