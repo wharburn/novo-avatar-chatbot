@@ -2,6 +2,7 @@
 
 import { useVoice, VoiceReadyState } from '@humeai/voice-react';
 import { Eye, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
+import { useState } from 'react';
 
 interface ChatControlsProps {
   accessToken: string;
@@ -24,6 +25,7 @@ export default function ChatControls({
   userProfile,
 }: ChatControlsProps) {
   const { connect, disconnect, readyState, isMuted, mute, unmute, error } = useVoice();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const isConnected = readyState === VoiceReadyState.OPEN;
   const isConnecting = readyState === VoiceReadyState.CONNECTING;
@@ -69,82 +71,90 @@ export default function ChatControls({
   };
 
   return (
-    <div className="absolute bottom-0 left-4 flex gap-2 z-50 pb-2">
-      {/* Vision toggle button - user controls camera, glows red when active */}
-      <button
-        onClick={onVisionToggle}
-        className={`p-3 rounded-full shadow-lg transition-all ${
-          isVisionActive
-            ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/50'
-            : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-200'
-        }`}
-        aria-label={isVisionActive ? 'Turn off camera' : 'Turn on camera'}
-        title={isVisionActive ? 'NoVo can see you - tap to turn off' : 'Tap to let NoVo see you'}
-        style={{
-          // Pulsing glow animation when active
-          animation: isVisionActive ? 'pulse-glow 2s ease-in-out infinite' : 'none',
-        }}
-      >
-        <Eye className={`w-6 h-6 ${isVisionActive ? 'text-white' : 'text-gray-500'}`} />
-        {/* Add CSS for custom pulse animation */}
-        <style jsx>{`
-          @keyframes pulse-glow {
-            0%,
-            100% {
-              box-shadow: 0 0 5px 2px rgba(239, 68, 68, 0.5);
-            }
-            50% {
-              box-shadow: 0 0 20px 6px rgba(239, 68, 68, 0.8);
-            }
-          }
-        `}</style>
-      </button>
+    <>
+      <div className="absolute bottom-0 left-4 flex gap-2 z-50 pb-2">
+        {/* Settings button */}
+        <SettingsButton onClick={() => setIsSettingsOpen(true)} />
 
-      {/* Connect/Disconnect button */}
-      {isConnected ? (
+        {/* Vision toggle button - user controls camera, glows red when active */}
         <button
-          onClick={handleDisconnect}
-          className="p-3 rounded-full shadow-lg transition-all bg-red-500 hover:bg-red-600 text-white"
-          aria-label="End call"
-        >
-          <PhoneOff className="w-6 h-6" />
-        </button>
-      ) : (
-        <button
-          onClick={handleConnect}
-          disabled={isConnecting}
+          onClick={onVisionToggle}
           className={`p-3 rounded-full shadow-lg transition-all ${
-            isConnecting
-              ? 'bg-yellow-500 text-white animate-pulse cursor-wait'
-              : 'bg-green-500 hover:bg-green-600 text-white'
+            isVisionActive
+              ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/50'
+              : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-200'
           }`}
-          aria-label={isConnecting ? 'Connecting...' : 'Start call'}
+          aria-label={isVisionActive ? 'Turn off camera' : 'Turn on camera'}
+          title={isVisionActive ? 'NoVo can see you - tap to turn off' : 'Tap to let NoVo see you'}
+          style={{
+            // Pulsing glow animation when active
+            animation: isVisionActive ? 'pulse-glow 2s ease-in-out infinite' : 'none',
+          }}
         >
-          <Phone className="w-6 h-6" />
+          <Eye className={`w-6 h-6 ${isVisionActive ? 'text-white' : 'text-gray-500'}`} />
+          {/* Add CSS for custom pulse animation */}
+          <style jsx>{`
+            @keyframes pulse-glow {
+              0%,
+              100% {
+                box-shadow: 0 0 5px 2px rgba(239, 68, 68, 0.5);
+              }
+              50% {
+                box-shadow: 0 0 20px 6px rgba(239, 68, 68, 0.8);
+              }
+            }
+          `}</style>
         </button>
-      )}
 
-      {/* Mute/Unmute button (only show when connected) */}
-      {isConnected && (
-        <button
-          onClick={isMuted ? unmute : mute}
-          className={`p-3 rounded-full shadow-lg transition-all ${
-            isMuted
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : 'bg-white hover:bg-gray-100 text-gray-700'
-          }`}
-          aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
-        >
-          {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-        </button>
-      )}
+        {/* Connect/Disconnect button */}
+        {isConnected ? (
+          <button
+            onClick={handleDisconnect}
+            className="p-3 rounded-full shadow-lg transition-all bg-red-500 hover:bg-red-600 text-white"
+            aria-label="End call"
+          >
+            <PhoneOff className="w-6 h-6" />
+          </button>
+        ) : (
+          <button
+            onClick={handleConnect}
+            disabled={isConnecting}
+            className={`p-3 rounded-full shadow-lg transition-all ${
+              isConnecting
+                ? 'bg-yellow-500 text-white animate-pulse cursor-wait'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+            }`}
+            aria-label={isConnecting ? 'Connecting...' : 'Start call'}
+          >
+            <Phone className="w-6 h-6" />
+          </button>
+        )}
 
-      {/* Error display */}
-      {error && (
-        <div className="absolute bottom-full left-0 mb-2 p-2 bg-red-100 border border-red-300 rounded-lg text-red-700 text-xs max-w-xs">
-          {error.message}
-        </div>
-      )}
-    </div>
+        {/* Mute/Unmute button (only show when connected) */}
+        {isConnected && (
+          <button
+            onClick={isMuted ? unmute : mute}
+            className={`p-3 rounded-full shadow-lg transition-all ${
+              isMuted
+                ? 'bg-red-500 hover:bg-red-600 text-white'
+                : 'bg-white hover:bg-gray-100 text-gray-700'
+            }`}
+            aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+          >
+            {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+          </button>
+        )}
+
+        {/* Error display */}
+        {error && (
+          <div className="absolute bottom-full left-0 mb-2 p-2 bg-red-100 border border-red-300 rounded-lg text-red-700 text-xs max-w-xs">
+            {error.message}
+          </div>
+        )}
+      </div>
+
+      {/* Audio Settings Modal */}
+      <AudioSettings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+    </>
   );
 }
