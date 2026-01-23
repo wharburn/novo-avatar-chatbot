@@ -1,10 +1,11 @@
 'use client';
 
-import { useVoice } from '@humeai/voice-react';
+import { useVoice, VoiceReadyState } from '@humeai/voice-react';
 import { Bot, User } from 'lucide-react';
 
 export default function ChatMessages() {
-  const { messages } = useVoice();
+  const { messages, readyState } = useVoice();
+  const isConnected = readyState === VoiceReadyState.OPEN;
 
   // Filter to only show user and assistant messages with content
   // Hide the automatic greeting message sent for returning users
@@ -30,7 +31,7 @@ export default function ChatMessages() {
     .slice()
     .reverse();
 
-  if (chatMessages.length === 0) {
+  if (chatMessages.length === 0 && !isConnected) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-center text-gray-400 text-sm">
