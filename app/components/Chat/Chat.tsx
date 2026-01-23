@@ -1192,6 +1192,10 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       try {
         sendSessionSettings({
           variables: {
+            user_name: userProfile?.name || '',
+            user_email: userProfile?.email || '',
+            is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
+            visit_count: String(userProfile?.visitCount || 1),
             vision_enabled: isVisionActive ? 'true' : 'false',
           },
         });
@@ -1204,7 +1208,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [isVisionActive, isConnected, sendSessionSettings]);
+  }, [isVisionActive, isConnected, sendSessionSettings, userProfile]);
 
   // Reset session tracking when disconnected
   useEffect(() => {
