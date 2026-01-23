@@ -259,10 +259,29 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     toggleVision,
     handleFaceDetected,
     analyzeWithQuestion,
+    detectSceneChange,
     setVideoEmotions,
   } = useVision({
     onAnalysisComplete: (result) => {
       console.log('Vision analysis complete:', result.type);
+    },
+    onSceneChange: (result) => {
+      // NoVo acknowledges scene changes
+      if (result.sceneChanged && sendAssistantInput) {
+        let message = '';
+        if (result.changeType === 'person_moved') {
+          message = `I notice you've moved ${result.personVisible ? 'to a different position' : 'out of frame'}. ${result.description}`;
+        } else if (result.changeType === 'camera_moved') {
+          message = `I see the camera has been pointed in a different direction. ${result.description}`;
+        } else if (result.changeType === 'background_changed') {
+          message = `I notice the background has changed. ${result.description}`;
+        }
+
+        if (message) {
+          console.log('🎥 Scene change acknowledged:', message);
+          sendAssistantInput(message);
+        }
+      }
     },
   });
 
@@ -2613,6 +2632,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           isActive={isVisionActive}
           onFaceDetected={handleFaceDetected}
           onEmotionsDetected={setVideoEmotions}
+          onFrame={detectSceneChange}
           isPhotoSession={isPhotoSession}
         />
 
