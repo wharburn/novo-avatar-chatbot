@@ -1176,8 +1176,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   // Send the analysis to NoVo so she knows what she's seeing
                   if (sendAssistantInput) {
                     console.log('👁️ Sending initial vision analysis to NoVo');
-                    // Prefix with context so NoVo knows the camera is on
-                    sendAssistantInput(`Camera is now ON. I can see you. ${analysis}`);
+                    // Just send the analysis - NoVo knows camera is on via session settings
+                    sendAssistantInput(analysis);
                   }
                 }
               })
@@ -1209,29 +1209,17 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   ]);
 
   // Periodic camera awareness - keep NoVo updated on what the camera is seeing
+  // DISABLED: Periodic updates were too verbose and made NoVo talk too much
+  // Camera awareness is maintained via session settings (vision_enabled) and
+  // only triggered when user explicitly asks vision questions
   useEffect(() => {
-    if (!isVisionActive || !isConnected || !sendAssistantInput) return;
-
-    // Update every 15 seconds with what the camera is seeing
-    const cameraAwarenessInterval = setInterval(() => {
-      analyzeWithQuestion('What do you see right now? Describe the current scene briefly.')
-        .then((analysis) => {
-          if (
-            !analysis.includes('Vision is not active') &&
-            !analysis.includes('Unable to capture')
-          ) {
-            console.log('👁️ Sending periodic camera awareness update to NoVo');
-            // Send brief update without the "Camera is now ON" prefix since it's already on
-            sendAssistantInput(`I'm still seeing: ${analysis}`);
-          }
-        })
-        .catch((err) => {
-          console.error('Camera awareness update error:', err);
-        });
-    }, 15000); // Every 15 seconds
-
-    return () => clearInterval(cameraAwarenessInterval);
-  }, [isVisionActive, isConnected, sendAssistantInput, analyzeWithQuestion]);
+    // This effect is intentionally empty - camera awareness is handled by:
+    // 1. Session settings: vision_enabled flag
+    // 2. Initial camera turn-on analysis
+    // 3. User-triggered vision requests (e.g., "What do you think?")
+    // 4. Scene change detection (every 4 seconds)
+    return () => {};
+  }, []);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
@@ -1489,8 +1477,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   if (sendAssistantInput) {
                     // Send the analysis to NoVo so she can speak it
                     console.log('👁️ Sending vision analysis to NoVo');
-                    // Make it clear the camera is on and what we're seeing
-                    sendAssistantInput(`The camera is on and I can see you. ${analysis}`);
+                    // Just send the analysis - NoVo knows camera is on via session settings
+                    sendAssistantInput(analysis);
                   }
                 })
                 .catch((error) => {
