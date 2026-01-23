@@ -67,6 +67,9 @@ export default function AvatarDisplay({
   // Track if initial greeting has been played
   const hasPlayedGreeting = useRef(false);
   const lastSpokenText = useRef('');
+
+  // Track current playing video to ensure proper playback
+  const currentVideoRef = useRef<HTMLVideoElement | null>(null);
   const isPlayingGreeting = useRef(false);
 
   // Color correction filter for videos
@@ -150,6 +153,58 @@ export default function AvatarDisplay({
     }
   }, [isSpeaking, isListening, mode]);
 
+  // Handle video playback when mode changes - ensures videos play on mobile
+  useEffect(() => {
+    const getVideoRef = () => {
+      switch (mode) {
+        case 'talking':
+          return talkingVideoRef.current;
+        case 'listening':
+          return listeningVideoRef.current;
+        case 'waiting':
+          return waitingVideoRef.current;
+        case 'greeting':
+          return greetingVideoRef.current;
+        case 'phrase':
+          return phraseVideoRef.current;
+        default:
+          return null;
+      }
+    };
+
+    const videoElement = getVideoRef();
+    if (!videoElement) return;
+
+    // Ensure the video is playing
+    const playVideo = async () => {
+      try {
+        // Reset playback position for looping videos
+        if (mode === 'talking' || mode === 'listening' || mode === 'waiting') {
+          videoElement.currentTime = 0;
+        }
+
+        // Attempt to play the video
+        const playPromise = videoElement.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+          console.log(`🎬 Video playing: ${mode}`);
+        }
+      } catch (error) {
+        console.warn(`🎬 Video play error for ${mode}:`, error);
+        // Fallback: try again after a short delay
+        setTimeout(() => {
+          try {
+            videoElement.play();
+          } catch (e) {
+            console.error(`🎬 Video play retry failed for ${mode}:`, e);
+          }
+        }, 100);
+      }
+    };
+
+    playVideo();
+  }, [mode]);
+
   // Common video styles
   const baseVideoStyle =
     'absolute inset-0 w-full h-full object-cover transition-opacity duration-300';
@@ -182,6 +237,14 @@ export default function AvatarDisplay({
           muted
           playsInline
           onCanPlay={() => setVideosReady((prev) => ({ ...prev, waiting: true }))}
+          onStalled={() => {
+            console.warn('🎬 Waiting video stalled - attempting to resume');
+            if (waitingVideoRef.current) {
+              waitingVideoRef.current
+                .play()
+                .catch((e) => console.error('Failed to resume waiting video:', e));
+            }
+          }}
         />
 
         {/* LISTENING VIDEO - Always mounted */}
@@ -199,6 +262,14 @@ export default function AvatarDisplay({
           muted
           playsInline
           onCanPlay={() => setVideosReady((prev) => ({ ...prev, listening: true }))}
+          onStalled={() => {
+            console.warn('🎬 Listening video stalled - attempting to resume');
+            if (listeningVideoRef.current) {
+              listeningVideoRef.current
+                .play()
+                .catch((e) => console.error('Failed to resume listening video:', e));
+            }
+          }}
         />
 
         {/* TALKING VIDEO - Always mounted */}
@@ -216,6 +287,24 @@ export default function AvatarDisplay({
           muted
           playsInline
           onCanPlay={() => setVideosReady((prev) => ({ ...prev, talking: true }))}
+          onStalled={() => {
+            console.warn('🎬 Talking video stalled - attempting to resume');
+            if (talkingVideoRef.current) {
+              talkingVideoRef.current
+                .play()
+                .catch((e) => console.error('Failed to resume talking video:', e));
+            }
+          }}
+          onError={() => {
+            console.error('🎬 Talking video error - will retry');
+            if (talkingVideoRef.current) {
+              setTimeout(() => {
+                talkingVideoRef.current
+                  ?.play()
+                  .catch((e) => console.error('Talking video retry failed:', e));
+              }, 500);
+            }
+          }}
         />
 
         {/* GREETING VIDEO - Mounted only when needed, highest z-index */}
