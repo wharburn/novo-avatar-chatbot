@@ -342,6 +342,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const lastWeatherCallRef = useRef<number>(0);
   const WEATHER_DEBOUNCE = 2000; // 2 seconds between calls
 
+  // Photo session timing - prevent button click within first 2 seconds
+  const photoSessionStartTimeRef = useRef<number | null>(null);
+
   // Get user location on mount
   useEffect(() => {
     if (userLocationRef.current) return;
@@ -1150,9 +1153,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   analysis.includes('Unable to capture')
                 ) {
                   console.warn('👁️ Camera stream not ready yet, sending generic message');
-                  if (sendAssistantInput) {
-                    sendAssistantInput('[Camera ON. Acknowledge you can see the user.]');
-                  }
+                  // if (sendAssistantInput) {
+                  //   sendAssistantInput('[Camera ON. Acknowledge you can see the user.]');
+                  // }
                 } else {
                   // Truncate analysis to fit within 256 char limit (leaving room for prefix)
                   const maxAnalysisLength = 200;
@@ -1161,24 +1164,24 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                       ? analysis.slice(0, maxAnalysisLength) + '...'
                       : analysis;
 
-                  if (sendAssistantInput) {
-                    sendAssistantInput(`[Camera ON. I see: ${truncatedAnalysis}]`);
-                  }
+                  // if (sendAssistantInput) {
+                  //   sendAssistantInput(`[Camera ON. I see: ${truncatedAnalysis}]`);
+                  // }
                 }
               })
               .catch((err) => {
                 console.error('👁️ Initial vision analysis failed:', err);
-                if (sendAssistantInput) {
-                  sendAssistantInput('[Camera ON. Acknowledge you can see the user.]');
-                }
+                // if (sendAssistantInput) {
+                //   sendAssistantInput('[Camera ON. Acknowledge you can see the user.]');
+                // }
               });
           }, 1000); // Wait 1 second for camera to initialize
         } else {
           // Camera just turned OFF
           console.log('👁️ Camera turned OFF - notifying NoVo');
-          if (sendAssistantInput) {
-            sendAssistantInput('[Camera OFF. You cannot see the user.]');
-          }
+          // if (sendAssistantInput) {
+          //   sendAssistantInput('[Camera OFF. You cannot see the user.]');
+          // }
         }
       }
     } catch (error) {
@@ -1425,9 +1428,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             // Turn camera ON
             console.log('📹 Turning camera ON');
             toggleVision();
-            if (sendAssistantInput) {
-              sendAssistantInput('[Camera ON. Ask what they want to show you.]');
-            }
+            // if (sendAssistantInput) {
+            //   sendAssistantInput('[Camera ON. Ask what they want to show you.]');
+            // }
             processingCommandRef.current = false;
           }
 
@@ -1448,21 +1451,21 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                     const truncated =
                       analysis.length > 200 ? analysis.slice(0, 200) + '...' : analysis;
                     console.log('👁️ Sending to NoVo:', `[I see: ${truncated}]`);
-                    sendAssistantInput(`[I see: ${truncated}]`);
+                    // sendAssistantInput(`[I see: ${truncated}]`);
                   }
                 })
                 .catch((error) => {
                   console.error('👁️ Vision analysis error:', error);
-                  if (sendAssistantInput) {
-                    sendAssistantInput('[Trouble analyzing. Ask them to adjust lighting.]');
-                  }
+                  // if (sendAssistantInput) {
+                  //   sendAssistantInput('[Trouble analyzing. Ask them to adjust lighting.]');
+                  // }
                 });
             } else {
               // Camera is OFF - tell NoVo to ask user to enable it
               console.log('👁️ Camera is OFF - telling NoVo to ask user to enable');
-              if (sendAssistantInput) {
-                sendAssistantInput('[Camera OFF. Ask user to tap the eye button to enable it.]');
-              }
+              // if (sendAssistantInput) {
+              //   sendAssistantInput('[Camera OFF. Ask user to tap the eye button to enable it.]');
+              // }
             }
             processingCommandRef.current = false;
           }
@@ -1498,27 +1501,27 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                     setSessionPhotos((prev) => [...prev, { url: imageData, id: photoId }]);
                     console.log(`📸 Photo ${sessionPhotos.length + 1} added to session`);
 
-                    if (sendAssistantInput) {
-                      sendAssistantInput(
-                        `[Photo ${sessionPhotos.length + 1} captured! Say "shoot" for more, or "done" to finish.]`
-                      );
-                    }
+                    // if (sendAssistantInput) {
+                    //   sendAssistantInput(
+                    //     `[Photo ${sessionPhotos.length + 1} captured! Say "shoot" for more, or "done" to finish.]`
+                    //   );
+                    // }
                   } else {
                     // Single photo mode
                     lastCapturedImageRef.current = imageData;
                     console.log('📸 Photo captured from vision stream');
 
-                    if (sendAssistantInput) {
-                      sendAssistantInput(
-                        '[Photo captured! Ask: "Want to know about Photo Session Mode? You can take multiple photos by saying \'shoot\'!"]'
-                      );
-                    }
+                    // if (sendAssistantInput) {
+                    //   sendAssistantInput(
+                    //     '[Photo captured! Ask: "Want to know about Photo Session Mode? You can take multiple photos by saying \'shoot\'!"]'
+                    //   );
+                    // }
                   }
                 } else {
                   console.error('📸 Failed to capture from vision stream');
-                  if (sendAssistantInput) {
-                    sendAssistantInput('[Had trouble capturing the photo. Please try again.]');
-                  }
+                  // if (sendAssistantInput) {
+                  //   sendAssistantInput('[Had trouble capturing the photo. Please try again.]');
+                  // }
                 }
               }
             } else {
@@ -1534,14 +1537,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('📧 Email picture request detected');
             if (!lastCapturedImageRef.current) {
               // No picture taken yet
-              if (sendAssistantInput) {
-                sendAssistantInput('[No photo yet - ask if they want to take one first]');
-              }
+              // if (sendAssistantInput) {
+              //   sendAssistantInput('[No photo yet - ask if they want to take one first]');
+              // }
             } else if (!userProfile?.email && !command.extractedData?.email) {
               // Need email address
-              if (sendAssistantInput) {
-                sendAssistantInput('[Need email address to send the picture]');
-              }
+              // if (sendAssistantInput) {
+              //   sendAssistantInput('[Need email address to send the picture]');
+              // }
             } else {
               // We have picture and email - show confirmation dialog
               const emailToUse = command.extractedData?.email || userProfile?.email || '';
@@ -1558,9 +1561,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               });
 
               // Tell NoVo we're asking for confirmation
-              if (sendAssistantInput) {
-                sendAssistantInput('[Asking user to confirm email address before sending]');
-              }
+              // if (sendAssistantInput) {
+              //   sendAssistantInput('[Asking user to confirm email address before sending]');
+              // }
             }
             processingCommandRef.current = false;
           }
@@ -1570,9 +1573,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('📧 Email summary request detected');
             if (!userProfile?.email && !command.extractedData?.email) {
               // Need email address
-              if (sendAssistantInput) {
-                sendAssistantInput('[Need email address for summary]');
-              }
+              // if (sendAssistantInput) {
+              //   sendAssistantInput('[Need email address for summary]');
+              // }
             } else {
               // We have email - show confirmation dialog
               const emailToUse = command.extractedData?.email || userProfile?.email || '';
@@ -1606,9 +1609,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               });
 
               // Tell NoVo we're asking for confirmation
-              if (sendAssistantInput) {
-                sendAssistantInput('[Asking user to confirm email address before sending]');
-              }
+              // if (sendAssistantInput) {
+              //   sendAssistantInput('[Asking user to confirm email address before sending]');
+              // }
             }
             processingCommandRef.current = false;
           }
@@ -1634,17 +1637,18 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setIsPhotoSession(true);
             setSessionPhotos([]);
             setShowPhotoGrid(false);
+            photoSessionStartTimeRef.current = Date.now(); // Record start time
 
             // Turn on camera if not already on
             if (!isVisionActive) {
               toggleVision();
             }
 
-            if (sendAssistantInput) {
-              sendAssistantInput(
-                '[Photo session starting! Camera enlarging. Say "shoot" for each photo.]'
-              );
-            }
+            // if (sendAssistantInput) {
+            //   sendAssistantInput(
+            //     '[Photo session starting! Camera enlarging. Say "shoot" for each photo.]'
+            //   );
+            // }
             processingCommandRef.current = false;
           }
 
@@ -2513,9 +2517,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
     if (!userProfile?.email || !userProfile?.name) {
       console.error('📧 Missing user email or name');
-      if (sendAssistantInput) {
-        sendAssistantInput('[Need email and name to send photos. Ask user for this info.]');
-      }
+      // if (sendAssistantInput) {
+      //   sendAssistantInput('[Need email and name to send photos. Ask user for this info.]');
+      // }
       return;
     }
 
@@ -2569,7 +2573,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           `[Sent ${successCount} of ${sessionPhotos.length} photos to ${userProfile.email}. ${failCount} failed.]`
         );
       } else {
-        sendAssistantInput('[Failed to send photos. Please try again.]');
+        // sendAssistantInput('[Failed to send photos. Please try again.]');
       }
     }
 
@@ -2759,14 +2763,25 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           <button
             type="button"
             onClick={() => {
+              // Prevent button click within first 2 seconds of session start
+              const timeSinceStart = Date.now() - (photoSessionStartTimeRef.current || 0);
+              if (timeSinceStart < 2000) {
+                console.log(
+                  '📸 Finish button click ignored - session too new (',
+                  timeSinceStart,
+                  'ms)'
+                );
+                return;
+              }
               console.log('📸 Finish button clicked - ending photo session');
               setIsPhotoSession(false);
               setShowPhotoGrid(true);
-              if (sendAssistantInput) {
-                sendAssistantInput(
-                  `[Session ended! Showing ${sessionPhotos.length} photos in grid.]`
-                );
-              }
+              photoSessionStartTimeRef.current = null; // Clear the timer
+              // if (sendAssistantInput) {
+              //   sendAssistantInput(
+              //     `[Session ended! Showing ${sessionPhotos.length} photos in grid.]`
+              //   );
+              // }
             }}
             className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold shadow-lg transition-all hover:scale-105"
           >
