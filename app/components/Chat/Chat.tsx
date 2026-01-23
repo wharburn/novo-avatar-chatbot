@@ -1208,18 +1208,32 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     analyzeWithQuestion,
   ]);
 
-  // Periodic camera awareness - keep NoVo updated on what the camera is seeing
-  // DISABLED: Periodic updates were too verbose and made NoVo talk too much
-  // Camera awareness is maintained via session settings (vision_enabled) and
-  // only triggered when user explicitly asks vision questions
+  // Periodic camera awareness - keep NoVo informed about what the camera is seeing
+  // This sends context to NoVo so she's aware, but she decides when to mention it naturally
   useEffect(() => {
-    // This effect is intentionally empty - camera awareness is handled by:
-    // 1. Session settings: vision_enabled flag
-    // 2. Initial camera turn-on analysis
-    // 3. User-triggered vision requests (e.g., "What do you think?")
-    // 4. Scene change detection (every 4 seconds)
-    return () => {};
-  }, []);
+    if (!isVisionActive || !isConnected || !sendAssistantInput) return;
+
+    // Update every 30 seconds with what the camera is seeing
+    // This is sent as context so NoVo is aware, but she won't automatically speak it
+    const cameraAwarenessInterval = setInterval(() => {
+      analyzeWithQuestion('Briefly describe what you see right now in one sentence.')
+        .then((analysis) => {
+          if (
+            !analysis.includes('Vision is not active') &&
+            !analysis.includes('Unable to capture')
+          ) {
+            console.log('👁️ Sending camera context to NoVo (she may reference it naturally)');
+            // Send as context in brackets so NoVo knows but doesn't automatically speak it
+            sendAssistantInput(`[Camera context: ${analysis}]`);
+          }
+        })
+        .catch((err) => {
+          console.error('Camera awareness update error:', err);
+        });
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(cameraAwarenessInterval);
+  }, [isVisionActive, isConnected, sendAssistantInput, analyzeWithQuestion]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
