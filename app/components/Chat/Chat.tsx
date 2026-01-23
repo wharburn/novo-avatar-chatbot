@@ -1470,6 +1470,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           // Handle take picture request
           else if (command.type === 'take_picture') {
             console.log('📸 Take picture command detected');
+            console.log('📸 User said:', content.toLowerCase().trim());
+            console.log('📸 Is vision active?', isVisionActive);
+            console.log('📸 Is photo session?', isPhotoSession);
 
             // If camera is on and user says "shoot", capture directly from vision stream
             if (
@@ -1479,6 +1482,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 content.toLowerCase().trim() === 'snap')
             ) {
               console.log('📸 Quick capture from vision stream');
+              console.log('📸 Checking for window.__visionCaptureFrame...');
 
               // Capture from vision stream
               if (typeof window !== 'undefined' && (window as any).__visionCaptureFrame) {
