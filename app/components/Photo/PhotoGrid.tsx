@@ -12,11 +12,19 @@ interface PhotoGridProps {
   photos: Photo[];
   onPhotoDelete: (id: string) => void;
   onClose: () => void;
-  onEmailPhotos: () => void;
+  onEmailPhotos: (selectedPhotoIds: string[]) => void;
 }
 
-export default function PhotoGrid({ photos, onPhotoDelete, onClose, onEmailPhotos }: PhotoGridProps) {
+export default function PhotoGrid({
+  photos,
+  onPhotoDelete,
+  onClose,
+  onEmailPhotos,
+}: PhotoGridProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [selectedForEmail, setSelectedForEmail] = useState<Set<string>>(
+    new Set(photos.map((p) => p.id))
+  );
 
   const handleDeletePhoto = (id: string) => {
     onPhotoDelete(id);
@@ -47,7 +55,7 @@ export default function PhotoGrid({ photos, onPhotoDelete, onClose, onEmailPhoto
       {!selectedPhoto ? (
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
-            {photos.map((photo) => (
+            {photos.map((photo, index) => (
               <div
                 key={photo.id}
                 className="relative aspect-square rounded-lg overflow-hidden bg-gray-800 cursor-pointer group"
@@ -58,12 +66,41 @@ export default function PhotoGrid({ photos, onPhotoDelete, onClose, onEmailPhoto
                   alt="Captured photo"
                   className="w-full h-full object-cover transition-transform group-hover:scale-105"
                 />
+                {/* Photo number badge */}
+                <div className="absolute top-2 left-2 bg-blue-600 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center text-sm">
+                  {index + 1}
+                </div>
+
+                {/* Selection checkbox */}
+                <div className="absolute top-2 right-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedForEmail.has(photo.id)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      const newSelected = new Set(selectedForEmail);
+                      if (e.target.checked) {
+                        newSelected.add(photo.id);
+                      } else {
+                        newSelected.delete(photo.id);
+                      }
+                      setSelectedForEmail(newSelected);
+                    }}
+                    className="w-5 h-5 cursor-pointer"
+                    aria-label={`Select photo ${index + 1}`}
+                  />
+                </div>
+
                 {/* Delete button on thumbnail */}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeletePhoto(photo.id);
+                    // Also remove from email selection if deleted
+                    const newSelected = new Set(selectedForEmail);
+                    newSelected.delete(photo.id);
+                    setSelectedForEmail(newSelected);
                   }}
                   className="absolute bottom-2 right-2 p-2 bg-red-500/80 hover:bg-red-600 rounded-full transition-colors"
                   aria-label="Delete photo"
@@ -85,11 +122,20 @@ export default function PhotoGrid({ photos, onPhotoDelete, onClose, onEmailPhoto
             </button>
             <button
               type="button"
-              onClick={onEmailPhotos}
-              disabled={photos.length === 0}
+              onClick={() => {
+                // Delete unselected photos
+                photos.forEach((photo) => {
+                  if (!selectedForEmail.has(photo.id)) {
+                    onPhotoDelete(photo.id);
+                  }
+                });
+                // Then email the selected ones
+                onEmailPhotos(Array.from(selectedForEmail));
+              }}
+              disabled={selectedForEmail.size === 0}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
             >
-              Email {photos.length} {photos.length === 1 ? 'Photo' : 'Photos'}
+              Email {selectedForEmail.size} {selectedForEmail.size === 1 ? 'Photo' : 'Photos'}
             </button>
           </div>
         </div>
@@ -126,4 +172,3 @@ export default function PhotoGrid({ photos, onPhotoDelete, onClose, onEmailPhoto
     </div>
   );
 }
-

@@ -1732,33 +1732,21 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                       return newPhotos;
                     });
 
-                    if (sendAssistantInput) {
-                      sendAssistantInput(
-                        `[Photo captured! Say "shoot" for more, or "done" to finish.]`
-                      );
-                    }
+                    // NO message - let user continue shooting without interruption
                   } else {
                     // Single photo mode
                     lastCapturedImageRef.current = imageData;
                     console.log('📸 Photo captured from vision stream');
 
-                    if (sendAssistantInput) {
-                      sendAssistantInput(
-                        '[Photo captured! Ask: "Want to know about Photo Session Mode? You can take multiple photos by saying \'shoot\'!"]'
-                      );
-                    }
+                    // NO message - let NoVo respond naturally
                   }
                 } else {
                   console.error('📸 Failed to capture from vision stream - imageData is null');
-                  if (sendAssistantInput) {
-                    sendAssistantInput('[Had trouble capturing the photo. Please try again.]');
-                  }
+                  // Let NoVo respond naturally to the failed capture
                 }
               } else {
                 console.error('📸 __visionCaptureFrame not available on window');
-                if (sendAssistantInput) {
-                  sendAssistantInput('[Camera not ready. Please try again.]');
-                }
+                // Let NoVo respond naturally to the camera not being ready
               }
             } else {
               // Open camera capture modal
@@ -1893,17 +1881,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           // Handle end photo session request
           else if (command.type === 'end_photo_session') {
             console.log('📸 End photo session request detected');
+            console.log(`📸 Session ended with ${sessionPhotos.length} photos`);
 
             // End photo session and show grid
             setIsPhotoSession(false);
             setShowPhotoGrid(true);
 
-            // Only send message if there are actually photos
-            if (sendAssistantInput && sessionPhotos.length > 0) {
-              sendAssistantInput(
-                `[Session ended! Showing ${sessionPhotos.length} photos in grid.]`
-              );
-            }
+            // NO message - let NoVo respond naturally
             processingCommandRef.current = false;
           }
 
@@ -2809,8 +2793,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     setSessionPhotos([]); // Clear photos when closing grid
   };
 
-  const handleEmailPhotos = async () => {
-    console.log('📧 Emailing photos:', sessionPhotos.length);
+  const handleEmailPhotos = async (selectedPhotoIds: string[]) => {
+    console.log('📧 Emailing selected photos:', selectedPhotoIds.length);
 
     // Get user profile for email and name
     const userProfile = await fetch('/api/user/profile')
@@ -2819,21 +2803,20 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
     if (!userProfile?.email || !userProfile?.name) {
       console.error('📧 Missing user email or name');
-      // if (sendAssistantInput) {
-      //   sendAssistantInput('[Need email and name to send photos. Ask user for this info.]');
-      // }
       return;
     }
 
-    console.log('📧 Sending', sessionPhotos.length, 'photos to', userProfile.email);
+    // Filter to only selected photos
+    const photosToEmail = sessionPhotos.filter((photo) => selectedPhotoIds.includes(photo.id));
+    console.log('📧 Sending', photosToEmail.length, 'photos to', userProfile.email);
 
     // Send each photo via email
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < sessionPhotos.length; i++) {
-      const photo = sessionPhotos[i];
-      console.log(`📧 Sending photo ${i + 1}/${sessionPhotos.length}...`);
+    for (let i = 0; i < photosToEmail.length; i++) {
+      const photo = photosToEmail[i];
+      console.log(`📧 Sending photo ${i + 1}/${photosToEmail.length}...`);
 
       try {
         const result = await fetch('/api/tools/execute', {
@@ -2845,7 +2828,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               email: userProfile.email,
               user_name: userProfile.name,
               image_url: photo.url,
-              caption: `Photo ${i + 1} of ${sessionPhotos.length} from your photo session`,
+              caption: `Photo ${i + 1} of ${photosToEmail.length} from your photo session`,
             },
           }),
         }).then((res) => res.json());
@@ -2864,20 +2847,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
 
     console.log(`📧 Email complete: ${successCount} sent, ${failCount} failed`);
-
-    if (sendAssistantInput) {
-      if (successCount === sessionPhotos.length) {
-        sendAssistantInput(
-          `[All ${sessionPhotos.length} photos sent successfully to ${userProfile.email}!]`
-        );
-      } else if (successCount > 0) {
-        sendAssistantInput(
-          `[Sent ${successCount} of ${sessionPhotos.length} photos to ${userProfile.email}. ${failCount} failed.]`
-        );
-      } else {
-        // sendAssistantInput('[Failed to send photos. Please try again.]');
-      }
-    }
 
     // Close the grid after sending
     handleClosePhotoGrid();
