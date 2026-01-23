@@ -60,14 +60,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'thinking_1',
     text: "That's a great question. Let me think about that.",
-    aliases: [], // Removed generic aliases to prevent false matches
+    aliases: ['great question let me think', 'let me think about that'], // Multi-word aliases for specificity
     videoPath: '/phrases/thinking_1.mp4',
     duration: 3000,
   },
   {
     id: 'thinking_2',
     text: 'Hmm, let me think about this for a moment.',
-    aliases: [], // Removed generic aliases to prevent false matches
+    aliases: ['think about this for a moment'], // Multi-word alias
     videoPath: '/phrases/thinking_2.mp4',
     duration: 2500,
   },
@@ -75,14 +75,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'understand_1',
     text: 'I understand. Tell me more about that.',
-    aliases: [], // Removed generic aliases
+    aliases: ['i understand tell me more', 'tell me more about that'], // Multi-word aliases
     videoPath: '/phrases/understand_1.mp4',
     duration: 2500,
   },
   {
     id: 'interested_1',
     text: "That's really interesting!",
-    aliases: [], // Removed generic aliases
+    aliases: ['really interesting'], // Multi-word alias
     videoPath: '/phrases/interested_1.mp4',
     duration: 2000,
   },
@@ -90,14 +90,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'helpful_1',
     text: "I'm here to help you with whatever you need.",
-    aliases: [], // Removed generic aliases
+    aliases: ['here to help you', 'help you with whatever'], // Multi-word aliases
     videoPath: '/phrases/helpful_1.mp4',
     duration: 3000,
   },
   {
     id: 'confirm_1',
     text: "Absolutely! I'd be happy to help with that.",
-    aliases: [], // Removed generic aliases
+    aliases: ['happy to help with that', 'be happy to help'], // Multi-word aliases
     videoPath: '/phrases/confirm_1.mp4',
     duration: 2500,
   },
@@ -105,14 +105,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'question_1',
     text: 'Could you tell me more about that?',
-    aliases: [], // Removed generic aliases
+    aliases: ['tell me more about that', 'could you tell me more'], // Multi-word aliases
     videoPath: '/phrases/question_1.mp4',
     duration: 2500,
   },
   {
     id: 'clarify_1',
     text: "I'm not sure I understand. Could you rephrase that?",
-    aliases: [], // Removed generic aliases
+    aliases: ['could you rephrase that', 'not sure i understand'], // Multi-word aliases
     videoPath: '/phrases/clarify_1.mp4',
     duration: 3000,
   },
@@ -120,7 +120,7 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'explain_1',
     text: 'Let me explain that for you.',
-    aliases: [], // Removed generic aliases
+    aliases: ['let me explain that', 'explain that for you'], // Multi-word aliases
     videoPath: '/phrases/explain_1.mp4',
     duration: 2500,
   },
@@ -128,14 +128,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'agree_1',
     text: 'That makes a lot of sense.',
-    aliases: [], // Removed generic aliases
+    aliases: ['makes a lot of sense', 'that makes sense'], // Multi-word aliases
     videoPath: '/phrases/agree_1.mp4',
     duration: 2000,
   },
   {
     id: 'acknowledge_1',
     text: "That's a good point.",
-    aliases: [], // Removed generic aliases
+    aliases: ['good point', 'that is a good point'], // Multi-word aliases
     videoPath: '/phrases/acknowledge_1.mp4',
     duration: 2000,
   },
@@ -143,7 +143,7 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'working_1',
     text: 'Let me see what I can do.',
-    aliases: [], // Removed generic aliases
+    aliases: ['let me see what i can do', 'see what i can do'], // Multi-word aliases
     videoPath: '/phrases/working_1.mp4',
     duration: 2500,
   },
@@ -151,7 +151,7 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'followup_1',
     text: "Is there anything else you'd like to know?",
-    aliases: ['anything else', 'like to know'],
+    aliases: ['anything else you would like', 'is there anything else'], // Multi-word aliases
     videoPath: '/phrases/followup_1.mp4',
     duration: 2500,
   },
@@ -159,7 +159,7 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'thanks_1',
     text: 'Thanks for sharing that with me.',
-    aliases: ['thanks for sharing', 'sharing that'],
+    aliases: ['thanks for sharing that', 'sharing that with me'], // Multi-word aliases
     videoPath: '/phrases/thanks_1.mp4',
     duration: 2500,
   },
@@ -167,14 +167,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'goodbye_1',
     text: 'Goodbye! It was nice talking with you.',
-    aliases: ['goodbye', 'nice talking'],
+    aliases: ['nice talking with you', 'it was nice talking'], // Multi-word aliases
     videoPath: '/phrases/goodbye_1.mp4',
     duration: 2500,
   },
   {
     id: 'goodbye_2',
     text: 'Take care! Feel free to come back anytime.',
-    aliases: ['take care', 'come back anytime'],
+    aliases: ['take care feel free', 'come back anytime'], // Multi-word aliases
     videoPath: '/phrases/goodbye_2.mp4',
     duration: 3000,
   },
@@ -233,10 +233,25 @@ export function findPhraseVideo(text: string): PhraseVideo | null {
       return phrase;
     }
 
-    // Check aliases
+    // Check aliases with word boundary matching
     for (const alias of phrase.aliases) {
-      if (normalizedText.includes(alias.toLowerCase())) {
-        return phrase;
+      if (!alias) continue; // Skip empty aliases
+
+      // For multi-word aliases, require all words to appear in order
+      const aliasWords = alias.toLowerCase().split(/\s+/);
+      if (aliasWords.length > 1) {
+        // Multi-word alias: check if all words appear in sequence
+        const aliasPattern = aliasWords.join('\\s+');
+        const regex = new RegExp(`\\b${aliasPattern}\\b`, 'i');
+        if (regex.test(normalizedText)) {
+          return phrase;
+        }
+      } else {
+        // Single-word alias: require word boundary to avoid partial matches
+        const regex = new RegExp(`\\b${alias.toLowerCase()}\\b`, 'i');
+        if (regex.test(normalizedText)) {
+          return phrase;
+        }
       }
     }
   }
