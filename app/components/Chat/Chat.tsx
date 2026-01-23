@@ -789,6 +789,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         setWeatherData(w);
         setShowWeatherOverlay(true);
 
+        // Auto-hide weather overlay after 4 seconds
+        setTimeout(() => {
+          setShowWeatherOverlay(false);
+        }, 4000);
+
         // Build weather report for NoVo with proper null checks (Celsius only)
         const location = w.location || 'your area';
         const tempC = w.temperature?.celsius || 'unknown';
@@ -845,6 +850,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setWeatherData(w);
             setShowWeatherOverlay(true);
             console.log('🌤️ Weather overlay displayed');
+
+            // Auto-hide weather overlay after 4 seconds
+            setTimeout(() => {
+              setShowWeatherOverlay(false);
+            }, 4000);
 
             // Build a natural weather report for NoVo to speak with proper null checks (Celsius only)
             const location = w.location || 'your area';
@@ -1248,44 +1258,16 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       // Only notify NoVo if vision state actually changed
       if (visionStateChanged && sendAssistantInput) {
         if (isVisionActive) {
-          // Camera just turned ON - wait for stream to be ready, then analyze
-          console.log('👁️ Camera turned ON - waiting for stream to be ready...');
-
-          // Wait 1 second for camera stream to initialize
-          setTimeout(() => {
-            analyzeWithQuestion(
-              'Describe what you see - the person, their appearance, clothing, etc.'
-            )
-              .then((analysis) => {
-                console.log('👁️ Initial vision analysis complete:', analysis.slice(0, 100));
-
-                // Check if we got an error message instead of actual analysis
-                if (
-                  analysis.includes('Vision is not active') ||
-                  analysis.includes('Unable to capture')
-                ) {
-                  console.warn('👁️ Camera stream not ready yet');
-                } else {
-                  // Send the analysis to NoVo so she knows what she's seeing
-                  if (sendAssistantInput) {
-                    console.log('👁️ Sending initial vision analysis to NoVo');
-                    // Just send the analysis - NoVo knows camera is on via session settings
-                    sendAssistantInput(analysis);
-                  }
-                }
-              })
-              .catch((err) => {
-                console.error('👁️ Initial vision analysis failed:', err);
-                // if (sendAssistantInput) {
-                //   sendAssistantInput('[Camera ON. Acknowledge you can see the user.]');
-                // }
-              });
-          }, 1000); // Wait 1 second for camera to initialize
+          // Camera just turned ON - just notify NoVo, don't auto-analyze
+          console.log('👁️ Camera turned ON - notifying NoVo');
+          if (sendAssistantInput) {
+            sendAssistantInput('[Camera ON. You can now see the user.]');
+          }
         } else {
           // Camera just turned OFF
           console.log('👁️ Camera turned OFF - notifying NoVo');
           if (sendAssistantInput) {
-            sendAssistantInput('Camera is now OFF. I can no longer see you.');
+            sendAssistantInput('[Camera OFF. You cannot see the user.]');
           }
         }
       }
