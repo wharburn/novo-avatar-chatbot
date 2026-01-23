@@ -1654,13 +1654,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('👁️ Vision request detected');
 
             if (isVisionActive) {
-              // Camera IS on - tell NoVo to look and scan for latest info
+              // Camera IS on - scan for fresh camera analysis
               console.log('👁️ Camera is ON - scanning for latest information...');
-
-              if (sendAssistantInput) {
-                // Tell NoVo to look and scan
-                sendAssistantInput('Let me have a look and scan for the latest information.');
-              }
 
               // Scan for fresh camera analysis
               analyzeWithQuestion(
@@ -1911,11 +1906,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('👗 Fashion analysis request detected');
 
             if (isVisionActive) {
-              if (sendAssistantInput) {
-                sendAssistantInput('Let me analyze your outfit in detail.');
-              }
-
-              // Capture current frame
+              // Camera is on - capture frame and analyze
               const frame = (window as any).__visionCaptureFrame?.();
               if (frame) {
                 // Call fashion analysis API
@@ -1932,6 +1923,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                     if (data.success && data.analysis) {
                       console.log('👗 Fashion analysis complete');
                       if (sendAssistantInput) {
+                        // Send the analysis directly - NoVo will speak it
                         sendAssistantInput(data.analysis);
                       }
                     }
@@ -1941,8 +1933,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   });
               }
             } else {
+              // Camera is off - ask user to turn it on
               if (sendAssistantInput) {
-                sendAssistantInput('Please turn on the camera so I can see your outfit.');
+                sendAssistantInput(
+                  'I need to see you to analyze your outfit. Can you turn on the camera?'
+                );
               }
             }
             processingCommandRef.current = false;
