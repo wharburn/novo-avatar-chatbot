@@ -1577,8 +1577,15 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
     // Create a unique ID for this message to prevent duplicate processing
     const msgAny = lastMessage as any;
-    const messageId =
-      msgAny.id || msgAny.receivedAt?.toString() || `${lastMessage.type}-${messages.length}`;
+    const msgType = lastMessage.type;
+
+    // Skip if message has no type
+    if (!msgType) {
+      console.warn('⚠️ Message received with no type:', lastMessage);
+      return;
+    }
+
+    const messageId = msgAny.id || msgAny.receivedAt?.toString() || `${msgType}-${messages.length}`;
 
     // Skip if we've already processed this message
     if (processedMessageIdsRef.current.has(messageId)) {
@@ -1589,7 +1596,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     processedMessageIdsRef.current.add(messageId);
 
     // Debug: Log all message types to help troubleshoot tool calls
-    const msgType = lastMessage.type;
     console.log(`📨 Message received [${messages.length}]: type="${msgType}"`);
 
     // Log full message for any tool-related or unknown message types
