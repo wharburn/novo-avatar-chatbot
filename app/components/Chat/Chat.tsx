@@ -1176,7 +1176,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   // Send the analysis to NoVo so she knows what she's seeing
                   if (sendAssistantInput) {
                     console.log('👁️ Sending initial vision analysis to NoVo');
-                    sendAssistantInput(analysis);
+                    // Prefix with context so NoVo knows the camera is on
+                    sendAssistantInput(`Camera is now ON. I can see you. ${analysis}`);
                   }
                 }
               })
@@ -1190,9 +1191,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         } else {
           // Camera just turned OFF
           console.log('👁️ Camera turned OFF - notifying NoVo');
-          // if (sendAssistantInput) {
-          //   sendAssistantInput('[Camera OFF. You cannot see the user.]');
-          // }
+          if (sendAssistantInput) {
+            sendAssistantInput('Camera is now OFF. I can no longer see you.');
+          }
         }
       }
     } catch (error) {
@@ -1206,6 +1207,31 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     userProfile,
     analyzeWithQuestion,
   ]);
+
+  // Periodic camera awareness - keep NoVo updated on what the camera is seeing
+  useEffect(() => {
+    if (!isVisionActive || !isConnected || !sendAssistantInput) return;
+
+    // Update every 15 seconds with what the camera is seeing
+    const cameraAwarenessInterval = setInterval(() => {
+      analyzeWithQuestion('What do you see right now? Describe the current scene briefly.')
+        .then((analysis) => {
+          if (
+            !analysis.includes('Vision is not active') &&
+            !analysis.includes('Unable to capture')
+          ) {
+            console.log('👁️ Sending periodic camera awareness update to NoVo');
+            // Send brief update without the "Camera is now ON" prefix since it's already on
+            sendAssistantInput(`I'm still seeing: ${analysis}`);
+          }
+        })
+        .catch((err) => {
+          console.error('Camera awareness update error:', err);
+        });
+    }, 15000); // Every 15 seconds
+
+    return () => clearInterval(cameraAwarenessInterval);
+  }, [isVisionActive, isConnected, sendAssistantInput, analyzeWithQuestion]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
@@ -1463,7 +1489,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   if (sendAssistantInput) {
                     // Send the analysis to NoVo so she can speak it
                     console.log('👁️ Sending vision analysis to NoVo');
-                    sendAssistantInput(analysis);
+                    // Make it clear the camera is on and what we're seeing
+                    sendAssistantInput(`The camera is on and I can see you. ${analysis}`);
                   }
                 })
                 .catch((error) => {
