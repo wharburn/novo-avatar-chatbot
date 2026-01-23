@@ -1724,10 +1724,15 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   if (isPhotoSession) {
                     // Photo session mode - add to session array
                     const photoId = `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                    console.log('📸 Adding photo to session with ID:', photoId);
                     setSessionPhotos((prev) => {
                       const newPhotos = [...prev, { url: imageData, id: photoId }];
                       console.log(
                         `📸 Photo added to session. Total photos now: ${newPhotos.length}`
+                      );
+                      console.log(
+                        '📸 Session photos array:',
+                        newPhotos.map((p) => p.id)
                       );
                       return newPhotos;
                     });
@@ -3048,14 +3053,15 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 return;
               }
               console.log('📸 Finish button clicked - ending photo session');
+              console.log(`📸 Current sessionPhotos.length: ${sessionPhotos.length}`);
+              console.log(
+                '📸 Current sessionPhotos:',
+                sessionPhotos.map((p) => p.id)
+              );
               setIsPhotoSession(false);
               setShowPhotoGrid(true);
+              console.log('📸 Set showPhotoGrid to true and isPhotoSession to false');
               photoSessionStartTimeRef.current = null; // Clear the timer
-              // if (sendAssistantInput) {
-              //   sendAssistantInput(
-              //     `[Session ended! Showing ${sessionPhotos.length} photos in grid.]`
-              //   );
-              // }
             }}
             className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-semibold shadow-lg transition-all hover:scale-105"
           >
@@ -3082,12 +3088,18 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Photo Grid Modal */}
       {showPhotoGrid && (
-        <PhotoGrid
-          photos={sessionPhotos}
-          onPhotoDelete={handlePhotoDelete}
-          onClose={handleClosePhotoGrid}
-          onEmailPhotos={handleEmailPhotos}
-        />
+        <>
+          {console.log(
+            '📸 PhotoGrid rendering with photos:',
+            sessionPhotos.map((p) => p.id)
+          )}
+          <PhotoGrid
+            photos={sessionPhotos}
+            onPhotoDelete={handlePhotoDelete}
+            onClose={handleClosePhotoGrid}
+            onEmailPhotos={handleEmailPhotos}
+          />
+        </>
       )}
     </div>
   );
