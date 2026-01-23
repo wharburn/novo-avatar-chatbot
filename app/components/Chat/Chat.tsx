@@ -288,6 +288,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   // Store vision analysis for AI context
   const visionContextRef = useRef<string | null>(null);
 
+  // Store latest camera analysis for responding to queries
+  const [latestCameraAnalysis, setLatestCameraAnalysis] = useState<string | null>(null);
+  const lastCameraAnalysisTimeRef = useRef<number>(0);
+  const CAMERA_ANALYSIS_INTERVAL = 3000; // Scan every 3 seconds
+
   // Command detection for bypassing Hume tool calls
   const { detectCommand } = useCommandDetection();
   const processingCommandRef = useRef<boolean>(false);
@@ -1268,6 +1273,43 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     analyzeWithQuestion,
   ]);
 
+  // Background camera scanning - continuously analyze camera without speaking
+  // This keeps the latest camera analysis ready for when user asks "can you see me?"
+  useEffect(() => {
+    if (!isVisionActive || !analyzeWithQuestion) return;
+
+    const scanCamera = async () => {
+      const now = Date.now();
+      // Only scan if enough time has passed since last scan
+      if (now - lastCameraAnalysisTimeRef.current < CAMERA_ANALYSIS_INTERVAL) {
+        return;
+      }
+
+      try {
+        console.log('📸 Background camera scan...');
+        const analysis = await analyzeWithQuestion(
+          'Describe what you see: the person, their appearance, clothing, surroundings, and any notable details.'
+        );
+
+        if (!analysis.includes('Vision is not active') && !analysis.includes('Unable to capture')) {
+          setLatestCameraAnalysis(analysis);
+          lastCameraAnalysisTimeRef.current = now;
+          console.log('📸 Camera analysis updated (not spoken)');
+        }
+      } catch (err) {
+        console.error('Background camera scan error:', err);
+      }
+    };
+
+    // Scan immediately when camera turns on
+    scanCamera();
+
+    // Then scan periodically
+    const scanInterval = setInterval(scanCamera, CAMERA_ANALYSIS_INTERVAL);
+
+    return () => clearInterval(scanInterval);
+  }, [isVisionActive, analyzeWithQuestion]);
+
   // Fetch weather automatically when user connects (using IP geolocation)
   useEffect(() => {
     if (!isConnected || !userLocationRef.current) return;
@@ -1587,25 +1629,32 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             processingCommandRef.current = false;
           }
 
-          // Handle vision request - if camera is ON, analyze directly and inject result
+          // Handle vision request - if camera is ON, scan for latest info and respond
           else if (command.type === 'vision_request') {
             console.log('👁️ Vision request detected');
 
             if (isVisionActive) {
-              // Camera IS on - analyze and tell NoVo what we see
-              console.log('👁️ Camera is ON - analyzing directly...');
+              // Camera IS on - tell NoVo to look and scan for latest info
+              console.log('👁️ Camera is ON - scanning for latest information...');
+
+              if (sendAssistantInput) {
+                // Tell NoVo to look and scan
+                sendAssistantInput('Let me have a look and scan for the latest information.');
+              }
+
+              // Scan for fresh camera analysis
               analyzeWithQuestion(
                 'Describe everything you see in detail - the person, their appearance, clothing, colors, style, and any other visual details.'
               )
                 .then((analysis) => {
-                  console.log(
-                    '👁️ Direct vision analysis complete:',
-                    analysis.slice(0, 100) + '...'
-                  );
+                  console.log('👁️ Fresh vision analysis complete:', analysis.slice(0, 100) + '...');
+                  // Update the stored analysis
+                  setLatestCameraAnalysis(analysis);
+                  lastCameraAnalysisTimeRef.current = Date.now();
+
                   if (sendAssistantInput) {
-                    // Send the analysis to NoVo so she can speak it
-                    console.log('👁️ Sending vision analysis to NoVo');
-                    // Just send the analysis - NoVo knows camera is on via session settings
+                    // Send the fresh analysis to NoVo so she can speak it
+                    console.log('👁️ Sending fresh vision analysis to NoVo');
                     sendAssistantInput(analysis);
                   }
                 })
