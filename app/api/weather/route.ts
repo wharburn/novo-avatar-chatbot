@@ -147,6 +147,20 @@ function generateWeatherFashionContext(weather: WeatherData): string {
   return context;
 }
 
+interface ForecastDay {
+  date: string;
+  maxTemp: {
+    fahrenheit: number;
+    celsius: number;
+  };
+  minTemp: {
+    fahrenheit: number;
+    celsius: number;
+  };
+  condition: string;
+  chanceOfRain: number;
+}
+
 interface WeatherData {
   temperature: {
     fahrenheit: number;
@@ -164,9 +178,10 @@ interface WeatherData {
   };
   uv?: number;
   isDay?: boolean;
+  forecast?: ForecastDay[];
 }
 
-// Fetch weather from WeatherAPI.com
+// Fetch weather from WeatherAPI.com (current + 3-day forecast)
 async function fetchWeatherAPI(lat: number, lon: number): Promise<WeatherData | null> {
   const apiKey = process.env.WEATHER_API_KEY;
 
@@ -182,8 +197,9 @@ async function fetchWeatherAPI(lat: number, lon: number): Promise<WeatherData | 
   }
 
   try {
-    const url = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${lat},${lon}&aqi=no`;
-    console.log('🌐 Fetching weather from WeatherAPI.com for:', { lat, lon });
+    // Fetch current weather + 3-day forecast in one call
+    const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${lat},${lon}&days=3&aqi=no`;
+    console.log('🌐 Fetching weather + forecast from WeatherAPI.com for:', { lat, lon });
 
     const response = await fetch(url);
 
@@ -195,6 +211,21 @@ async function fetchWeatherAPI(lat: number, lon: number): Promise<WeatherData | 
 
     const data = await response.json();
     console.log('✅ Successfully fetched real weather data from WeatherAPI.com');
+
+    // Parse forecast data
+    const forecast: ForecastDay[] = (data.forecast?.forecastday || []).map((day: any) => ({
+      date: day.date,
+      maxTemp: {
+        fahrenheit: Math.round(day.day.maxtemp_f),
+        celsius: Math.round(day.day.maxtemp_c),
+      },
+      minTemp: {
+        fahrenheit: Math.round(day.day.mintemp_f),
+        celsius: Math.round(day.day.mintemp_c),
+      },
+      condition: day.day.condition.text,
+      chanceOfRain: day.day.daily_chance_of_rain || 0,
+    }));
 
     return {
       temperature: {
@@ -213,6 +244,7 @@ async function fetchWeatherAPI(lat: number, lon: number): Promise<WeatherData | 
       },
       uv: data.current.uv,
       isDay: data.current.is_day === 1,
+      forecast,
     };
   } catch (error) {
     console.error('Error fetching weather:', error);

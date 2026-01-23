@@ -364,9 +364,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   // Photo session timing - prevent button click within first 2 seconds
   const photoSessionStartTimeRef = useRef<number | null>(null);
 
-  // Get user location on mount
+  // Get user location on mount - try browser geolocation first, then IP-based fallback
   useEffect(() => {
     if (userLocationRef.current) return;
+
+    // Try browser geolocation first
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -374,15 +376,40 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           };
-          console.log('User location cached for weather');
+          console.log('✅ User location from browser geolocation');
         },
         (error) => {
-          console.log('Geolocation not available:', error.message);
+          console.log('Browser geolocation not available, using IP-based location:', error.message);
+          // Fallback to IP-based geolocation
+          fetchIPBasedLocation();
         },
         { timeout: 5000, maximumAge: 3600000 }
       );
+    } else {
+      // No browser geolocation, use IP-based
+      fetchIPBasedLocation();
     }
   }, []);
+
+  // Fetch location from IP address
+  const fetchIPBasedLocation = async () => {
+    try {
+      const response = await fetch('/api/geolocation');
+      const data = await response.json();
+      if (data.success) {
+        userLocationRef.current = {
+          latitude: data.latitude,
+          longitude: data.longitude,
+        };
+        console.log('✅ User location from IP geolocation:', {
+          city: data.city,
+          country: data.country,
+        });
+      }
+    } catch (error) {
+      console.error('IP geolocation error:', error);
+    }
+  };
 
   const {
     readyState,
@@ -804,7 +831,16 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
             // Build a natural weather report for NoVo to speak
             // Use the EXACT data from the API - don't make anything up
-            const weatherReport = `Current weather in ${w.location}: ${w.temperature.fahrenheit}°F (${w.temperature.celsius}°C), ${w.condition}. Feels like ${w.feelsLike?.fahrenheit}°F. Humidity ${w.humidity}%, wind ${w.windSpeed} mph, UV index ${w.uv}.`;
+            let weatherReport = `Current weather in ${w.location}: ${w.temperature.fahrenheit}°F (${w.temperature.celsius}°C), ${w.condition}. Feels like ${w.feelsLike?.fahrenheit}°F. Humidity ${w.humidity}%, wind ${w.windSpeed} mph, UV index ${w.uv}.`;
+
+            // Add forecast if available
+            if (w.forecast && w.forecast.length > 0) {
+              weatherReport += ' Here is the 3-day forecast: ';
+              w.forecast.forEach((day: any, index: number) => {
+                weatherReport += `${day.date}: ${day.condition}, high ${day.maxTemp.fahrenheit}°F, low ${day.minTemp.fahrenheit}°F, ${day.chanceOfRain}% chance of rain.`;
+                if (index < w.forecast.length - 1) weatherReport += ' ';
+              });
+            }
 
             console.log('🌤️ Weather data from API:', w);
             console.log('🌤️ Sending weather report to NoVo:', weatherReport);
@@ -1208,32 +1244,86 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     analyzeWithQuestion,
   ]);
 
-  // Periodic camera awareness - keep NoVo informed about what the camera is seeing
+  // Fetch weather automatically when user connects (using IP geolocation)
+  useEffect(() => {
+    if (!isConnected || !userLocationRef.current) return;
+
+    // Fetch weather once on connection
+    const fetchWeatherOnConnect = async () => {
+      try {
+        const { latitude, longitude } = userLocationRef.current!;
+        console.log('🌤️ Fetching weather on connection for:', { latitude, longitude });
+
+        const response = await fetch(`/api/weather?lat=${latitude}&lon=${longitude}`);
+        const data = await response.json();
+
+        if (data.success && data.weather) {
+          setWeatherData(data.weather);
+          console.log('🌤️ Weather fetched on connection:', data.weather.location);
+
+          // Send weather context to NoVo so she's aware
+          if (sendAssistantInput && data.weather.forecast) {
+            const forecastSummary = data.weather.forecast
+              .slice(0, 2)
+              .map(
+                (day: any) =>
+                  `${day.date}: ${day.condition}, ${day.minTemp.fahrenheit}°F-${day.maxTemp.fahrenheit}°F`
+              )
+              .join('; ');
+            sendAssistantInput(
+              `[Weather context: Current: ${data.weather.temperature.fahrenheit}°F and ${data.weather.condition}. Forecast: ${forecastSummary}]`
+            );
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching weather on connect:', error);
+      }
+    };
+
+    fetchWeatherOnConnect();
+  }, [isConnected, sendAssistantInput]);
+
+  // Periodic system context updates - keep NoVo informed about camera, weather, etc.
   // This sends context to NoVo so she's aware, but she decides when to mention it naturally
   useEffect(() => {
-    if (!isVisionActive || !isConnected || !sendAssistantInput) return;
+    if (!isConnected || !sendAssistantInput) return;
 
-    // Update every 30 seconds with what the camera is seeing
-    // This is sent as context so NoVo is aware, but she won't automatically speak it
-    const cameraAwarenessInterval = setInterval(() => {
-      analyzeWithQuestion('Briefly describe what you see right now in one sentence.')
-        .then((analysis) => {
+    // Update every 60 seconds with current context (camera, weather, etc.)
+    const contextUpdateInterval = setInterval(async () => {
+      let contextParts: string[] = [];
+
+      // Add camera context if active
+      if (isVisionActive) {
+        try {
+          const analysis = await analyzeWithQuestion(
+            'Briefly describe what you see right now in one sentence.'
+          );
           if (
             !analysis.includes('Vision is not active') &&
             !analysis.includes('Unable to capture')
           ) {
-            console.log('👁️ Sending camera context to NoVo (she may reference it naturally)');
-            // Send as context in brackets so NoVo knows but doesn't automatically speak it
-            sendAssistantInput(`[Camera context: ${analysis}]`);
+            contextParts.push(`Camera: ${analysis}`);
           }
-        })
-        .catch((err) => {
-          console.error('Camera awareness update error:', err);
-        });
-    }, 30000); // Every 30 seconds
+        } catch (err) {
+          console.error('Camera context error:', err);
+        }
+      }
 
-    return () => clearInterval(cameraAwarenessInterval);
-  }, [isVisionActive, isConnected, sendAssistantInput, analyzeWithQuestion]);
+      // Add weather context if available
+      if (weatherData) {
+        const weatherContext = `Weather: ${weatherData.temperature.fahrenheit}°F, ${weatherData.condition}, feels like ${weatherData.feelsLike?.fahrenheit}°F`;
+        contextParts.push(weatherContext);
+      }
+
+      // Send combined context if we have any
+      if (contextParts.length > 0) {
+        console.log('📋 Sending system context to NoVo');
+        sendAssistantInput(`[System context: ${contextParts.join(' | ')}]`);
+      }
+    }, 60000); // Every 60 seconds
+
+    return () => clearInterval(contextUpdateInterval);
+  }, [isVisionActive, isConnected, sendAssistantInput, analyzeWithQuestion, weatherData]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
