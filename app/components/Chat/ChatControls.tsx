@@ -3,6 +3,8 @@
 import { useVoice, VoiceReadyState } from '@humeai/voice-react';
 import { Eye, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
 import { useState } from 'react';
+import AudioSettings from '../Settings/AudioSettings';
+import SettingsButton from '../Settings/SettingsButton';
 
 interface ChatControlsProps {
   accessToken: string;
