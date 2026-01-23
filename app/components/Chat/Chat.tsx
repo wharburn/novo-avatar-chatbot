@@ -346,6 +346,15 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const [showPhotoGrid, setShowPhotoGrid] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; id: string } | null>(null);
 
+  // Ref to track photo session state (for use in callbacks where closure is an issue)
+  const isPhotoSessionRef = useRef(false);
+
+  // Update ref whenever isPhotoSession changes
+  useEffect(() => {
+    isPhotoSessionRef.current = isPhotoSession;
+    console.log('📸 isPhotoSessionRef updated to:', isPhotoSession);
+  }, [isPhotoSession]);
+
   // YOLO bounding box state
   const [showBoundingBoxes, setShowBoundingBoxes] = useState(false);
   const [yoloDetections, setYoloDetections] = useState<any[]>([]);
@@ -1721,7 +1730,12 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   setShowFlash(true);
                   setTimeout(() => setShowFlash(false), 300);
 
-                  if (isPhotoSession) {
+                  console.log(
+                    '📸 Image captured, isPhotoSessionRef.current:',
+                    isPhotoSessionRef.current
+                  );
+                  if (isPhotoSessionRef.current) {
+                    console.log('📸 ENTERING PHOTO SESSION MODE - adding to sessionPhotos');
                     // Photo session mode - add to session array
                     const photoId = `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                     console.log('📸 Adding photo to session with ID:', photoId);
@@ -1739,6 +1753,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
                     // NO message - let user continue shooting without interruption
                   } else {
+                    console.log('📸 NOT in photo session mode, storing in lastCapturedImageRef');
                     // Single photo mode
                     lastCapturedImageRef.current = imageData;
                     console.log('📸 Photo captured from vision stream');
