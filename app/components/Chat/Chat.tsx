@@ -1152,21 +1152,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   analysis.includes('Vision is not active') ||
                   analysis.includes('Unable to capture')
                 ) {
-                  console.warn('👁️ Camera stream not ready yet, sending generic message');
-                  // if (sendAssistantInput) {
-                  //   sendAssistantInput('[Camera ON. Acknowledge you can see the user.]');
-                  // }
+                  console.warn('👁️ Camera stream not ready yet');
                 } else {
-                  // Truncate analysis to fit within 256 char limit (leaving room for prefix)
-                  const maxAnalysisLength = 200;
-                  const truncatedAnalysis =
-                    analysis.length > maxAnalysisLength
-                      ? analysis.slice(0, maxAnalysisLength) + '...'
-                      : analysis;
-
-                  // if (sendAssistantInput) {
-                  //   sendAssistantInput(`[Camera ON. I see: ${truncatedAnalysis}]`);
-                  // }
+                  // Send the analysis to NoVo so she knows what she's seeing
+                  if (sendAssistantInput) {
+                    console.log('👁️ Sending initial vision analysis to NoVo');
+                    sendAssistantInput(analysis);
+                  }
                 }
               })
               .catch((err) => {
@@ -1445,27 +1437,22 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 'Describe everything you see in detail - the person, their appearance, clothing, colors, style, and any other visual details.'
               )
                 .then((analysis) => {
-                  console.log('👁️ Direct vision analysis complete:', analysis);
+                  console.log(
+                    '👁️ Direct vision analysis complete:',
+                    analysis.slice(0, 100) + '...'
+                  );
                   if (sendAssistantInput) {
-                    // Truncate to 200 chars max to stay under 256 limit
-                    const truncated =
-                      analysis.length > 200 ? analysis.slice(0, 200) + '...' : analysis;
-                    console.log('👁️ Sending to NoVo:', `[I see: ${truncated}]`);
-                    // sendAssistantInput(`[I see: ${truncated}]`);
+                    // Send the analysis to NoVo so she can speak it
+                    console.log('👁️ Sending vision analysis to NoVo');
+                    sendAssistantInput(analysis);
                   }
                 })
                 .catch((error) => {
                   console.error('👁️ Vision analysis error:', error);
-                  // if (sendAssistantInput) {
-                  //   sendAssistantInput('[Trouble analyzing. Ask them to adjust lighting.]');
-                  // }
                 });
             } else {
-              // Camera is OFF - tell NoVo to ask user to enable it
-              console.log('👁️ Camera is OFF - telling NoVo to ask user to enable');
-              // if (sendAssistantInput) {
-              //   sendAssistantInput('[Camera OFF. Ask user to tap the eye button to enable it.]');
-              // }
+              // Camera is OFF - let NoVo handle the response naturally
+              console.log('👁️ Camera is OFF - NoVo will ask user to enable it');
             }
             processingCommandRef.current = false;
           }
