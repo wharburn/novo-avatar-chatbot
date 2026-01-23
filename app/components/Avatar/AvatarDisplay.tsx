@@ -87,7 +87,7 @@ export default function AvatarDisplay({
       console.log(`🎬 Greeting video skipped - Hume will provide greeting`);
       onGreetingComplete?.();
     }
-  }, [isConnected, onGreetingComplete]);
+  }, [isConnected]);
 
   // Handle greeting video end
   const handleGreetingEnded = () => {
