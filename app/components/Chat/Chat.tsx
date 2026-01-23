@@ -332,6 +332,16 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   // User location for weather (cached)
   const userLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
+  // Weather cache to prevent duplicate API calls
+  const weatherCacheRef = useRef<{
+    data: any;
+    timestamp: number;
+    location: { lat: number; lon: number };
+  } | null>(null);
+  const WEATHER_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  const lastWeatherCallRef = useRef<number>(0);
+  const WEATHER_DEBOUNCE = 2000; // 2 seconds between calls
+
   // Get user location on mount
   useEffect(() => {
     if (userLocationRef.current) return;
@@ -701,7 +711,43 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       const lat = location?.latitude ?? 40.7128; // Default NYC
       const lon = location?.longitude ?? -74.006;
 
-      console.log('🌤️ Fetching weather for location:', { lat, lon });
+      // Check cache first
+      const now = Date.now();
+      const cache = weatherCacheRef.current;
+      if (
+        cache &&
+        cache.location.lat === lat &&
+        cache.location.lon === lon &&
+        now - cache.timestamp < WEATHER_CACHE_DURATION
+      ) {
+        console.log(
+          '🌤️ Using cached weather data (age:',
+          Math.round((now - cache.timestamp) / 1000),
+          'seconds)'
+        );
+        const w = cache.data;
+
+        // Display weather visually
+        setWeatherData(w);
+        setShowWeatherOverlay(true);
+
+        // Build weather report for NoVo
+        const weatherReport = `Current weather in ${w.location}: ${w.temperature.fahrenheit}°F (${w.temperature.celsius}°C), ${w.condition}. Feels like ${w.feelsLike?.fahrenheit}°F. Humidity ${w.humidity}%, wind ${w.windSpeed} mph, UV index ${w.uv}.`;
+
+        console.log('🌤️ Sending cached weather report to NoVo');
+
+        if (sendToolMessage && pendingToolCall.toolCallId) {
+          sendToolMessage({
+            type: 'tool_response',
+            toolCallId: pendingToolCall.toolCallId,
+            content: weatherReport,
+          } as any);
+          console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
+        }
+        return;
+      }
+
+      console.log('🌤️ Fetching fresh weather for location:', { lat, lon });
 
       // Fetch weather data
       fetch(`/api/weather?lat=${lat}&lon=${lon}`)
@@ -709,6 +755,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         .then((data) => {
           if (data.success && data.weather) {
             console.log('🌤️ Weather data received:', data.weather);
+
+            // Cache the weather data
+            weatherCacheRef.current = {
+              data: data.weather,
+              timestamp: Date.now(),
+              location: { lat, lon },
+            };
+            console.log('🌤️ Weather data cached for 5 minutes');
 
             const w = data.weather;
 
