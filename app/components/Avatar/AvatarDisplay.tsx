@@ -2,7 +2,6 @@
 
 import {
   findPhraseVideo,
-  getRandomGreeting,
   LISTENING_VIDEO,
   PhraseVideo,
   TALKING_VIDEO,
@@ -79,16 +78,16 @@ export default function AvatarDisplay({
   const talkingVideoFilter = 'saturate(1.0) sepia(0.1) hue-rotate(-5deg)';
 
   // Play greeting only when Hume connects (green button pressed)
+  // DISABLED: Greeting videos are disabled to avoid conflicting with Hume's greeting
+  // Hume provides a more natural greeting after the user connects
   useEffect(() => {
     if (isConnected && !hasPlayedGreeting.current) {
       hasPlayedGreeting.current = true;
-      isPlayingGreeting.current = true;
-      const greeting = getRandomGreeting();
-      console.log(`🎬 Playing greeting (Hume connected): ${greeting.id}`);
-      setGreetingVideo(greeting);
-      setMode('greeting');
+      // Skip playing greeting video - let Hume handle the greeting
+      console.log(`🎬 Greeting video skipped - Hume will provide greeting`);
+      onGreetingComplete?.();
     }
-  }, [isConnected]);
+  }, [isConnected, onGreetingComplete]);
 
   // Handle greeting video end
   const handleGreetingEnded = () => {
