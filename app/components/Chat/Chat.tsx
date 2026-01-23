@@ -789,8 +789,16 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         setWeatherData(w);
         setShowWeatherOverlay(true);
 
-        // Build weather report for NoVo
-        const weatherReport = `Current weather in ${w.location}: ${w.temperature.fahrenheit}°F (${w.temperature.celsius}°C), ${w.condition}. Feels like ${w.feelsLike?.fahrenheit}°F. Humidity ${w.humidity}%, wind ${w.windSpeed} mph, UV index ${w.uv}.`;
+        // Build weather report for NoVo with proper null checks (Celsius only)
+        const location = w.location || 'your area';
+        const tempC = w.temperature?.celsius || 'unknown';
+        const condition = w.condition || 'unknown conditions';
+        const feelsLike = w.feelsLike?.celsius ? ` Feels like ${w.feelsLike.celsius}°C.` : '';
+        const humidity = w.humidity ? ` Humidity ${w.humidity}%.` : '';
+        const wind = w.windSpeed ? ` Wind ${w.windSpeed} km/h.` : '';
+        const uv = w.uv !== undefined ? ` UV index ${w.uv}.` : '';
+
+        const weatherReport = `Current weather in ${location}: ${tempC}°C, ${condition}.${feelsLike}${humidity}${wind}${uv}`;
 
         console.log('🌤️ Sending cached weather report to NoVo');
 
@@ -838,15 +846,27 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setShowWeatherOverlay(true);
             console.log('🌤️ Weather overlay displayed');
 
-            // Build a natural weather report for NoVo to speak
-            // Use the EXACT data from the API - don't make anything up
-            let weatherReport = `Current weather in ${w.location}: ${w.temperature.fahrenheit}°F (${w.temperature.celsius}°C), ${w.condition}. Feels like ${w.feelsLike?.fahrenheit}°F. Humidity ${w.humidity}%, wind ${w.windSpeed} mph, UV index ${w.uv}.`;
+            // Build a natural weather report for NoVo to speak with proper null checks (Celsius only)
+            const location = w.location || 'your area';
+            const tempC = w.temperature?.celsius || 'unknown';
+            const condition = w.condition || 'unknown conditions';
+            const feelsLike = w.feelsLike?.celsius ? ` Feels like ${w.feelsLike.celsius}°C.` : '';
+            const humidity = w.humidity ? ` Humidity ${w.humidity}%.` : '';
+            const wind = w.windSpeed ? ` Wind ${w.windSpeed} km/h.` : '';
+            const uv = w.uv !== undefined ? ` UV index ${w.uv}.` : '';
 
-            // Add forecast if available
+            let weatherReport = `Current weather in ${location}: ${tempC}°C, ${condition}.${feelsLike}${humidity}${wind}${uv}`;
+
+            // Add forecast if available (Celsius only)
             if (w.forecast && w.forecast.length > 0) {
               weatherReport += ' Here is the 3-day forecast: ';
               w.forecast.forEach((day: any, index: number) => {
-                weatherReport += `${day.date}: ${day.condition}, high ${day.maxTemp.fahrenheit}°F, low ${day.minTemp.fahrenheit}°F, ${day.chanceOfRain}% chance of rain.`;
+                const dayDate = day.date || 'unknown date';
+                const dayCondition = day.condition || 'unknown';
+                const maxTemp = day.maxTemp?.celsius || 'unknown';
+                const minTemp = day.minTemp?.celsius || 'unknown';
+                const rainChance = day.chanceOfRain || 0;
+                weatherReport += `${dayDate}: ${dayCondition}, high ${maxTemp}°C, low ${minTemp}°C, ${rainChance}% chance of rain.`;
                 if (index < w.forecast.length - 1) weatherReport += ' ';
               });
             }
@@ -1331,17 +1351,17 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           setWeatherData(data.weather);
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
 
-          // Send weather context to NoVo so she's aware
+          // Send weather context to NoVo so she's aware (Celsius only)
           if (sendAssistantInput && data.weather.forecast) {
             const forecastSummary = data.weather.forecast
               .slice(0, 2)
               .map(
                 (day: any) =>
-                  `${day.date}: ${day.condition}, ${day.minTemp.fahrenheit}°F-${day.maxTemp.fahrenheit}°F`
+                  `${day.date}: ${day.condition}, ${day.minTemp.celsius}°C-${day.maxTemp.celsius}°C`
               )
               .join('; ');
             sendAssistantInput(
-              `[Weather context: Current: ${data.weather.temperature.fahrenheit}°F and ${data.weather.condition}. Forecast: ${forecastSummary}]`
+              `[Weather context: Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}]`
             );
           }
         }
@@ -1379,9 +1399,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         }
       }
 
-      // Add weather context if available
+      // Add weather context if available (Celsius only)
       if (weatherData) {
-        const weatherContext = `Weather: ${weatherData.temperature.fahrenheit}°F, ${weatherData.condition}, feels like ${weatherData.feelsLike?.fahrenheit}°F`;
+        const weatherContext = `Weather: ${weatherData.temperature.celsius}°C, ${weatherData.condition}, feels like ${weatherData.feelsLike?.celsius}°C`;
         contextParts.push(weatherContext);
       }
 
