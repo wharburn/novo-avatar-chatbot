@@ -1585,729 +1585,470 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
   // Listen for tool calls (take_picture, show_image, etc.)
   useEffect(() => {
-    if (messages.length === 0) return;
+    try {
+      if (messages.length === 0) return;
 
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage) return;
+      const lastMessage = messages[messages.length - 1];
+      if (!lastMessage) return;
 
-    // Create a unique ID for this message to prevent duplicate processing
-    const msgAny = lastMessage as any;
-    const msgType = lastMessage.type;
+      // Create a unique ID for this message to prevent duplicate processing
+      const msgAny = lastMessage as any;
+      const msgType = lastMessage?.type;
 
-    // Skip if message has no type
-    if (!msgType) {
-      console.warn('⚠️ Message received with no type:', lastMessage);
-      return;
-    }
+      // Skip if message has no type
+      if (!msgType) {
+        console.warn('⚠️ Message received with no type:', lastMessage);
+        return;
+      }
 
-    const messageId = msgAny.id || msgAny.receivedAt?.toString() || `${msgType}-${messages.length}`;
+      const messageId =
+        msgAny.id || msgAny.receivedAt?.toString() || `${msgType}-${messages.length}`;
 
-    // Skip if we've already processed this message
-    if (processedMessageIdsRef.current.has(messageId)) {
-      return;
-    }
+      // Skip if we've already processed this message
+      if (processedMessageIdsRef.current.has(messageId)) {
+        return;
+      }
 
-    // Mark this message as processed
-    processedMessageIdsRef.current.add(messageId);
+      // Mark this message as processed
+      processedMessageIdsRef.current.add(messageId);
 
-    // Debug: Log all message types to help troubleshoot tool calls
-    console.log(`📨 Message received [${messages.length}]: type="${msgType}"`);
+      // Debug: Log all message types to help troubleshoot tool calls
+      console.log(`📨 Message received [${messages.length}]: type="${msgType}"`);
 
-    // Log full message for any tool-related or unknown message types
-    if (
-      msgType === 'tool_call' ||
-      msgType?.includes('tool') ||
-      (msgType !== 'user_message' &&
-        msgType !== 'assistant_message' &&
-        msgType !== 'user_interruption' &&
-        msgType !== 'assistant_end' &&
-        msgType !== 'assistant_prosody')
-    ) {
-      console.log('📨 Full message:', JSON.stringify(lastMessage, null, 2));
-    }
+      // Log full message for any tool-related or unknown message types
+      if (
+        msgType === 'tool_call' ||
+        msgType?.includes('tool') ||
+        (msgType !== 'user_message' &&
+          msgType !== 'assistant_message' &&
+          msgType !== 'user_interruption' &&
+          msgType !== 'assistant_end' &&
+          msgType !== 'assistant_prosody')
+      ) {
+        console.log('📨 Full message:', JSON.stringify(lastMessage, null, 2));
+      }
 
-    // Also check if the message has toolCall nested inside (some SDK versions)
-    if (msgAny.toolCall || msgAny.tool_call) {
-      console.log('🔧 Found nested toolCall in message!', msgAny.toolCall || msgAny.tool_call);
-    }
+      // Also check if the message has toolCall nested inside (some SDK versions)
+      if (msgAny.toolCall || msgAny.tool_call) {
+        console.log('🔧 Found nested toolCall in message!', msgAny.toolCall || msgAny.tool_call);
+      }
 
-    // Check for user messages to extract email/name
-    if (lastMessage.type === 'user_message') {
-      const userMsg = lastMessage as any;
-      const content = userMsg.message?.content || '';
+      // Check for user messages to extract email/name
+      if (lastMessage.type === 'user_message') {
+        const userMsg = lastMessage as any;
+        const content = userMsg.message?.content || '';
 
-      console.log('👤 User message:', content);
-      console.log('📸 Photo session active:', isPhotoSession);
-      console.log('📹 Vision active:', isVisionActive);
-      console.log('🔒 Processing command:', processingCommandRef.current);
+        console.log('👤 User message:', content);
+        console.log('📸 Photo session active:', isPhotoSession);
+        console.log('📹 Vision active:', isVisionActive);
+        console.log('🔒 Processing command:', processingCommandRef.current);
 
-      // === COMMAND DETECTION (Bypass Hume tool calls) ===
-      if (!processingCommandRef.current) {
-        const command = detectCommand(content);
-        console.log('🎯 Command detection result:', command);
-
-        if (command) {
-          console.log(`🎯 Detected command: ${command.type}`);
-
-          // Skip enable_camera if camera is already on - let it fall through to vision_request
-          if (command.type === 'enable_camera' && isVisionActive) {
-            console.log(
-              '📹 Camera already ON - ignoring enable_camera, checking for vision_request'
-            );
-            // Don't process this command, let it potentially match vision_request instead
-            processingCommandRef.current = false;
-          } else if (command.type === 'enable_camera') {
-            // Handle enable camera request
-            processingCommandRef.current = true;
-            console.log('📹 Enable camera request detected');
-
-            // Turn camera ON
-            console.log('📹 Turning camera ON');
-            toggleVision();
-            // if (sendAssistantInput) {
-            //   sendAssistantInput('[Camera ON. Ask what they want to show you.]');
-            // }
-            processingCommandRef.current = false;
-          }
-
-          // Handle vision request - if camera is ON, scan for latest info and respond
-          else if (command.type === 'vision_request') {
-            console.log('👁️ Vision request detected');
-
-            if (isVisionActive) {
-              // Camera IS on - scan for fresh camera analysis
-              console.log('👁️ Camera is ON - scanning for latest information...');
-
-              // Scan for fresh camera analysis
-              analyzeWithQuestion(
-                'Describe everything you see in detail - the person, their appearance, clothing, colors, style, and any other visual details.'
-              )
-                .then((analysis) => {
-                  console.log('👁️ Fresh vision analysis complete:', analysis.slice(0, 100) + '...');
-                  // Update the stored analysis
-                  setLatestCameraAnalysis(analysis);
-                  lastCameraAnalysisTimeRef.current = Date.now();
-
-                  if (sendAssistantInput) {
-                    // Send the fresh analysis to NoVo so she can speak it
-                    console.log('👁️ Sending fresh vision analysis to NoVo');
-                    sendAssistantInput(analysis);
-                  }
-                })
-                .catch((error) => {
-                  console.error('👁️ Vision analysis error:', error);
-                });
+        // === COMMAND DETECTION (Bypass Hume tool calls) ===
+        if (!processingCommandRef.current) {
+          // In photo session mode, ONLY listen for "shoot" and "done"
+          let command = null;
+          if (isPhotoSessionRef.current) {
+            const lowerContent = content.toLowerCase().trim();
+            if (/\bshoot\b/i.test(lowerContent)) {
+              command = { type: 'take_picture' };
+              console.log('📸 Photo session: detected "shoot"');
+            } else if (/\b(done|finished|that's it|that is it)\b/i.test(lowerContent)) {
+              command = { type: 'end_photo_session' };
+              console.log('📸 Photo session: detected "done"');
             } else {
-              // Camera is OFF - let NoVo handle the response naturally
-              console.log('👁️ Camera is OFF - NoVo will ask user to enable it');
-            }
-            processingCommandRef.current = false;
-          }
-
-          // Handle take picture request
-          else if (command.type === 'take_picture') {
-            console.log('📸 Take picture command detected');
-            console.log('📸 User said:', content.toLowerCase().trim());
-            console.log('📸 Is vision active?', isVisionActive);
-            console.log('📸 Is photo session?', isPhotoSession);
-
-            // If camera is on and user says "shoot", capture directly from vision stream
-            // Check if content contains shoot/shot/snap (not just exact match)
-            const userContent = content.toLowerCase().trim();
-            const isQuickCapture = /\b(shoot|shot|snap)\b/i.test(userContent);
-
-            if (isVisionActive && isQuickCapture) {
-              console.log('📸 Quick capture from vision stream detected');
-              console.log('📸 Checking for window.__visionCaptureFrame...');
-
-              // Capture from vision stream
-              if (typeof window !== 'undefined' && (window as any).__visionCaptureFrame) {
-                const imageData = (window as any).__visionCaptureFrame();
-                console.log('📸 Capture function returned:', imageData ? 'image data' : 'null');
-
-                if (imageData) {
-                  // Trigger flash effect
-                  setShowFlash(true);
-                  setTimeout(() => setShowFlash(false), 300);
-
-                  console.log(
-                    '📸 Image captured, isPhotoSessionRef.current:',
-                    isPhotoSessionRef.current
-                  );
-                  if (isPhotoSessionRef.current) {
-                    console.log('📸 ENTERING PHOTO SESSION MODE - adding to sessionPhotos');
-                    // Photo session mode - add to session array
-                    const photoId = `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                    console.log('📸 Adding photo to session with ID:', photoId);
-                    setSessionPhotos((prev) => {
-                      const newPhotos = [...prev, { url: imageData, id: photoId }];
-                      console.log(
-                        `📸 Photo added to session. Total photos now: ${newPhotos.length}`
-                      );
-                      console.log(
-                        '📸 Session photos array:',
-                        newPhotos.map((p) => p.id)
-                      );
-                      return newPhotos;
-                    });
-
-                    // NO message - let user continue shooting without interruption
-                  } else {
-                    console.log('📸 NOT in photo session mode, storing in lastCapturedImageRef');
-                    // Single photo mode
-                    lastCapturedImageRef.current = imageData;
-                    console.log('📸 Photo captured from vision stream');
-
-                    // NO message - let NoVo respond naturally
-                  }
-                } else {
-                  console.error('📸 Failed to capture from vision stream - imageData is null');
-                  // Let NoVo respond naturally to the failed capture
-                }
-              } else {
-                console.error('📸 __visionCaptureFrame not available on window');
-                // Let NoVo respond naturally to the camera not being ready
-              }
-            } else {
-              // Open camera capture modal
               console.log(
-                '📸 Opening camera capture modal (vision not active or not quick capture)'
+                '📸 Photo session: ignoring user input (not "shoot" or "done"):',
+                content
               );
-              setShowCamera(true);
+              processingCommandRef.current = false;
+              // Don't set command, it will remain null and be skipped below
             }
-            processingCommandRef.current = false;
+          } else {
+            // Normal command detection when not in photo session
+            command = detectCommand(content);
+            console.log('🎯 Command detection result:', command);
           }
 
-          // Handle email picture request
-          else if (command.type === 'send_email_picture') {
-            console.log('📧 Email picture request detected');
-            if (!lastCapturedImageRef.current) {
-              // No picture taken yet
-              // if (sendAssistantInput) {
-              //   sendAssistantInput('[No photo yet - ask if they want to take one first]');
-              // }
-            } else if (!userProfile?.email && !command.extractedData?.email) {
-              // Need email address
-              // if (sendAssistantInput) {
-              //   sendAssistantInput('[Need email address to send the picture]');
-              // }
-            } else {
-              // We have picture and email - show confirmation dialog
-              const emailToUse = command.extractedData?.email || userProfile?.email || '';
-              console.log('📧 Showing email confirmation for:', emailToUse);
+          if (command) {
+            console.log(`🎯 Detected command: ${command.type}`);
 
-              setEmailConfirmation({
-                email: emailToUse,
-                type: 'picture',
-                data: {
-                  user_name: userProfile?.name || 'Friend',
-                  image_url: lastCapturedImageRef.current,
-                  caption: 'Picture from NoVo!',
-                },
-              });
-
-              // Tell NoVo we're asking for confirmation
-              // if (sendAssistantInput) {
-              //   sendAssistantInput('[Asking user to confirm email address before sending]');
-              // }
-            }
-            processingCommandRef.current = false;
-          }
-
-          // Handle email summary request
-          else if (command.type === 'send_email_summary') {
-            console.log('📧 Email summary request detected');
-            if (!userProfile?.email && !command.extractedData?.email) {
-              // Need email address
-              // if (sendAssistantInput) {
-              //   sendAssistantInput('[Need email address for summary]');
-              // }
-            } else {
-              // We have email - show confirmation dialog
-              const emailToUse = command.extractedData?.email || userProfile?.email || '';
-              const conversationMessages = messages
-                .filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message')
-                .map((msg) => {
-                  const typedMsg = msg as {
-                    type: string;
-                    message?: { role: string; content: string };
-                    receivedAt?: Date;
-                  };
-                  return {
-                    role: typedMsg.message?.role === 'user' ? 'user' : 'assistant',
-                    content: typedMsg.message?.content || '',
-                    timestamp: typedMsg.receivedAt
-                      ? new Date(typedMsg.receivedAt).getTime()
-                      : Date.now(),
-                  };
-                });
-
-              console.log('📧 Showing email confirmation for summary:', emailToUse);
-
-              setEmailConfirmation({
-                email: emailToUse,
-                type: 'summary',
-                data: {
-                  user_name: userProfile?.name || 'Friend',
-                  messages: conversationMessages,
-                  userProfile: userProfile,
-                },
-              });
-
-              // Tell NoVo we're asking for confirmation
-              // if (sendAssistantInput) {
-              //   sendAssistantInput('[Asking user to confirm email address before sending]');
-              // }
-            }
-            processingCommandRef.current = false;
-          }
-
-          // Handle explain photo session request
-          else if (command.type === 'explain_photo_session') {
-            console.log('📸 Explain photo session request detected');
-            // Reset the flag so we can offer again in future sessions
-            hasOfferedPhotoSessionRef.current = false;
-            if (sendAssistantInput) {
-              sendAssistantInput(
-                "[Explain: \"Say 'take a series of photos' to start. Say 'shoot' for each photo. Say 'done' to see grid and delete unwanted ones.\"]"
+            // Skip enable_camera if camera is already on - let it fall through to vision_request
+            if (command.type === 'enable_camera' && isVisionActive) {
+              console.log(
+                '📹 Camera already ON - ignoring enable_camera, checking for vision_request'
               );
-            }
-            processingCommandRef.current = false;
-          }
+              // Don't process this command, let it potentially match vision_request instead
+              processingCommandRef.current = false;
+            } else if (command.type === 'enable_camera') {
+              // Handle enable camera request
+              processingCommandRef.current = true;
+              console.log('📹 Enable camera request detected');
 
-          // Handle photo session start request
-          else if (command.type === 'photo_session') {
-            console.log('📸 Photo session start request detected');
-
-            // Start photo session mode
-            setIsPhotoSession(true);
-            setSessionPhotos([]);
-            setShowPhotoGrid(false);
-            photoSessionStartTimeRef.current = Date.now(); // Record start time
-
-            // Turn on camera if not already on
-            if (!isVisionActive) {
+              // Turn camera ON
+              console.log('📹 Turning camera ON');
               toggleVision();
+              // if (sendAssistantInput) {
+              //   sendAssistantInput('[Camera ON. Ask what they want to show you.]');
+              // }
+              processingCommandRef.current = false;
             }
 
-            // if (sendAssistantInput) {
-            //   sendAssistantInput(
-            //     '[Photo session starting! Camera enlarging. Say "shoot" for each photo.]'
-            //   );
-            // }
-            processingCommandRef.current = false;
-          }
+            // Handle vision request - if camera is ON, scan for latest info and respond
+            else if (command.type === 'vision_request') {
+              console.log('👁️ Vision request detected');
 
-          // Handle end photo session request
-          else if (command.type === 'end_photo_session') {
-            console.log('📸 End photo session request detected');
-            console.log(`📸 Session ended with ${sessionPhotos.length} photos`);
+              if (isVisionActive) {
+                // Camera IS on - scan for fresh camera analysis
+                console.log('👁️ Camera is ON - scanning for latest information...');
 
-            // End photo session and show grid
-            setIsPhotoSession(false);
-            setShowPhotoGrid(true);
+                // Scan for fresh camera analysis
+                analyzeWithQuestion(
+                  'Describe everything you see in detail - the person, their appearance, clothing, colors, style, and any other visual details.'
+                )
+                  .then((analysis) => {
+                    console.log(
+                      '👁️ Fresh vision analysis complete:',
+                      analysis.slice(0, 100) + '...'
+                    );
+                    // Update the stored analysis
+                    setLatestCameraAnalysis(analysis);
+                    lastCameraAnalysisTimeRef.current = Date.now();
 
-            // NO message - let NoVo respond naturally
-            processingCommandRef.current = false;
-          }
-
-          // Handle show bounding boxes request
-          else if (command.type === 'show_boxes') {
-            console.log('📦 Show bounding boxes request detected');
-            setShowBoundingBoxes(true);
-            if (sendAssistantInput) {
-              sendAssistantInput('Showing object detection boxes.');
-            }
-            processingCommandRef.current = false;
-          }
-
-          // Handle hide bounding boxes request
-          else if (command.type === 'hide_boxes') {
-            console.log('📦 Hide bounding boxes request detected');
-            setShowBoundingBoxes(false);
-            if (sendAssistantInput) {
-              sendAssistantInput('Hiding object detection boxes.');
-            }
-            processingCommandRef.current = false;
-          }
-
-          // Handle fashion analysis request
-          else if (command.type === 'fashion_analysis') {
-            console.log('👗 Fashion analysis request detected');
-
-            if (isVisionActive) {
-              // Camera is on - capture frame and analyze
-              const frame = (window as any).__visionCaptureFrame?.();
-              if (frame) {
-                // Call fashion analysis API
-                fetch('/api/vision/fashion', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    imageData: frame,
-                    question: 'Analyze this outfit and provide detailed fashion advice.',
-                  }),
-                })
-                  .then((res) => res.json())
-                  .then((data) => {
-                    if (data.success && data.analysis) {
-                      console.log('👗 Fashion analysis complete');
-                      if (sendAssistantInput) {
-                        // Send the analysis directly - NoVo will speak it
-                        sendAssistantInput(data.analysis);
-                      }
+                    if (sendAssistantInput) {
+                      // Send the fresh analysis to NoVo so she can speak it
+                      console.log('👁️ Sending fresh vision analysis to NoVo');
+                      sendAssistantInput(analysis);
                     }
                   })
                   .catch((error) => {
-                    console.error('👗 Fashion analysis error:', error);
+                    console.error('👁️ Vision analysis error:', error);
                   });
+              } else {
+                // Camera is OFF - let NoVo handle the response naturally
+                console.log('👁️ Camera is OFF - NoVo will ask user to enable it');
               }
-            } else {
-              // Camera is off - ask user to turn it on
+              processingCommandRef.current = false;
+            }
+
+            // Handle take picture request
+            else if (command.type === 'take_picture') {
+              console.log('📸 Take picture command detected');
+              console.log('📸 User said:', content.toLowerCase().trim());
+              console.log('📸 Is vision active?', isVisionActive);
+              console.log('📸 Is photo session?', isPhotoSession);
+
+              // If camera is on and user says "shoot", capture directly from vision stream
+              // Check if content contains shoot/shot/snap (not just exact match)
+              const userContent = content.toLowerCase().trim();
+              const isQuickCapture = /\b(shoot|shot|snap)\b/i.test(userContent);
+
+              if (isVisionActive && isQuickCapture) {
+                console.log('📸 Quick capture from vision stream detected');
+                console.log('📸 Checking for window.__visionCaptureFrame...');
+
+                // Capture from vision stream
+                if (typeof window !== 'undefined' && (window as any).__visionCaptureFrame) {
+                  const imageData = (window as any).__visionCaptureFrame();
+                  console.log('📸 Capture function returned:', imageData ? 'image data' : 'null');
+
+                  if (imageData) {
+                    // Trigger flash effect
+                    setShowFlash(true);
+                    setTimeout(() => setShowFlash(false), 300);
+
+                    console.log(
+                      '📸 Image captured, isPhotoSessionRef.current:',
+                      isPhotoSessionRef.current
+                    );
+                    if (isPhotoSessionRef.current) {
+                      console.log('📸 ENTERING PHOTO SESSION MODE - adding to sessionPhotos');
+                      // Photo session mode - add to session array
+                      const photoId = `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                      console.log('📸 Adding photo to session with ID:', photoId);
+                      setSessionPhotos((prev) => {
+                        const newPhotos = [...prev, { url: imageData, id: photoId }];
+                        console.log(
+                          `📸 Photo added to session. Total photos now: ${newPhotos.length}`
+                        );
+                        console.log(
+                          '📸 Session photos array:',
+                          newPhotos.map((p) => p.id)
+                        );
+                        return newPhotos;
+                      });
+
+                      // NO message - let user continue shooting without interruption
+                    } else {
+                      console.log('📸 NOT in photo session mode, storing in lastCapturedImageRef');
+                      // Single photo mode
+                      lastCapturedImageRef.current = imageData;
+                      console.log('📸 Photo captured from vision stream');
+
+                      // NO message - let NoVo respond naturally
+                    }
+                  } else {
+                    console.error('📸 Failed to capture from vision stream - imageData is null');
+                    // Let NoVo respond naturally to the failed capture
+                  }
+                } else {
+                  console.error('📸 __visionCaptureFrame not available on window');
+                  // Let NoVo respond naturally to the camera not being ready
+                }
+              } else {
+                // Open camera capture modal
+                console.log(
+                  '📸 Opening camera capture modal (vision not active or not quick capture)'
+                );
+                setShowCamera(true);
+              }
+              processingCommandRef.current = false;
+            }
+
+            // Handle email picture request
+            else if (command.type === 'send_email_picture') {
+              console.log('📧 Email picture request detected');
+              if (!lastCapturedImageRef.current) {
+                // No picture taken yet
+                // if (sendAssistantInput) {
+                //   sendAssistantInput('[No photo yet - ask if they want to take one first]');
+                // }
+              } else if (!userProfile?.email && !command.extractedData?.email) {
+                // Need email address
+                // if (sendAssistantInput) {
+                //   sendAssistantInput('[Need email address to send the picture]');
+                // }
+              } else {
+                // We have picture and email - show confirmation dialog
+                const emailToUse = command.extractedData?.email || userProfile?.email || '';
+                console.log('📧 Showing email confirmation for:', emailToUse);
+
+                setEmailConfirmation({
+                  email: emailToUse,
+                  type: 'picture',
+                  data: {
+                    user_name: userProfile?.name || 'Friend',
+                    image_url: lastCapturedImageRef.current,
+                    caption: 'Picture from NoVo!',
+                  },
+                });
+
+                // Tell NoVo we're asking for confirmation
+                // if (sendAssistantInput) {
+                //   sendAssistantInput('[Asking user to confirm email address before sending]');
+                // }
+              }
+              processingCommandRef.current = false;
+            }
+
+            // Handle email summary request
+            else if (command.type === 'send_email_summary') {
+              console.log('📧 Email summary request detected');
+              if (!userProfile?.email && !command.extractedData?.email) {
+                // Need email address
+                // if (sendAssistantInput) {
+                //   sendAssistantInput('[Need email address for summary]');
+                // }
+              } else {
+                // We have email - show confirmation dialog
+                const emailToUse = command.extractedData?.email || userProfile?.email || '';
+                const conversationMessages = messages
+                  .filter((msg) => msg.type === 'user_message' || msg.type === 'assistant_message')
+                  .map((msg) => {
+                    const typedMsg = msg as {
+                      type: string;
+                      message?: { role: string; content: string };
+                      receivedAt?: Date;
+                    };
+                    return {
+                      role: typedMsg.message?.role === 'user' ? 'user' : 'assistant',
+                      content: typedMsg.message?.content || '',
+                      timestamp: typedMsg.receivedAt
+                        ? new Date(typedMsg.receivedAt).getTime()
+                        : Date.now(),
+                    };
+                  });
+
+                console.log('📧 Showing email confirmation for summary:', emailToUse);
+
+                setEmailConfirmation({
+                  email: emailToUse,
+                  type: 'summary',
+                  data: {
+                    user_name: userProfile?.name || 'Friend',
+                    messages: conversationMessages,
+                    userProfile: userProfile,
+                  },
+                });
+
+                // Tell NoVo we're asking for confirmation
+                // if (sendAssistantInput) {
+                //   sendAssistantInput('[Asking user to confirm email address before sending]');
+                // }
+              }
+              processingCommandRef.current = false;
+            }
+
+            // Handle explain photo session request
+            else if (command.type === 'explain_photo_session') {
+              console.log('📸 Explain photo session request detected');
+              // Reset the flag so we can offer again in future sessions
+              hasOfferedPhotoSessionRef.current = false;
               if (sendAssistantInput) {
                 sendAssistantInput(
-                  'I need to see you to analyze your outfit. Can you turn on the camera?'
+                  "[Explain: \"Say 'take a series of photos' to start. Say 'shoot' for each photo. Say 'done' to see grid and delete unwanted ones.\"]"
                 );
               }
+              processingCommandRef.current = false;
             }
-            processingCommandRef.current = false;
-          } else {
-            processingCommandRef.current = false;
+
+            // Handle photo session start request
+            else if (command.type === 'photo_session') {
+              console.log('📸 Photo session start request detected');
+
+              // Start photo session mode
+              setIsPhotoSession(true);
+              setSessionPhotos([]);
+              setShowPhotoGrid(false);
+              photoSessionStartTimeRef.current = Date.now(); // Record start time
+
+              // Turn on camera if not already on
+              if (!isVisionActive) {
+                toggleVision();
+              }
+
+              // if (sendAssistantInput) {
+              //   sendAssistantInput(
+              //     '[Photo session starting! Camera enlarging. Say "shoot" for each photo.]'
+              //   );
+              // }
+              processingCommandRef.current = false;
+            }
+
+            // Handle end photo session request
+            else if (command.type === 'end_photo_session') {
+              console.log('📸 End photo session request detected');
+              console.log(`📸 Session ended with ${sessionPhotos.length} photos`);
+
+              // End photo session and show grid
+              setIsPhotoSession(false);
+              setShowPhotoGrid(true);
+
+              // NO message - let NoVo respond naturally
+              processingCommandRef.current = false;
+            }
+
+            // Handle show bounding boxes request
+            else if (command.type === 'show_boxes') {
+              console.log('📦 Show bounding boxes request detected');
+              setShowBoundingBoxes(true);
+              if (sendAssistantInput) {
+                sendAssistantInput('Showing object detection boxes.');
+              }
+              processingCommandRef.current = false;
+            }
+
+            // Handle hide bounding boxes request
+            else if (command.type === 'hide_boxes') {
+              console.log('📦 Hide bounding boxes request detected');
+              setShowBoundingBoxes(false);
+              if (sendAssistantInput) {
+                sendAssistantInput('Hiding object detection boxes.');
+              }
+              processingCommandRef.current = false;
+            }
+
+            // Handle fashion analysis request
+            else if (command.type === 'fashion_analysis') {
+              console.log('👗 Fashion analysis request detected');
+
+              if (isVisionActive) {
+                // Camera is on - capture frame and analyze
+                const frame = (window as any).__visionCaptureFrame?.();
+                if (frame) {
+                  // Call fashion analysis API
+                  fetch('/api/vision/fashion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      imageData: frame,
+                      question: 'Analyze this outfit and provide detailed fashion advice.',
+                    }),
+                  })
+                    .then((res) => res.json())
+                    .then((data) => {
+                      if (data.success && data.analysis) {
+                        console.log('👗 Fashion analysis complete');
+                        if (sendAssistantInput) {
+                          // Send the analysis directly - NoVo will speak it
+                          sendAssistantInput(data.analysis);
+                        }
+                      }
+                    })
+                    .catch((error) => {
+                      console.error('👗 Fashion analysis error:', error);
+                    });
+                }
+              } else {
+                // Camera is off - ask user to turn it on
+                if (sendAssistantInput) {
+                  sendAssistantInput(
+                    'I need to see you to analyze your outfit. Can you turn on the camera?'
+                  );
+                }
+              }
+              processingCommandRef.current = false;
+            } else {
+              processingCommandRef.current = false;
+            }
           }
         }
-      }
-      // === END COMMAND DETECTION ===
+        // === END COMMAND DETECTION ===
 
-      // Check if user wants to email the picture
-      if (
-        content.toLowerCase().includes('email') &&
-        (content.toLowerCase().includes('yes') ||
-          content.toLowerCase().includes('please') ||
-          content.toLowerCase().includes('send'))
-      ) {
-        console.log('📧 User wants to email the picture');
-        emailIntentRef.current.wantsEmail = true;
-      }
-
-      // Extract email address (including spoken format like "wayne at wharburn dot com")
-      const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
-      if (!emailMatch) {
-        // Try to parse spoken email format: "wayne at wharburn dot com"
-        const spokenEmailMatch = content.match(
-          /([a-zA-Z0-9._%+-]+)\s+at\s+([a-zA-Z0-9.-]+)\s+dot\s+([a-zA-Z]{2,})/i
-        );
-        if (spokenEmailMatch) {
-          const constructedEmail = `${spokenEmailMatch[1]}@${spokenEmailMatch[2]}.${spokenEmailMatch[3]}`;
-          console.log('📧 Constructed email from spoken format:', constructedEmail);
-          emailIntentRef.current.email = constructedEmail;
-          // Save to Redis
-          saveUserProfile({ email: constructedEmail });
-        }
-      } else {
-        emailIntentRef.current.email = emailMatch[0];
-        console.log('📧 Extracted email:', emailMatch[0]);
-        // Save to Redis
-        saveUserProfile({ email: emailMatch[0] });
-      }
-
-      // Extract name from various patterns
-      // Common words to exclude - these are NOT names
-      const excludedWords = new Set([
-        'sure',
-        'okay',
-        'ok',
-        'yes',
-        'no',
-        'yeah',
-        'yep',
-        'nope',
-        'great',
-        'good',
-        'fine',
-        'thanks',
-        'thank',
-        'please',
-        'hello',
-        'hi',
-        'hey',
-        'bye',
-        'goodbye',
-        'well',
-        'actually',
-        'really',
-        'just',
-        'right',
-        'correct',
-        'true',
-        'false',
-        'maybe',
-        'perhaps',
-        'probably',
-        'definitely',
-        'absolutely',
-        'certainly',
-        'perfect',
-        'awesome',
-        'cool',
-        'nice',
-        'alright',
-        'sorry',
-        'wow',
-        'oh',
-        'the',
-        'and',
-        'but',
-        'for',
-        'are',
-        'was',
-        'were',
-        'been',
-        'being',
-        'have',
-        'has',
-        'had',
-        'having',
-        'will',
-        'would',
-        'could',
-        'should',
-        'email',
-        'photo',
-        'picture',
-        'camera',
-        'send',
-        'take',
-        'call',
-      ]);
-
-      if (!emailIntentRef.current.name) {
-        let extractedName: string | null = null;
-
-        // Pattern 1: "my name is [name]" or "I'm [name]" or "I am [name]" or "call me [name]"
-        const namePattern1 = content.match(
-          /(?:my\s+name\s+is|i'?m|i\s+am|call\s+me)\s+([a-zA-Z]+)/i
-        );
-        if (namePattern1 && namePattern1[1]) {
-          extractedName = namePattern1[1];
-        }
-
-        // Pattern 2: "it's [name]" - removed $ to allow "it's wayne and the email..."
-        if (!extractedName) {
-          const namePattern2 = content.match(/(?:it'?s|this\s+is)\s+([a-zA-Z]+)/i);
-          if (namePattern2 && namePattern2[1]) {
-            extractedName = namePattern2[1];
-          }
-        }
-
-        // Pattern 3: "yes, [name]" or "yes it's [name]" at the start
-        if (!extractedName) {
-          const namePattern3 = content.match(/^yes[,\s]+(?:it'?s\s+)?([a-zA-Z]+)/i);
-          if (namePattern3 && namePattern3[1]) {
-            extractedName = namePattern3[1];
-          }
-        }
-
-        // Validate the extracted name
-        if (extractedName && extractedName.length > 1) {
-          const nameLower = extractedName.toLowerCase();
-          if (!excludedWords.has(nameLower)) {
-            const name =
-              extractedName.charAt(0).toUpperCase() + extractedName.slice(1).toLowerCase();
-            emailIntentRef.current.name = name;
-            console.log('👤 Extracted name from user message:', name);
-
-            // Save to Redis
-            saveUserProfile({ name });
-          } else {
-            console.log('👤 Rejected invalid name:', extractedName);
-          }
-        }
-      }
-
-      // If message looks like just a name (short, no special chars, after asking for name)
-      if (
-        emailIntentRef.current.wantsEmail &&
-        emailIntentRef.current.email &&
-        !emailIntentRef.current.name &&
-        content.length < 50 &&
-        !content.includes('@') &&
-        /^[a-zA-Z\s]+$/.test(content)
-      ) {
-        const name = content.trim();
-        emailIntentRef.current.name = name;
-        console.log('👤 Extracted name (simple):', name);
-        // Save to Redis
-        saveUserProfile({ name });
-      }
-
-      // Check if user confirms identity ("yes", "that's me", "correct")
-      if (
-        userProfile?.name &&
-        !identityConfirmedRef.current &&
-        (content.toLowerCase().includes('yes') ||
-          content.toLowerCase().includes("that's me") ||
-          content.toLowerCase().includes('thats me') ||
-          content.toLowerCase().includes('correct') ||
-          content.toLowerCase().includes('right'))
-      ) {
-        console.log('👤 User confirmed identity as:', userProfile.name);
-        identityConfirmedRef.current = true;
-        // Pre-fill email intent with stored data
-        if (userProfile.email) emailIntentRef.current.email = userProfile.email;
-        if (userProfile.name) emailIntentRef.current.name = userProfile.name;
-      }
-
-      // Check if user denies identity ("no", "not me", "different person")
-      if (
-        userProfile?.name &&
-        !identityConfirmedRef.current &&
-        (content.toLowerCase().includes('no') ||
-          content.toLowerCase().includes('not me') ||
-          content.toLowerCase().includes("i'm not") ||
-          content.toLowerCase().includes('different'))
-      ) {
-        console.log('👤 User denied identity, clearing stored name');
-        // Clear the stored name
-        fetch('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'newUser' }),
-        });
-        setUserProfile((prev) => (prev ? { ...prev, name: undefined } : null));
-      }
-
-      // Extract additional personal information from user messages
-      const lowerContent = content.toLowerCase();
-      const profileUpdates: Record<string, string | number> = {};
-
-      // Birthday patterns: "my birthday is", "I was born on", "born on"
-      const birthdayMatch = content.match(
-        /(?:birthday\s+is|born\s+on|born\s+in)\s+([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?|\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i
-      );
-      if (birthdayMatch) {
-        profileUpdates.birthday = birthdayMatch[1];
-        console.log('🎂 Extracted birthday:', birthdayMatch[1]);
-      }
-
-      // Age patterns: "I'm X years old", "I am X", "age is X"
-      const ageMatch = content.match(/(?:i'?m|i\s+am|age\s+is)\s+(\d{1,3})\s*(?:years?\s+old)?/i);
-      if (ageMatch) {
-        profileUpdates.age = parseInt(ageMatch[1], 10);
-        console.log('📅 Extracted age:', ageMatch[1]);
-      }
-
-      // Relationship status patterns
-      if (
-        lowerContent.includes('married') ||
-        lowerContent.includes('spouse') ||
-        lowerContent.includes('husband') ||
-        lowerContent.includes('wife')
-      ) {
-        profileUpdates.relationshipStatus = 'married';
-        console.log('💍 Extracted relationship status: married');
-      } else if (lowerContent.includes('single') || lowerContent.includes('not married')) {
-        profileUpdates.relationshipStatus = 'single';
-        console.log('💍 Extracted relationship status: single');
-      } else if (lowerContent.includes('divorced')) {
-        profileUpdates.relationshipStatus = 'divorced';
-        console.log('💍 Extracted relationship status: divorced');
-      } else if (lowerContent.includes('engaged')) {
-        profileUpdates.relationshipStatus = 'engaged';
-        console.log('💍 Extracted relationship status: engaged');
-      }
-
-      // Occupation patterns: "I work as", "I'm a", "my job is", "I do"
-      const occupationMatch = content.match(
-        /(?:i\s+work\s+as\s+(?:a\s+)?|i'?m\s+a\s+|my\s+job\s+is\s+(?:a\s+)?|i\s+am\s+a\s+|profession\s+is\s+(?:a\s+)?)([a-zA-Z\s]+?)(?:\.|,|$|\s+at\s+|\s+for\s+|\s+and\s+)/i
-      );
-      if (occupationMatch && occupationMatch[1].trim().length > 2) {
-        profileUpdates.occupation = occupationMatch[1].trim();
-        console.log('💼 Extracted occupation:', occupationMatch[1].trim());
-      }
-
-      // Employer patterns: "I work at", "I work for", "employed at/by"
-      const employerMatch = content.match(
-        /(?:i\s+work\s+(?:at|for)|employed\s+(?:at|by)|company\s+is)\s+([A-Za-z0-9\s&]+?)(?:\.|,|$|\s+as\s+)/i
-      );
-      if (employerMatch && employerMatch[1].trim().length > 1) {
-        profileUpdates.employer = employerMatch[1].trim();
-        console.log('🏢 Extracted employer:', employerMatch[1].trim());
-      }
-
-      // Location patterns: "I live in", "I'm from", "located in"
-      const locationMatch = content.match(
-        /(?:i\s+live\s+in|i'?m\s+from|located\s+in|i\s+am\s+from|based\s+in)\s+([A-Za-z\s,]+?)(?:\.|$|and\s+)/i
-      );
-      if (locationMatch && locationMatch[1].trim().length > 2) {
-        profileUpdates.location = locationMatch[1].trim();
-        console.log('📍 Extracted location:', locationMatch[1].trim());
-      }
-
-      // Phone number patterns
-      const phoneMatch = content.match(
-        /(?:phone\s+(?:number\s+)?is|number\s+is|call\s+me\s+(?:at|on))\s*[:\s]*([+]?[\d\s\-\(\)]{10,})/i
-      );
-      if (phoneMatch) {
-        profileUpdates.phone = phoneMatch[1].replace(/\s/g, '');
-        console.log('📱 Extracted phone:', phoneMatch[1]);
-      }
-
-      // Save any extracted profile updates
-      if (Object.keys(profileUpdates).length > 0) {
-        console.log('👤 Saving profile updates:', profileUpdates);
-        saveUserProfile(profileUpdates as any);
-      }
-    }
-
-    // Check for assistant messages asking for email/name
-    if (lastMessage.type === 'assistant_message') {
-      const assistantMsg = lastMessage as any;
-      const content = assistantMsg.message?.content || '';
-
-      // If NoVo asks about emailing, set intent
-      if (
-        content.toLowerCase().includes('email') &&
-        (content.toLowerCase().includes('would you like') ||
-          content.toLowerCase().includes('want me to') ||
-          content.toLowerCase().includes('should i'))
-      ) {
-        console.log('📧 NoVo asking about emailing - setting intent');
-        emailIntentRef.current.wantsEmail = true;
-      }
-
-      // If NoVo says she's sending the email, extract email and name from her message
-      // Triggers on: "send photo", "sending to", "I'll send that", etc.
-      const lowerContent = content.toLowerCase();
-      const isSendingMessage =
-        (lowerContent.includes('send') || lowerContent.includes('sending')) &&
-        (lowerContent.includes('photo') ||
-          lowerContent.includes('picture') ||
-          lowerContent.includes('to') ||
-          lowerContent.includes('email'));
-
-      if (isSendingMessage && lastCapturedImageRef.current) {
-        console.log("📧 NoVo says she's sending the photo");
-
-        // Extract email from NoVo's message
-        const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
-        if (emailMatch) {
-          emailIntentRef.current.email = emailMatch[0];
+        // Check if user wants to email the picture
+        if (
+          content.toLowerCase().includes('email') &&
+          (content.toLowerCase().includes('yes') ||
+            content.toLowerCase().includes('please') ||
+            content.toLowerCase().includes('send'))
+        ) {
+          console.log('📧 User wants to email the picture');
           emailIntentRef.current.wantsEmail = true;
-          console.log('📧 Extracted email from NoVo:', emailMatch[0]);
         }
 
-        // Extract name from NoVo's message (look for capitalized words that might be names)
+        // Extract email address (including spoken format like "wayne at wharburn dot com")
+        const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+        if (!emailMatch) {
+          // Try to parse spoken email format: "wayne at wharburn dot com"
+          const spokenEmailMatch = content.match(
+            /([a-zA-Z0-9._%+-]+)\s+at\s+([a-zA-Z0-9.-]+)\s+dot\s+([a-zA-Z]{2,})/i
+          );
+          if (spokenEmailMatch) {
+            const constructedEmail = `${spokenEmailMatch[1]}@${spokenEmailMatch[2]}.${spokenEmailMatch[3]}`;
+            console.log('📧 Constructed email from spoken format:', constructedEmail);
+            emailIntentRef.current.email = constructedEmail;
+            // Save to Redis
+            saveUserProfile({ email: constructedEmail });
+          }
+        } else {
+          emailIntentRef.current.email = emailMatch[0];
+          console.log('📧 Extracted email:', emailMatch[0]);
+          // Save to Redis
+          saveUserProfile({ email: emailMatch[0] });
+        }
+
+        // Extract name from various patterns
         // Common words to exclude - these are NOT names
-        const excludedNovoWords = new Set([
+        const excludedWords = new Set([
           'sure',
           'okay',
           'ok',
           'yes',
           'no',
           'yeah',
+          'yep',
+          'nope',
           'great',
           'good',
-          'perfect',
           'fine',
           'thanks',
           'thank',
@@ -2316,273 +2057,563 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           'hi',
           'hey',
           'bye',
+          'goodbye',
           'well',
           'actually',
           'really',
           'just',
           'right',
+          'correct',
+          'true',
+          'false',
+          'maybe',
+          'perhaps',
+          'probably',
+          'definitely',
+          'absolutely',
+          'certainly',
+          'perfect',
+          'awesome',
+          'cool',
+          'nice',
           'alright',
-          'got',
+          'sorry',
+          'wow',
+          'oh',
+          'the',
+          'and',
+          'but',
+          'for',
+          'are',
+          'was',
+          'were',
+          'been',
+          'being',
+          'have',
+          'has',
+          'had',
+          'having',
+          'will',
+          'would',
+          'could',
+          'should',
           'email',
           'photo',
           'picture',
           'camera',
           'send',
-          'sending',
-          'sent',
-          'would',
-          'could',
-          'should',
-          'will',
-          'the',
-          'and',
-          'for',
-          'that',
-          'this',
-          'your',
-          'you',
-          'now',
-          'away',
-          'right',
-          'done',
-          'here',
+          'take',
+          'call',
         ]);
 
-        let extractedName: string | null = null;
+        if (!emailIntentRef.current.name) {
+          let extractedName: string | null = null;
 
-        // Pattern 1: "Got it, [Name]" or "Perfect, [Name]" - name after greeting
-        const namePattern1 = content.match(
-          /(?:got\s+it|perfect|great|okay|alright),?\s+([A-Z][a-z]+)/i
-        );
+          // Pattern 1: "my name is [name]" or "I'm [name]" or "I am [name]" or "call me [name]"
+          const namePattern1 = content.match(
+            /(?:my\s+name\s+is|i'?m|i\s+am|call\s+me)\s+([a-zA-Z]+)/i
+          );
+          if (namePattern1 && namePattern1[1]) {
+            extractedName = namePattern1[1];
+          }
+
+          // Pattern 2: "it's [name]" - removed $ to allow "it's wayne and the email..."
+          if (!extractedName) {
+            const namePattern2 = content.match(/(?:it'?s|this\s+is)\s+([a-zA-Z]+)/i);
+            if (namePattern2 && namePattern2[1]) {
+              extractedName = namePattern2[1];
+            }
+          }
+
+          // Pattern 3: "yes, [name]" or "yes it's [name]" at the start
+          if (!extractedName) {
+            const namePattern3 = content.match(/^yes[,\s]+(?:it'?s\s+)?([a-zA-Z]+)/i);
+            if (namePattern3 && namePattern3[1]) {
+              extractedName = namePattern3[1];
+            }
+          }
+
+          // Validate the extracted name
+          if (extractedName && extractedName.length > 1) {
+            const nameLower = extractedName.toLowerCase();
+            if (!excludedWords.has(nameLower)) {
+              const name =
+                extractedName.charAt(0).toUpperCase() + extractedName.slice(1).toLowerCase();
+              emailIntentRef.current.name = name;
+              console.log('👤 Extracted name from user message:', name);
+
+              // Save to Redis
+              saveUserProfile({ name });
+            } else {
+              console.log('👤 Rejected invalid name:', extractedName);
+            }
+          }
+        }
+
+        // If message looks like just a name (short, no special chars, after asking for name)
         if (
-          namePattern1 &&
-          namePattern1[1] &&
-          !excludedNovoWords.has(namePattern1[1].toLowerCase())
+          emailIntentRef.current.wantsEmail &&
+          emailIntentRef.current.email &&
+          !emailIntentRef.current.name &&
+          content.length < 50 &&
+          !content.includes('@') &&
+          /^[a-zA-Z\s]+$/.test(content)
         ) {
-          extractedName = namePattern1[1];
+          const name = content.trim();
+          emailIntentRef.current.name = name;
+          console.log('👤 Extracted name (simple):', name);
+          // Save to Redis
+          saveUserProfile({ name });
         }
 
-        // Pattern 2: "send...to [Name]" - name before email
-        if (!extractedName) {
-          const namePattern2 = content.match(/(?:send|email).*?to\s+([A-Z][a-z]+)(?:@|\s+at\s+)/i);
-          if (
-            namePattern2 &&
-            namePattern2[1] &&
-            !excludedNovoWords.has(namePattern2[1].toLowerCase())
-          ) {
-            extractedName = namePattern2[1];
+        // Check if user confirms identity ("yes", "that's me", "correct")
+        if (
+          userProfile?.name &&
+          !identityConfirmedRef.current &&
+          (content.toLowerCase().includes('yes') ||
+            content.toLowerCase().includes("that's me") ||
+            content.toLowerCase().includes('thats me') ||
+            content.toLowerCase().includes('correct') ||
+            content.toLowerCase().includes('right'))
+        ) {
+          console.log('👤 User confirmed identity as:', userProfile.name);
+          identityConfirmedRef.current = true;
+          // Pre-fill email intent with stored data
+          if (userProfile.email) emailIntentRef.current.email = userProfile.email;
+          if (userProfile.name) emailIntentRef.current.name = userProfile.name;
+        }
+
+        // Check if user denies identity ("no", "not me", "different person")
+        if (
+          userProfile?.name &&
+          !identityConfirmedRef.current &&
+          (content.toLowerCase().includes('no') ||
+            content.toLowerCase().includes('not me') ||
+            content.toLowerCase().includes("i'm not") ||
+            content.toLowerCase().includes('different'))
+        ) {
+          console.log('👤 User denied identity, clearing stored name');
+          // Clear the stored name
+          fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'newUser' }),
+          });
+          setUserProfile((prev) => (prev ? { ...prev, name: undefined } : null));
+        }
+
+        // Extract additional personal information from user messages
+        const lowerContent = content.toLowerCase();
+        const profileUpdates: Record<string, string | number> = {};
+
+        // Birthday patterns: "my birthday is", "I was born on", "born on"
+        const birthdayMatch = content.match(
+          /(?:birthday\s+is|born\s+on|born\s+in)\s+([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?|\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/i
+        );
+        if (birthdayMatch) {
+          profileUpdates.birthday = birthdayMatch[1];
+          console.log('🎂 Extracted birthday:', birthdayMatch[1]);
+        }
+
+        // Age patterns: "I'm X years old", "I am X", "age is X"
+        const ageMatch = content.match(/(?:i'?m|i\s+am|age\s+is)\s+(\d{1,3})\s*(?:years?\s+old)?/i);
+        if (ageMatch) {
+          profileUpdates.age = parseInt(ageMatch[1], 10);
+          console.log('📅 Extracted age:', ageMatch[1]);
+        }
+
+        // Relationship status patterns
+        if (
+          lowerContent.includes('married') ||
+          lowerContent.includes('spouse') ||
+          lowerContent.includes('husband') ||
+          lowerContent.includes('wife')
+        ) {
+          profileUpdates.relationshipStatus = 'married';
+          console.log('💍 Extracted relationship status: married');
+        } else if (lowerContent.includes('single') || lowerContent.includes('not married')) {
+          profileUpdates.relationshipStatus = 'single';
+          console.log('💍 Extracted relationship status: single');
+        } else if (lowerContent.includes('divorced')) {
+          profileUpdates.relationshipStatus = 'divorced';
+          console.log('💍 Extracted relationship status: divorced');
+        } else if (lowerContent.includes('engaged')) {
+          profileUpdates.relationshipStatus = 'engaged';
+          console.log('💍 Extracted relationship status: engaged');
+        }
+
+        // Occupation patterns: "I work as", "I'm a", "my job is", "I do"
+        const occupationMatch = content.match(
+          /(?:i\s+work\s+as\s+(?:a\s+)?|i'?m\s+a\s+|my\s+job\s+is\s+(?:a\s+)?|i\s+am\s+a\s+|profession\s+is\s+(?:a\s+)?)([a-zA-Z\s]+?)(?:\.|,|$|\s+at\s+|\s+for\s+|\s+and\s+)/i
+        );
+        if (occupationMatch && occupationMatch[1].trim().length > 2) {
+          profileUpdates.occupation = occupationMatch[1].trim();
+          console.log('💼 Extracted occupation:', occupationMatch[1].trim());
+        }
+
+        // Employer patterns: "I work at", "I work for", "employed at/by"
+        const employerMatch = content.match(
+          /(?:i\s+work\s+(?:at|for)|employed\s+(?:at|by)|company\s+is)\s+([A-Za-z0-9\s&]+?)(?:\.|,|$|\s+as\s+)/i
+        );
+        if (employerMatch && employerMatch[1].trim().length > 1) {
+          profileUpdates.employer = employerMatch[1].trim();
+          console.log('🏢 Extracted employer:', employerMatch[1].trim());
+        }
+
+        // Location patterns: "I live in", "I'm from", "located in"
+        const locationMatch = content.match(
+          /(?:i\s+live\s+in|i'?m\s+from|located\s+in|i\s+am\s+from|based\s+in)\s+([A-Za-z\s,]+?)(?:\.|$|and\s+)/i
+        );
+        if (locationMatch && locationMatch[1].trim().length > 2) {
+          profileUpdates.location = locationMatch[1].trim();
+          console.log('📍 Extracted location:', locationMatch[1].trim());
+        }
+
+        // Phone number patterns
+        const phoneMatch = content.match(
+          /(?:phone\s+(?:number\s+)?is|number\s+is|call\s+me\s+(?:at|on))\s*[:\s]*([+]?[\d\s\-\(\)]{10,})/i
+        );
+        if (phoneMatch) {
+          profileUpdates.phone = phoneMatch[1].replace(/\s/g, '');
+          console.log('📱 Extracted phone:', phoneMatch[1]);
+        }
+
+        // Save any extracted profile updates
+        if (Object.keys(profileUpdates).length > 0) {
+          console.log('👤 Saving profile updates:', profileUpdates);
+          saveUserProfile(profileUpdates as any);
+        }
+      }
+
+      // Check for assistant messages asking for email/name
+      if (lastMessage.type === 'assistant_message') {
+        const assistantMsg = lastMessage as any;
+        const content = assistantMsg.message?.content || '';
+
+        // If NoVo asks about emailing, set intent
+        if (
+          content.toLowerCase().includes('email') &&
+          (content.toLowerCase().includes('would you like') ||
+            content.toLowerCase().includes('want me to') ||
+            content.toLowerCase().includes('should i'))
+        ) {
+          console.log('📧 NoVo asking about emailing - setting intent');
+          emailIntentRef.current.wantsEmail = true;
+        }
+
+        // If NoVo says she's sending the email, extract email and name from her message
+        // Triggers on: "send photo", "sending to", "I'll send that", etc.
+        const lowerContent = content.toLowerCase();
+        const isSendingMessage =
+          (lowerContent.includes('send') || lowerContent.includes('sending')) &&
+          (lowerContent.includes('photo') ||
+            lowerContent.includes('picture') ||
+            lowerContent.includes('to') ||
+            lowerContent.includes('email'));
+
+        if (isSendingMessage && lastCapturedImageRef.current) {
+          console.log("📧 NoVo says she's sending the photo");
+
+          // Extract email from NoVo's message
+          const emailMatch = content.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+          if (emailMatch) {
+            emailIntentRef.current.email = emailMatch[0];
+            emailIntentRef.current.wantsEmail = true;
+            console.log('📧 Extracted email from NoVo:', emailMatch[0]);
           }
-        }
 
-        // Pattern 3: "[Name]," at the start when addressing user
-        if (!extractedName) {
-          const namePattern3 = content.match(/^([A-Z][a-z]+),/);
+          // Extract name from NoVo's message (look for capitalized words that might be names)
+          // Common words to exclude - these are NOT names
+          const excludedNovoWords = new Set([
+            'sure',
+            'okay',
+            'ok',
+            'yes',
+            'no',
+            'yeah',
+            'great',
+            'good',
+            'perfect',
+            'fine',
+            'thanks',
+            'thank',
+            'please',
+            'hello',
+            'hi',
+            'hey',
+            'bye',
+            'well',
+            'actually',
+            'really',
+            'just',
+            'right',
+            'alright',
+            'got',
+            'email',
+            'photo',
+            'picture',
+            'camera',
+            'send',
+            'sending',
+            'sent',
+            'would',
+            'could',
+            'should',
+            'will',
+            'the',
+            'and',
+            'for',
+            'that',
+            'this',
+            'your',
+            'you',
+            'now',
+            'away',
+            'right',
+            'done',
+            'here',
+          ]);
+
+          let extractedName: string | null = null;
+
+          // Pattern 1: "Got it, [Name]" or "Perfect, [Name]" - name after greeting
+          const namePattern1 = content.match(
+            /(?:got\s+it|perfect|great|okay|alright),?\s+([A-Z][a-z]+)/i
+          );
           if (
-            namePattern3 &&
-            namePattern3[1] &&
-            !excludedNovoWords.has(namePattern3[1].toLowerCase())
+            namePattern1 &&
+            namePattern1[1] &&
+            !excludedNovoWords.has(namePattern1[1].toLowerCase())
           ) {
-            extractedName = namePattern3[1];
+            extractedName = namePattern1[1];
           }
-        }
 
-        if (extractedName) {
-          emailIntentRef.current.name = extractedName;
-          console.log('👤 Extracted name from NoVo:', extractedName);
-        } else {
-          // Fallback: use stored user profile name
-          if (userProfile?.name) {
-            emailIntentRef.current.name = userProfile.name;
-            console.log('👤 Using stored user profile name:', userProfile.name);
+          // Pattern 2: "send...to [Name]" - name before email
+          if (!extractedName) {
+            const namePattern2 = content.match(
+              /(?:send|email).*?to\s+([A-Z][a-z]+)(?:@|\s+at\s+)/i
+            );
+            if (
+              namePattern2 &&
+              namePattern2[1] &&
+              !excludedNovoWords.has(namePattern2[1].toLowerCase())
+            ) {
+              extractedName = namePattern2[1];
+            }
+          }
+
+          // Pattern 3: "[Name]," at the start when addressing user
+          if (!extractedName) {
+            const namePattern3 = content.match(/^([A-Z][a-z]+),/);
+            if (
+              namePattern3 &&
+              namePattern3[1] &&
+              !excludedNovoWords.has(namePattern3[1].toLowerCase())
+            ) {
+              extractedName = namePattern3[1];
+            }
+          }
+
+          if (extractedName) {
+            emailIntentRef.current.name = extractedName;
+            console.log('👤 Extracted name from NoVo:', extractedName);
           } else {
-            console.log('👤 Could not extract valid name from NoVo message');
+            // Fallback: use stored user profile name
+            if (userProfile?.name) {
+              emailIntentRef.current.name = userProfile.name;
+              console.log('👤 Using stored user profile name:', userProfile.name);
+            } else {
+              console.log('👤 Could not extract valid name from NoVo message');
+            }
+          }
+
+          // Trigger email immediately if we have all info
+          const intent = emailIntentRef.current;
+          console.log('📧 Email trigger check:', {
+            wantsEmail: intent.wantsEmail,
+            email: intent.email,
+            name: intent.name,
+            hasImage: !!lastCapturedImageRef.current,
+          });
+          if (intent.wantsEmail && intent.email && intent.name && lastCapturedImageRef.current) {
+            console.log('📧 Auto-triggering email NOW with collected info:', intent);
+
+            // Reset intent to prevent duplicate sends
+            emailIntentRef.current = {
+              wantsEmail: false,
+              email: null,
+              name: null,
+            };
+
+            // Send the email
+            fetch('/api/tools/execute', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                toolName: 'send_email_picture',
+                parameters: {
+                  email: intent.email,
+                  user_name: intent.name,
+                  image_url: lastCapturedImageRef.current,
+                  caption: 'Picture from NoVo!',
+                },
+              }),
+            })
+              .then((res) => res.json())
+              .then((result) => {
+                console.log('📧 Auto-email result:', result);
+                if (result.success) {
+                  console.log('✅ Email sent successfully!');
+                } else {
+                  console.error('❌ Email failed:', result.error);
+                }
+              })
+              .catch((error) => {
+                console.error('📧 Auto-email error:', error);
+              });
           }
         }
+      }
 
-        // Trigger email immediately if we have all info
-        const intent = emailIntentRef.current;
-        console.log('📧 Email trigger check:', {
-          wantsEmail: intent.wantsEmail,
-          email: intent.email,
-          name: intent.name,
-          hasImage: !!lastCapturedImageRef.current,
-        });
-        if (intent.wantsEmail && intent.email && intent.name && lastCapturedImageRef.current) {
-          console.log('📧 Auto-triggering email NOW with collected info:', intent);
+      // Check for tool call messages
+      // Hume SDK ToolCallMessage has: type: 'tool_call', name, toolCallId, parameters (string)
+      if (lastMessage.type === 'tool_call') {
+        const toolCall = lastMessage as {
+          type: string;
+          name?: string;
+          tool_name?: string;
+          toolCallId?: string;
+          tool_call_id?: string;
+          parameters?: string;
+        };
 
-          // Reset intent to prevent duplicate sends
-          emailIntentRef.current = {
-            wantsEmail: false,
-            email: null,
-            name: null,
-          };
+        const toolName = toolCall.name || toolCall.tool_name;
+        const toolCallId = toolCall.toolCallId || toolCall.tool_call_id;
 
-          // Send the email
+        console.log('🔧 Tool call detected!');
+        console.log('🔧 Tool name:', toolName);
+        console.log('🔧 Tool call ID:', toolCallId);
+        console.log('🔧 Full tool call message:', JSON.stringify(toolCall, null, 2));
+
+        // Handle take_picture tool
+        if (toolName === 'take_picture') {
+          console.log('📸 Opening camera...');
+          pendingToolCallIdRef.current = toolCallId || null;
+          setShowCamera(true);
+        }
+
+        // Handle send_email_picture / send_picture_email tool - inject the stored image URL
+        // Note: tools-config.json uses 'send_picture_email', but we support both names
+        if (toolName === 'send_email_picture' || toolName === 'send_picture_email') {
+          console.log('📧 Handling send_email_picture tool call');
+
+          // Parse parameters
+          let params: any = {};
+          try {
+            params = JSON.parse(toolCall.parameters || '{}');
+          } catch (error) {
+            console.error('Failed to parse tool parameters:', error);
+          }
+
+          // Inject the stored image URL
+          if (lastCapturedImageRef.current) {
+            params.image_url = lastCapturedImageRef.current;
+            console.log('📸 Injecting stored image URL:', lastCapturedImageRef.current);
+          } else {
+            console.warn('⚠️ No image URL stored! User needs to take a picture first.');
+            // Send error response back to Hume AI immediately
+            if (toolCallId && sendToolMessage) {
+              sendToolMessage({
+                type: 'tool_error',
+                toolCallId: toolCallId,
+                error:
+                  'No photo available. Please take a picture first using the take_picture command.',
+                content: '',
+              } as any);
+            }
+            return; // Don't proceed with the API call
+          }
+
+          // Execute the tool
+          console.log('📧 Executing send_email_picture with params:', params);
           fetch('/api/tools/execute', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               toolName: 'send_email_picture',
-              parameters: {
-                email: intent.email,
-                user_name: intent.name,
-                image_url: lastCapturedImageRef.current,
-                caption: 'Picture from NoVo!',
-              },
+              parameters: params,
             }),
           })
             .then((res) => res.json())
             .then((result) => {
-              console.log('📧 Auto-email result:', result);
-              if (result.success) {
-                console.log('✅ Email sent successfully!');
-              } else {
-                console.error('❌ Email failed:', result.error);
+              console.log('📧 Email result:', result);
+
+              // Send tool response back to Hume AI
+              if (toolCallId && sendToolMessage) {
+                sendToolMessage({
+                  type: 'tool_response',
+                  toolCallId: toolCallId,
+                  content: result.success
+                    ? `Picture sent successfully to ${params.email}!`
+                    : `Failed to send picture: ${result.error}`,
+                } as any);
               }
             })
             .catch((error) => {
-              console.error('📧 Auto-email error:', error);
+              console.error('📧 Email error:', error);
+
+              // Send error response back to Hume AI
+              if (toolCallId && sendToolMessage) {
+                sendToolMessage({
+                  type: 'tool_error',
+                  toolCallId: toolCallId,
+                  error: `Failed to send picture: ${error.message}`,
+                  content: '',
+                } as any);
+              }
             });
         }
       }
-    }
 
-    // Check for tool call messages
-    // Hume SDK ToolCallMessage has: type: 'tool_call', name, toolCallId, parameters (string)
-    if (lastMessage.type === 'tool_call') {
-      const toolCall = lastMessage as {
-        type: string;
-        name?: string;
-        tool_name?: string;
-        toolCallId?: string;
-        tool_call_id?: string;
-        parameters?: string;
-      };
+      // Check for tool response messages with image URLs
+      if (lastMessage.type === 'tool_response') {
+        const toolResponse = lastMessage as {
+          tool_name?: string;
+          content?: string;
+        };
 
-      const toolName = toolCall.name || toolCall.tool_name;
-      const toolCallId = toolCall.toolCallId || toolCall.tool_call_id;
+        console.log('🔧 Tool response:', toolResponse.tool_name);
 
-      console.log('🔧 Tool call detected!');
-      console.log('🔧 Tool name:', toolName);
-      console.log('🔧 Tool call ID:', toolCallId);
-      console.log('🔧 Full tool call message:', JSON.stringify(toolCall, null, 2));
-
-      // Handle take_picture tool
-      if (toolName === 'take_picture') {
-        console.log('📸 Opening camera...');
-        pendingToolCallIdRef.current = toolCallId || null;
-        setShowCamera(true);
-      }
-
-      // Handle send_email_picture / send_picture_email tool - inject the stored image URL
-      // Note: tools-config.json uses 'send_picture_email', but we support both names
-      if (toolName === 'send_email_picture' || toolName === 'send_picture_email') {
-        console.log('📧 Handling send_email_picture tool call');
-
-        // Parse parameters
-        let params: any = {};
         try {
-          params = JSON.parse(toolCall.parameters || '{}');
-        } catch (error) {
-          console.error('Failed to parse tool parameters:', error);
-        }
+          const content = JSON.parse(toolResponse.content || '{}');
 
-        // Inject the stored image URL
-        if (lastCapturedImageRef.current) {
-          params.image_url = lastCapturedImageRef.current;
-          console.log('📸 Injecting stored image URL:', lastCapturedImageRef.current);
-        } else {
-          console.warn('⚠️ No image URL stored! User needs to take a picture first.');
-          // Send error response back to Hume AI immediately
-          if (toolCallId && sendToolMessage) {
-            sendToolMessage({
-              type: 'tool_error',
-              toolCallId: toolCallId,
-              error:
-                'No photo available. Please take a picture first using the take_picture command.',
-              content: '',
-            } as any);
+          // Handle take_picture response with image URL
+          if (toolResponse.tool_name === 'take_picture' && content.image_url) {
+            console.log('📸 Displaying captured image:', content.image_url);
+            setDisplayedImage({
+              url: content.image_url,
+              source: 'camera',
+              caption: content.message,
+              timestamp: new Date(),
+            });
           }
-          return; // Don't proceed with the API call
+
+          // Handle any other tool that returns an image_url
+          if (content.image_url && toolResponse.tool_name !== 'take_picture') {
+            console.log('🖼️ Displaying image from tool:', toolResponse.tool_name);
+            setDisplayedImage({
+              url: content.image_url,
+              source: 'web',
+              caption: content.caption || content.message,
+              timestamp: new Date(),
+            });
+          }
+        } catch (error) {
+          console.error('Failed to parse tool response:', error);
         }
-
-        // Execute the tool
-        console.log('📧 Executing send_email_picture with params:', params);
-        fetch('/api/tools/execute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toolName: 'send_email_picture',
-            parameters: params,
-          }),
-        })
-          .then((res) => res.json())
-          .then((result) => {
-            console.log('📧 Email result:', result);
-
-            // Send tool response back to Hume AI
-            if (toolCallId && sendToolMessage) {
-              sendToolMessage({
-                type: 'tool_response',
-                toolCallId: toolCallId,
-                content: result.success
-                  ? `Picture sent successfully to ${params.email}!`
-                  : `Failed to send picture: ${result.error}`,
-              } as any);
-            }
-          })
-          .catch((error) => {
-            console.error('📧 Email error:', error);
-
-            // Send error response back to Hume AI
-            if (toolCallId && sendToolMessage) {
-              sendToolMessage({
-                type: 'tool_error',
-                toolCallId: toolCallId,
-                error: `Failed to send picture: ${error.message}`,
-                content: '',
-              } as any);
-            }
-          });
       }
-    }
-
-    // Check for tool response messages with image URLs
-    if (lastMessage.type === 'tool_response') {
-      const toolResponse = lastMessage as {
-        tool_name?: string;
-        content?: string;
-      };
-
-      console.log('🔧 Tool response:', toolResponse.tool_name);
-
-      try {
-        const content = JSON.parse(toolResponse.content || '{}');
-
-        // Handle take_picture response with image URL
-        if (toolResponse.tool_name === 'take_picture' && content.image_url) {
-          console.log('📸 Displaying captured image:', content.image_url);
-          setDisplayedImage({
-            url: content.image_url,
-            source: 'camera',
-            caption: content.message,
-            timestamp: new Date(),
-          });
-        }
-
-        // Handle any other tool that returns an image_url
-        if (content.image_url && toolResponse.tool_name !== 'take_picture') {
-          console.log('🖼️ Displaying image from tool:', toolResponse.tool_name);
-          setDisplayedImage({
-            url: content.image_url,
-            source: 'web',
-            caption: content.caption || content.message,
-            timestamp: new Date(),
-          });
-        }
-      } catch (error) {
-        console.error('Failed to parse tool response:', error);
-      }
+    } catch (error) {
+      console.error('Error in message processing:', error);
     }
   }, [messages]);
 
