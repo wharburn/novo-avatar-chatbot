@@ -1153,6 +1153,30 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     greetingVideoFinishedRef.current,
   ]);
 
+  // Update camera state in session settings whenever it changes
+  // This keeps NoVo constantly aware of whether the camera is on or off
+  useEffect(() => {
+    if (!isConnected || !sendSessionSettings) return;
+
+    // Update the vision_enabled variable whenever camera state changes
+    const timer = setTimeout(() => {
+      try {
+        sendSessionSettings({
+          variables: {
+            vision_enabled: isVisionActive ? 'true' : 'false',
+          },
+        });
+        console.log('📹 Updated camera state in session:', {
+          vision_enabled: isVisionActive ? 'true' : 'false',
+        });
+      } catch (error) {
+        console.error('Failed to update camera state in session:', error);
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [isVisionActive, isConnected, sendSessionSettings]);
+
   // Reset session tracking when disconnected
   useEffect(() => {
     if (!isConnected) {
