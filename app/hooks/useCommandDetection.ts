@@ -6,6 +6,9 @@ import { useCallback, useRef } from 'react';
 export type CommandType =
   | 'enable_camera' // "turn on camera", "show you something", "see my clothes"
   | 'vision_request' // "what am I wearing?", "do I look good?"
+  | 'fashion_analysis' // "analyze my outfit", "what do you think of my clothes?"
+  | 'show_boxes' // "show me the boxes", "display bounding boxes"
+  | 'hide_boxes' // "hide the boxes", "remove bounding boxes"
   | 'take_picture' // "take a picture", "take a photo"
   | 'photo_session' // "take a series of photos", "photo shoot"
   | 'end_photo_session' // "that's it", "I'm finished", "done with photos"
@@ -37,16 +40,23 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
     /can\s*you\s*see\s*(me|what\s*i)/i,
     /look\s*at\s*me/i,
     /what\s*color\s*(is|are)\s*(my|the)/i,
-    /give\s*me\s*(some\s*)?(fashion|style)\s*advice/i,
-    /what\s*do\s*you\s*think\s*(of|about)\s*(my|this|the)\s*(outfit|look|style|clothes|t[\s-]?shirt|shirt|wearing)/i,
     /what\s*do\s*you\s*think\?/i, // Generic "what do you think?" when camera is on
     /what('?s|\s*is)\s*your\s*opinion/i, // "what's your opinion?"
     /your\s*opinion/i, // "your opinion"
     /does\s*this\s*(look|suit|fit)/i,
     /see\s*what\s*i('?m|\s*am)\s*wearing/i,
     /tell\s*me\s*(about|what)\s*(my|you\s*see|you('?re|\s*are)\s*seeing)/i,
-    /analyze\s*(what\s*you\s*see|my\s*outfit|my\s*look)/i,
     /what\s*(are|do)\s*you\s*see/i,
+  ],
+  fashion_analysis: [
+    /analyze\s*(my\s*)?(outfit|look|clothes|fashion|style)/i,
+    /give\s*me\s*(some\s*)?(fashion|style)\s*advice/i,
+    /what\s*do\s*you\s*think\s*(of|about)\s*(my|this|the)\s*(outfit|look|style|clothes|t[\s-]?shirt|shirt|wearing)/i,
+    /how\s*do\s*these\s*clothes\s*look/i,
+    /rate\s*my\s*(outfit|look|style)/i,
+    /critique\s*my\s*(outfit|look|style|clothes)/i,
+    /what\s*would\s*you\s*change\s*about\s*my\s*(outfit|look|style)/i,
+    /do\s*you\s*like\s*my\s*(outfit|look|style|clothes)/i,
   ],
   take_picture: [
     /^shoot$/i, // Quick "shoot" command when camera is on
@@ -100,6 +110,22 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
     /email\s*(me\s*)?what\s*we\s*(talked|spoke)\s*about/i,
     /send\s*(me\s*)?(an\s*)?email\s*(with\s*)?(the\s*)?(summary|recap)/i,
   ],
+  show_boxes: [
+    /show\s*(me\s*)?(the\s*)?(bounding\s*)?boxes/i,
+    /display\s*(the\s*)?(bounding\s*)?boxes/i,
+    /turn\s*on\s*(the\s*)?(bounding\s*)?boxes/i,
+    /enable\s*(the\s*)?(bounding\s*)?boxes/i,
+    /show\s*(me\s*)?what\s*you\s*see/i,
+    /visualize\s*(the\s*)?(bounding\s*)?boxes/i,
+  ],
+  hide_boxes: [
+    /hide\s*(the\s*)?(bounding\s*)?boxes/i,
+    /remove\s*(the\s*)?(bounding\s*)?boxes/i,
+    /turn\s*off\s*(the\s*)?(bounding\s*)?boxes/i,
+    /disable\s*(the\s*)?(bounding\s*)?boxes/i,
+    /don't\s*show\s*(me\s*)?(the\s*)?(bounding\s*)?boxes/i,
+    /stop\s*showing\s*(the\s*)?(bounding\s*)?boxes/i,
+  ],
 };
 
 // Additional context hints that strengthen detection
@@ -121,6 +147,9 @@ const CONTEXT_HINTS: Record<Exclude<CommandType, null>, string[]> = {
   explain_photo_session: ['photo', 'session', 'mode', 'how', 'work', 'explain'],
   send_email_picture: ['email', 'send', 'picture', 'photo'],
   send_email_summary: ['email', 'summary', 'recap', 'conversation'],
+  fashion_analysis: ['fashion', 'style', 'outfit', 'clothes', 'analyze', 'advice'],
+  show_boxes: ['show', 'boxes', 'display', 'bounding', 'visualize', 'see'],
+  hide_boxes: ['hide', 'boxes', 'remove', 'bounding', 'disable', 'stop'],
 };
 
 export interface DetectedCommand {

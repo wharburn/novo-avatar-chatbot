@@ -7,7 +7,7 @@ import { Emotion } from '@/app/types/avatar';
 import { playCameraClick } from '@/app/utils/sounds';
 import { useVoice, VoiceProvider, VoiceReadyState } from '@humeai/voice-react';
 import { ChevronDown, ChevronUp, MessageSquare, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AvatarDisplay from '../Avatar/AvatarDisplay';
 import CameraCapture from '../Camera/CameraCapture';
 import PhotoGrid from '../Photo/PhotoGrid';
@@ -345,6 +345,10 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const [sessionPhotos, setSessionPhotos] = useState<Array<{ url: string; id: string }>>([]);
   const [showPhotoGrid, setShowPhotoGrid] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; id: string } | null>(null);
+
+  // YOLO bounding box state
+  const [showBoundingBoxes, setShowBoundingBoxes] = useState(false);
+  const [yoloDetections, setYoloDetections] = useState<any[]>([]);
 
   // Email confirmation state
   const [emailConfirmation, setEmailConfirmation] = useState<{
@@ -1545,6 +1549,22 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
   }, [messages]);
 
+  // Handle YOLO detections update
+  const handleDetectionsUpdate = useCallback((detections: any[]) => {
+    setYoloDetections(detections);
+
+    // Send detection summary to NoVo as context (in brackets, not spoken)
+    if (detections.length > 0) {
+      const summary = detections.map((d) => `${d.class}`).join(', ');
+      // Only send if we have meaningful detections
+      if (summary.length > 0) {
+        console.log('📦 YOLO detections:', summary);
+        // Uncomment to send to NoVo as context:
+        // sendAssistantInput(`[Objects detected: ${summary}]`);
+      }
+    }
+  }, []);
+
   // Track processed messages to avoid duplicate processing
   const processedMessageIdsRef = useRef<Set<string>>(new Set());
 
@@ -1862,6 +1882,68 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               sendAssistantInput(
                 `[Session ended! Showing ${sessionPhotos.length} photos in grid.]`
               );
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle show bounding boxes request
+          else if (command.type === 'show_boxes') {
+            console.log('📦 Show bounding boxes request detected');
+            setShowBoundingBoxes(true);
+            if (sendAssistantInput) {
+              sendAssistantInput('Showing object detection boxes.');
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle hide bounding boxes request
+          else if (command.type === 'hide_boxes') {
+            console.log('📦 Hide bounding boxes request detected');
+            setShowBoundingBoxes(false);
+            if (sendAssistantInput) {
+              sendAssistantInput('Hiding object detection boxes.');
+            }
+            processingCommandRef.current = false;
+          }
+
+          // Handle fashion analysis request
+          else if (command.type === 'fashion_analysis') {
+            console.log('👗 Fashion analysis request detected');
+
+            if (isVisionActive) {
+              if (sendAssistantInput) {
+                sendAssistantInput('Let me analyze your outfit in detail.');
+              }
+
+              // Capture current frame
+              const frame = (window as any).__visionCaptureFrame?.();
+              if (frame) {
+                // Call fashion analysis API
+                fetch('/api/vision/fashion', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    imageData: frame,
+                    question: 'Analyze this outfit and provide detailed fashion advice.',
+                  }),
+                })
+                  .then((res) => res.json())
+                  .then((data) => {
+                    if (data.success && data.analysis) {
+                      console.log('👗 Fashion analysis complete');
+                      if (sendAssistantInput) {
+                        sendAssistantInput(data.analysis);
+                      }
+                    }
+                  })
+                  .catch((error) => {
+                    console.error('👗 Fashion analysis error:', error);
+                  });
+              }
+            } else {
+              if (sendAssistantInput) {
+                sendAssistantInput('Please turn on the camera so I can see your outfit.');
+              }
             }
             processingCommandRef.current = false;
           } else {
@@ -2825,7 +2907,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           onFaceDetected={handleFaceDetected}
           onEmotionsDetected={setVideoEmotions}
           onFrame={detectSceneChange}
+          onDetectionsUpdate={handleDetectionsUpdate}
           isPhotoSession={isPhotoSession}
+          showBoundingBoxes={showBoundingBoxes}
         />
 
         {displayedImage ? (

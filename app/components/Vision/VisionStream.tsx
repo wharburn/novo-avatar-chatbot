@@ -1,6 +1,8 @@
 'use client';
 
+import { YOLODetection, useYOLO } from '@/app/hooks/useYOLO';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import BoundingBoxOverlay from './BoundingBoxOverlay';
 
 export interface EmotionResult {
   emotion: string;
@@ -12,8 +14,10 @@ interface VisionStreamProps {
   onFrame?: (imageData: string) => void;
   onFaceDetected?: (detected: boolean, faceSize: number) => void;
   onEmotionsDetected?: (emotions: EmotionResult[]) => void;
+  onDetectionsUpdate?: (detections: YOLODetection[]) => void;
   analysisInterval?: number; // ms between analysis requests
   isPhotoSession?: boolean; // Whether in photo session mode (enlarges camera)
+  showBoundingBoxes?: boolean; // Whether to display YOLO bounding boxes
 }
 
 // Simple face detection using canvas analysis
@@ -71,14 +75,27 @@ export default function VisionStream({
   onFrame,
   onFaceDetected,
   onEmotionsDetected,
+  onDetectionsUpdate,
   analysisInterval = 3000,
   isPhotoSession = false,
+  showBoundingBoxes = false,
 }: VisionStreamProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Initialize YOLO for object detection
+  const {
+    detections,
+    detectObjects,
+    isLoading: yoloLoading,
+  } = useYOLO({
+    onDetectionsUpdate,
+    detectionInterval: 200, // 5 FPS
+    confidenceThreshold: 0.5,
+  });
 
   // Start camera stream
   const startStream = useCallback(async () => {
@@ -212,6 +229,22 @@ export default function VisionStream({
     };
   }, [isActive, isStreaming, onEmotionsDetected, captureFrame, analysisInterval]);
 
+  // YOLO object detection loop
+  useEffect(() => {
+    if (!isActive || !isStreaming || !videoRef.current || yoloLoading) return;
+
+    const runYOLODetection = async () => {
+      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+        await detectObjects(videoRef.current);
+      }
+    };
+
+    // Run YOLO detection every 200ms (5 FPS)
+    const intervalId = setInterval(runYOLODetection, 200);
+
+    return () => clearInterval(intervalId);
+  }, [isActive, isStreaming, detectObjects, yoloLoading]);
+
   // Expose capture function for on-demand analysis
   useEffect(() => {
     // Store capture function on window for external access
@@ -274,6 +307,14 @@ export default function VisionStream({
             <span className="text-red-400 text-[10px] text-center">{error}</span>
           </div>
         )}
+
+        {/* YOLO Bounding Box Overlay */}
+        <BoundingBoxOverlay
+          detections={detections}
+          isVisible={showBoundingBoxes}
+          videoWidth={videoRef.current?.videoWidth || 640}
+          videoHeight={videoRef.current?.videoHeight || 480}
+        />
       </div>
 
       {/* Hidden canvas for frame capture */}

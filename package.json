@@ -12,6 +12,8 @@
   "dependencies": {
     "@humeai/voice-react": "^0.2.11",
     "@modelcontextprotocol/sdk": "^1.25.2",
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "@tensorflow/tfjs": "^4.22.0",
     "@upstash/redis": "^1.36.1",
     "hume": "^0.15.11",
     "lucide-react": "^0.562.0",
