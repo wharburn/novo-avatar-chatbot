@@ -1703,18 +1703,19 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('📸 Is photo session?', isPhotoSession);
 
             // If camera is on and user says "shoot", capture directly from vision stream
-            if (
-              isVisionActive &&
-              (content.toLowerCase().trim() === 'shoot' ||
-                content.toLowerCase().trim() === 'shot' ||
-                content.toLowerCase().trim() === 'snap')
-            ) {
-              console.log('📸 Quick capture from vision stream');
+            // Check if content contains shoot/shot/snap (not just exact match)
+            const userContent = content.toLowerCase().trim();
+            const isQuickCapture = /\b(shoot|shot|snap)\b/i.test(userContent);
+
+            if (isVisionActive && isQuickCapture) {
+              console.log('📸 Quick capture from vision stream detected');
               console.log('📸 Checking for window.__visionCaptureFrame...');
 
               // Capture from vision stream
               if (typeof window !== 'undefined' && (window as any).__visionCaptureFrame) {
                 const imageData = (window as any).__visionCaptureFrame();
+                console.log('📸 Capture function returned:', imageData ? 'image data' : 'null');
+
                 if (imageData) {
                   // Trigger flash effect
                   setShowFlash(true);
@@ -1723,35 +1724,47 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   if (isPhotoSession) {
                     // Photo session mode - add to session array
                     const photoId = `photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                    setSessionPhotos((prev) => [...prev, { url: imageData, id: photoId }]);
-                    console.log(`📸 Photo ${sessionPhotos.length + 1} added to session`);
+                    setSessionPhotos((prev) => {
+                      const newPhotos = [...prev, { url: imageData, id: photoId }];
+                      console.log(
+                        `📸 Photo added to session. Total photos now: ${newPhotos.length}`
+                      );
+                      return newPhotos;
+                    });
 
-                    // if (sendAssistantInput) {
-                    //   sendAssistantInput(
-                    //     `[Photo ${sessionPhotos.length + 1} captured! Say "shoot" for more, or "done" to finish.]`
-                    //   );
-                    // }
+                    if (sendAssistantInput) {
+                      sendAssistantInput(
+                        `[Photo captured! Say "shoot" for more, or "done" to finish.]`
+                      );
+                    }
                   } else {
                     // Single photo mode
                     lastCapturedImageRef.current = imageData;
                     console.log('📸 Photo captured from vision stream');
 
-                    // if (sendAssistantInput) {
-                    //   sendAssistantInput(
-                    //     '[Photo captured! Ask: "Want to know about Photo Session Mode? You can take multiple photos by saying \'shoot\'!"]'
-                    //   );
-                    // }
+                    if (sendAssistantInput) {
+                      sendAssistantInput(
+                        '[Photo captured! Ask: "Want to know about Photo Session Mode? You can take multiple photos by saying \'shoot\'!"]'
+                      );
+                    }
                   }
                 } else {
-                  console.error('📸 Failed to capture from vision stream');
-                  // if (sendAssistantInput) {
-                  //   sendAssistantInput('[Had trouble capturing the photo. Please try again.]');
-                  // }
+                  console.error('📸 Failed to capture from vision stream - imageData is null');
+                  if (sendAssistantInput) {
+                    sendAssistantInput('[Had trouble capturing the photo. Please try again.]');
+                  }
+                }
+              } else {
+                console.error('📸 __visionCaptureFrame not available on window');
+                if (sendAssistantInput) {
+                  sendAssistantInput('[Camera not ready. Please try again.]');
                 }
               }
             } else {
               // Open camera capture modal
-              console.log('📸 Opening camera capture modal');
+              console.log(
+                '📸 Opening camera capture modal (vision not active or not quick capture)'
+              );
               setShowCamera(true);
             }
             processingCommandRef.current = false;
