@@ -19,17 +19,20 @@ export async function GET(request: NextRequest) {
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0] ||
       request.headers.get('x-real-ip') ||
-      request.ip ||
+      request.headers.get('cf-connecting-ip') ||
       '0.0.0.0';
 
     console.log('🌍 Getting geolocation for IP:', ip);
 
     // Use ip-api.com for geolocation (free tier)
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,lat,lon,city,country,timezone`, {
-      headers: {
-        'User-Agent': 'NovoAvatarChatbot/1.0',
-      },
-    });
+    const response = await fetch(
+      `http://ip-api.com/json/${ip}?fields=status,lat,lon,city,country,timezone`,
+      {
+        headers: {
+          'User-Agent': 'NovoAvatarChatbot/1.0',
+        },
+      }
+    );
 
     if (!response.ok) {
       console.error('❌ Geolocation API error:', response.status);
@@ -91,4 +94,3 @@ export async function GET(request: NextRequest) {
     });
   }
 }
-
