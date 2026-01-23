@@ -60,14 +60,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'thinking_1',
     text: "That's a great question. Let me think about that.",
-    aliases: ['great question', 'let me think'],
+    aliases: [], // Removed generic aliases to prevent false matches
     videoPath: '/phrases/thinking_1.mp4',
     duration: 3000,
   },
   {
     id: 'thinking_2',
     text: 'Hmm, let me think about this for a moment.',
-    aliases: ['let me think', 'for a moment', 'hmm'],
+    aliases: [], // Removed generic aliases to prevent false matches
     videoPath: '/phrases/thinking_2.mp4',
     duration: 2500,
   },
@@ -75,14 +75,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'understand_1',
     text: 'I understand. Tell me more about that.',
-    aliases: ['i understand', 'tell me more'],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/understand_1.mp4',
     duration: 2500,
   },
   {
     id: 'interested_1',
     text: "That's really interesting!",
-    aliases: ['really interesting', "that's interesting"],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/interested_1.mp4',
     duration: 2000,
   },
@@ -90,14 +90,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'helpful_1',
     text: "I'm here to help you with whatever you need.",
-    aliases: ['here to help', 'whatever you need'],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/helpful_1.mp4',
     duration: 3000,
   },
   {
     id: 'confirm_1',
     text: "Absolutely! I'd be happy to help with that.",
-    aliases: ['absolutely', 'happy to help', "i'd be happy"],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/confirm_1.mp4',
     duration: 2500,
   },
@@ -105,14 +105,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'question_1',
     text: 'Could you tell me more about that?',
-    aliases: ['tell me more', 'more about that'],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/question_1.mp4',
     duration: 2500,
   },
   {
     id: 'clarify_1',
     text: "I'm not sure I understand. Could you rephrase that?",
-    aliases: ['not sure i understand', 'could you rephrase', 'rephrase that'],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/clarify_1.mp4',
     duration: 3000,
   },
@@ -120,7 +120,7 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'explain_1',
     text: 'Let me explain that for you.',
-    aliases: ['let me explain', 'explain that'],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/explain_1.mp4',
     duration: 2500,
   },
@@ -128,14 +128,14 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'agree_1',
     text: 'That makes a lot of sense.',
-    aliases: ['makes sense', 'lot of sense', 'that makes sense'],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/agree_1.mp4',
     duration: 2000,
   },
   {
     id: 'acknowledge_1',
     text: "That's a good point.",
-    aliases: ['good point', "that's a good point"],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/acknowledge_1.mp4',
     duration: 2000,
   },
@@ -143,7 +143,7 @@ export const PHRASE_VIDEOS: PhraseVideo[] = [
   {
     id: 'working_1',
     text: 'Let me see what I can do.',
-    aliases: ['let me see', 'what i can do'],
+    aliases: [], // Removed generic aliases
     videoPath: '/phrases/working_1.mp4',
     duration: 2500,
   },
