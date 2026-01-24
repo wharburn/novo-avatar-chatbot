@@ -16,7 +16,6 @@ import VisionStream from '../Vision/VisionStream';
 import WeatherOverlay from '../Weather/WeatherOverlay';
 import ChatControls from './ChatControls';
 import ChatMessages from './ChatMessages';
-import EmailConfirmation from './EmailConfirmation';
 import ImageViewer from './ImageViewer';
 
 interface ChatProps {
@@ -1526,13 +1525,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   useEffect(() => {
     const intent = emailIntentRef.current;
 
-    console.log('📧 Email intent state:', {
-      wantsEmail: intent.wantsEmail,
-      email: intent.email,
-      name: intent.name,
-      hasImage: !!lastCapturedImageRef.current,
-    });
-
     if (intent.wantsEmail && intent.email && intent.name && lastCapturedImageRef.current) {
       console.log('📧 Auto-triggering email with collected info:', intent);
 
@@ -2910,7 +2902,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-white">
+    <div className="h-screen flex flex-col overflow-hidden bg-linear-to-b from-blue-50 to-white">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b bg-white/80 backdrop-blur-sm">
         <div className="flex items-center">
@@ -2995,7 +2987,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               />
 
               {/* Development in Progress Banner */}
-              <div className="absolute top-8 left-0 right-0 bg-gradient-to-r from-yellow-500/50 via-yellow-400/50 to-yellow-500/50 text-black py-3 px-6 transform -rotate-2 shadow-lg z-50">
+              <div className="absolute top-8 left-0 right-0 bg-linear-to-r from-yellow-500/50 via-yellow-400/50 to-yellow-500/50 text-black py-3 px-6 transform -rotate-2 shadow-lg z-50">
                 <p className="text-center text-xl font-bold tracking-wider">
                   🚧 DEVELOPMENT IN PROGRESS 🚧
                 </p>
@@ -3028,7 +3020,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       {/* Transcript Section - Collapsible */}
       <div
         className={`bg-white transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
-          transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
+          transcriptVisible ? 'min-h-50 opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
         {/* Header - Ultra-thin centered dropdown */}
@@ -3087,7 +3079,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Finish Session Button - shown during photo session */}
       {isPhotoSession && !showPhotoGrid && (
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col items-center gap-2">
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-100 flex flex-col items-center gap-2">
           <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm">
             {sessionPhotos.length} {sessionPhotos.length === 1 ? 'photo' : 'photos'} captured
           </div>
@@ -3124,7 +3116,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Flash effect for photo capture */}
       {showFlash && (
-        <div className="fixed inset-0 bg-white z-[9999] pointer-events-none animate-flash" />
+        <div className="fixed inset-0 bg-white z-9999 pointer-events-none animate-flash" />
       )}
 
       {/* Image Viewer Modal */}
@@ -3152,107 +3144,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             onEmailPhotos={handleEmailPhotos}
           />
         </>
-      )}
-
-      {/* Email Confirmation Modal */}
-      {emailConfirmation && (
-        <EmailConfirmation
-          email={emailConfirmation.email}
-          emailType={emailConfirmation.type}
-          onConfirm={(confirmedEmail) => {
-            console.log('📧 Email confirmed:', confirmedEmail);
-
-            // Set the email intent to trigger auto-send
-            emailIntentRef.current.wantsEmail = true;
-            emailIntentRef.current.email = confirmedEmail;
-
-            // If we have the name from the data, set it
-            if (emailConfirmation.data?.user_name) {
-              emailIntentRef.current.name = emailConfirmation.data.user_name;
-            }
-
-            // Close the modal
-            setEmailConfirmation(null);
-
-            // Trigger the email send
-            if (emailConfirmation.type === 'picture' && emailConfirmation.data?.image_url) {
-              fetch('/api/tools/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  toolName: 'send_email_picture',
-                  parameters: {
-                    email: confirmedEmail,
-                    user_name: emailConfirmation.data.user_name || 'Friend',
-                    image_url: emailConfirmation.data.image_url,
-                    caption: emailConfirmation.data.caption || 'Picture from NoVo!',
-                  },
-                }),
-              })
-                .then((res) => res.json())
-                .then((result) => {
-                  console.log('📧 Email send result:', result);
-                  if (result.success) {
-                    console.log('✅ Email sent successfully!');
-                    if (sendAssistantInput) {
-                      sendAssistantInput('[Email sent successfully!]');
-                    }
-                  } else {
-                    console.error('❌ Email failed:', result.error);
-                    if (sendAssistantInput) {
-                      sendAssistantInput(`[Email failed: ${result.error}]`);
-                    }
-                  }
-                })
-                .catch((error) => {
-                  console.error('📧 Email error:', error);
-                  if (sendAssistantInput) {
-                    sendAssistantInput('[Error sending email]');
-                  }
-                });
-            } else if (emailConfirmation.type === 'summary') {
-              // Handle summary email
-              fetch('/api/tools/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  toolName: 'send_email_summary',
-                  parameters: {
-                    email: confirmedEmail,
-                    user_name: emailConfirmation.data.user_name || 'Friend',
-                    messages: emailConfirmation.data.messages,
-                    userProfile: emailConfirmation.data.userProfile,
-                  },
-                }),
-              })
-                .then((res) => res.json())
-                .then((result) => {
-                  console.log('📧 Summary email result:', result);
-                  if (result.success) {
-                    console.log('✅ Summary email sent successfully!');
-                    if (sendAssistantInput) {
-                      sendAssistantInput('[Summary email sent successfully!]');
-                    }
-                  } else {
-                    console.error('❌ Summary email failed:', result.error);
-                    if (sendAssistantInput) {
-                      sendAssistantInput(`[Summary email failed: ${result.error}]`);
-                    }
-                  }
-                })
-                .catch((error) => {
-                  console.error('📧 Summary email error:', error);
-                  if (sendAssistantInput) {
-                    sendAssistantInput('[Error sending summary email]');
-                  }
-                });
-            }
-          }}
-          onCancel={() => {
-            console.log('📧 Email confirmation cancelled');
-            setEmailConfirmation(null);
-          }}
-        />
       )}
     </div>
   );
