@@ -1124,6 +1124,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
       visit_count: String(userProfile?.visitCount || 1),
       vision_enabled: isVisionActive ? 'true' : 'false',
+      weather_context: '',
     };
 
     if (userProfile?.isReturningUser && userProfile?.name) {
@@ -1260,6 +1261,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
           visit_count: String(userProfile?.visitCount || 1),
           vision_enabled: isVisionActive ? 'true' : 'false',
+          weather_context: '',
         },
       });
       console.log('👁️ Updated vision status:', isVisionActive ? 'ON' : 'OFF');
@@ -1346,8 +1348,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           setWeatherData(data.weather);
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
 
-          // Send weather context to NoVo via session settings (not as a message)
-          if (sendSessionSettings && data.weather.forecast) {
+          // Send weather context to NoVo so she's aware (Celsius only)
+          if (sendAssistantInput && data.weather.forecast) {
             const forecastSummary = data.weather.forecast
               .slice(0, 2)
               .map(
@@ -1355,18 +1357,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   `${day.date}: ${day.condition}, ${day.minTemp.celsius}°C-${day.maxTemp.celsius}°C`
               )
               .join('; ');
-            const weatherContext = `Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}`;
-
-            try {
-              sendSessionSettings({
-                variables: {
-                  weather_context: weatherContext,
-                },
-              });
-              console.log('🌤️ Weather context sent via session settings (not as message)');
-            } catch (error) {
-              console.error('Failed to send weather context:', error);
-            }
+            sendAssistantInput(
+              `[Weather context: Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}]`
+            );
           }
         }
       } catch (error) {
@@ -1403,22 +1396,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         }
       }
 
-      // Send weather context via session settings if available (Celsius only)
-      if (weatherData && sendSessionSettings) {
+      // Add weather context if available (Celsius only)
+      if (weatherData) {
         const weatherContext = `Weather: ${weatherData.temperature.celsius}°C, ${weatherData.condition}, feels like ${weatherData.feelsLike?.celsius}°C`;
-        try {
-          sendSessionSettings({
-            variables: {
-              weather_context: weatherContext,
-            },
-          });
-          console.log('🌤️ Periodic weather context updated via session settings');
-        } catch (error) {
-          console.error('Failed to update weather context:', error);
-        }
+        contextParts.push(weatherContext);
       }
 
-      // Send other context if we have any (camera awareness, etc)
+      // Send combined context if we have any
       if (contextParts.length > 0) {
         console.log('📋 Sending system context to NoVo');
         sendAssistantInput(`[System context: ${contextParts.join(' | ')}]`);
@@ -1426,14 +1410,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }, 60000); // Every 60 seconds
 
     return () => clearInterval(contextUpdateInterval);
-  }, [
-    isVisionActive,
-    isConnected,
-    sendAssistantInput,
-    sendSessionSettings,
-    analyzeWithQuestion,
-    weatherData,
-  ]);
+  }, [isVisionActive, isConnected, sendAssistantInput, analyzeWithQuestion, weatherData]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
@@ -3038,8 +3015,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           configId={configId}
           isVisionActive={isVisionActive}
           onVisionToggle={toggleVision}
-          showBoundingBoxes={showBoundingBoxes}
-          onBoundingBoxToggle={() => setShowBoundingBoxes(!showBoundingBoxes)}
           userProfile={userProfile}
         />
       </div>

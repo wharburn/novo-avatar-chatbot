@@ -1,5 +1,5 @@
+import { addUserNote, getAllUsers, getUserByIp, updateUserField } from '@/app/lib/redis';
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllUsers, getUserByIp, updateUserField, addUserNote } from '@/app/lib/redis';
 
 // Admin PIN code - set in environment variable
 const ADMIN_PIN = process.env.ADMIN_PIN || '1234';
@@ -7,7 +7,7 @@ const ADMIN_PIN = process.env.ADMIN_PIN || '1234';
 /**
  * GET /api/admin/users
  * Get all users with their profiles (protected by PIN)
- * 
+ *
  * Query params:
  * - pin: 4-digit admin PIN (required)
  * - ip: filter by specific IP address
@@ -20,20 +20,14 @@ export async function GET(request: NextRequest) {
 
     // Verify PIN
     if (!pin || pin !== ADMIN_PIN) {
-      return NextResponse.json(
-        { error: 'Unauthorized - invalid PIN' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized - invalid PIN' }, { status: 401 });
     }
 
     // Get specific user by IP
     if (ipFilter) {
       const user = await getUserByIp(ipFilter);
       if (!user) {
-        return NextResponse.json(
-          { error: 'User not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
       return NextResponse.json({ user });
     }
@@ -47,11 +41,23 @@ export async function GET(request: NextRequest) {
       total: users.length,
     });
   } catch (error) {
-    console.error('Admin users API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Admin users API error:', errorMessage);
+    console.error('Full error:', error);
+
+    // Check if it's a Redis connection error
+    if (
+      errorMessage.includes('UPSTASH') ||
+      errorMessage.includes('Redis') ||
+      errorMessage.includes('connection')
+    ) {
+      return NextResponse.json(
+        { error: 'Redis connection error - check environment variables' },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json({ error: `Internal server error: ${errorMessage}` }, { status: 500 });
   }
 }
 
@@ -68,26 +74,17 @@ export async function POST(request: NextRequest) {
 
     // Verify PIN
     if (!pin || pin !== ADMIN_PIN) {
-      return NextResponse.json(
-        { error: 'Unauthorized - invalid PIN' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized - invalid PIN' }, { status: 401 });
     }
 
     if (!ipAddress) {
-      return NextResponse.json(
-        { error: 'ipAddress is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'ipAddress is required' }, { status: 400 });
     }
 
     switch (action) {
       case 'updateField': {
         if (!field || value === undefined) {
-          return NextResponse.json(
-            { error: 'field and value are required' },
-            { status: 400 }
-          );
+          return NextResponse.json({ error: 'field and value are required' }, { status: 400 });
         }
         const user = await updateUserField(ipAddress, field, value);
         return NextResponse.json({ success: true, user });
@@ -95,27 +92,17 @@ export async function POST(request: NextRequest) {
 
       case 'addNote': {
         if (!note) {
-          return NextResponse.json(
-            { error: 'note is required' },
-            { status: 400 }
-          );
+          return NextResponse.json({ error: 'note is required' }, { status: 400 });
         }
         const user = await addUserNote(ipAddress, note);
         return NextResponse.json({ success: true, user });
       }
 
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
     console.error('Admin users POST error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
