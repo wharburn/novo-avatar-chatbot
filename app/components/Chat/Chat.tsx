@@ -1346,8 +1346,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           setWeatherData(data.weather);
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
 
-          // Send weather context to NoVo so she's aware (Celsius only)
-          if (sendAssistantInput && data.weather.forecast) {
+          // Send weather context to NoVo via session settings (not as a message)
+          if (sendSessionSettings && data.weather.forecast) {
             const forecastSummary = data.weather.forecast
               .slice(0, 2)
               .map(
@@ -1355,9 +1355,18 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   `${day.date}: ${day.condition}, ${day.minTemp.celsius}°C-${day.maxTemp.celsius}°C`
               )
               .join('; ');
-            sendAssistantInput(
-              `[Weather context: Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}]`
-            );
+            const weatherContext = `Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}`;
+
+            try {
+              sendSessionSettings({
+                variables: {
+                  weather_context: weatherContext,
+                },
+              });
+              console.log('🌤️ Weather context sent via session settings (not as message)');
+            } catch (error) {
+              console.error('Failed to send weather context:', error);
+            }
           }
         }
       } catch (error) {
@@ -1366,7 +1375,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     };
 
     fetchWeatherOnConnect();
-  }, [isConnected, sendAssistantInput]);
+  }, [isConnected, sendSessionSettings]);
 
   // Periodic system context updates - keep NoVo informed about camera, weather, etc.
   // This sends context to NoVo so she's aware, but she decides when to mention it naturally
@@ -2844,19 +2853,20 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     setSessionPhotos([]); // Clear photos when closing grid
   };
 
-  const handleEmailPhotos = async (selectedPhotoIds: string[], email: string, name: string) => {
+  const handleEmailPhotos = async (selectedPhotoIds: string[]) => {
     console.log('📧 Emailing selected photos:', selectedPhotoIds.length);
-    console.log('📧 Using provided email:', email, 'name:', name);
 
-    if (!email || !name) {
-      console.error('📧 Missing user email or name:', { email, name });
+    // Use the already-loaded user profile
+    if (!userProfile?.email || !userProfile?.name) {
+      console.error('📧 Missing user email or name in profile:', userProfile);
+      // Prompt user to provide email and name
       sendAssistantInput('[Please provide your email and name to send the photos]');
       return;
     }
 
     // Filter to only selected photos
     const photosToEmail = sessionPhotos.filter((photo) => selectedPhotoIds.includes(photo.id));
-    console.log('📧 Sending', photosToEmail.length, 'photos to', email);
+    console.log('📧 Sending', photosToEmail.length, 'photos to', userProfile.email);
 
     // Send each photo via email
     let successCount = 0;
@@ -2873,8 +2883,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           body: JSON.stringify({
             toolName: 'send_email_picture',
             parameters: {
-              email: email,
-              user_name: name,
+              email: userProfile.email,
+              user_name: userProfile.name,
               image_url: photo.url,
               caption: `Photo ${i + 1} of ${photosToEmail.length} from your photo session`,
             },
@@ -2895,11 +2905,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
 
     console.log(`📧 Email complete: ${successCount} sent, ${failCount} failed`);
-
-    // Save email and name to user profile for future use
-    if (successCount > 0) {
-      saveUserProfile({ email, name });
-    }
 
     // Close the grid after sending
     handleClosePhotoGrid();
