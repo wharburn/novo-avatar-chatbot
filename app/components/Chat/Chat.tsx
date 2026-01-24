@@ -1356,20 +1356,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         if (data.success && data.weather) {
           setWeatherData(data.weather);
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
-
-          // Send weather context to NoVo so she's aware (Celsius only)
-          if (sendAssistantInput && data.weather.forecast) {
-            const forecastSummary = data.weather.forecast
-              .slice(0, 2)
-              .map(
-                (day: any) =>
-                  `${day.date}: ${day.condition}, ${day.minTemp.celsius}°C-${day.maxTemp.celsius}°C`
-              )
-              .join('; ');
-            sendAssistantInput(
-              `[Weather context: Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}]`
-            );
-          }
+          // Don't send weather as a message on connection - it will be sent when NoVo calls get_weather tool
         }
       } catch (error) {
         console.error('Error fetching weather on connect:', error);
