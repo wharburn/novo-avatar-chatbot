@@ -36,6 +36,7 @@ Edit `.env.local` with your credentials:
 NEXT_PUBLIC_HUME_API_KEY=your_hume_api_key_here
 NEXT_PUBLIC_HUME_CONFIG_ID=your_evi_config_id_here
 HUME_SECRET_KEY=your_hume_secret_key_here
+NEXT_PUBLIC_HUME_SYSTEM_PROMPT="You are NoVo, an emotionally intelligent AI companion..."
 
 # Required - Email (Resend)
 RESEND_API_KEY=re_your_resend_api_key_here
@@ -129,6 +130,7 @@ Try these commands:
 ### Voice not connecting?
 - Check `NEXT_PUBLIC_HUME_API_KEY` is correct
 - Verify `NEXT_PUBLIC_HUME_CONFIG_ID` matches your config
+- Ensure `NEXT_PUBLIC_HUME_SYSTEM_PROMPT` is set if you use session prompt overrides
 - Check browser console for WebSocket errors
 
 ---
@@ -152,6 +154,7 @@ The included `render.yaml` configures:
 NEXT_PUBLIC_HUME_API_KEY=your_production_api_key
 NEXT_PUBLIC_HUME_CONFIG_ID=your_evi_config_id
 HUME_SECRET_KEY=your_secret_key
+NEXT_PUBLIC_HUME_SYSTEM_PROMPT="You are NoVo, an emotionally intelligent AI companion..."
 RESEND_API_KEY=your_resend_key
 NODE_ENV=production
 ```

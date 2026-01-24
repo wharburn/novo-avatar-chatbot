@@ -36,6 +36,7 @@ Edit `.env.local` with your Hume AI credentials:
 ```env
 NEXT_PUBLIC_HUME_API_KEY=your_hume_api_key_here
 NEXT_PUBLIC_HUME_CONFIG_ID=your_evi_config_id_here
+NEXT_PUBLIC_HUME_SYSTEM_PROMPT="You are NoVo, an emotionally intelligent AI companion..."
 ```
 
 ### 3. Get Hume AI Credentials
@@ -190,6 +191,7 @@ The included `render.yaml` configures:
 ```
 NEXT_PUBLIC_HUME_API_KEY=your_production_api_key
 NEXT_PUBLIC_HUME_CONFIG_ID=your_evi_config_id
+NEXT_PUBLIC_HUME_SYSTEM_PROMPT="You are NoVo, an emotionally intelligent AI companion..."
 NODE_ENV=production
 ```
 

@@ -211,6 +211,16 @@ const EMOTION_MAPPING: Record<string, Emotion> = {
   skepticism: 'suspicious',
 };
 
+const PHOTO_SESSION_SYSTEM_PROMPT = [
+  "You are in Photo Session Mode.",
+  "Say ONLY once: \"Photo session mode is on. Just say 'shoot' when you want me to take your photo. I'll stay quiet until you say 'done'.\"",
+  "After that, stay silent unless the user asks a direct question.",
+  "If the user says 'shoot', immediately call the take_picture tool with no extra words.",
+  "If the user says 'done' or 'finished', stop taking photos and wait for the app to handle emailing.",
+].join(' ');
+
+const BASE_SYSTEM_PROMPT = process.env.NEXT_PUBLIC_HUME_SYSTEM_PROMPT || undefined;
+
 // Get the dominant emotion from Hume's emotion scores
 function getDominantEmotion(scores: Record<string, number>): Emotion {
   if (!scores || Object.keys(scores).length === 0) {
@@ -266,6 +276,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       console.log('Vision analysis complete:', result.type);
     },
     onSceneChange: (result) => {
+      if (isPhotoSessionRef.current) return;
       // NoVo acknowledges scene changes
       if (result.sceneChanged && sendAssistantInput) {
         let message = '';
@@ -345,6 +356,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const [sessionPhotos, setSessionPhotos] = useState<Array<{ url: string; id: string }>>([]);
   const [showPhotoGrid, setShowPhotoGrid] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; id: string } | null>(null);
+  const [autoOpenPhotoEmailModal, setAutoOpenPhotoEmailModal] = useState(false);
 
   // Ref to track photo session state (for use in callbacks where closure is an issue)
   const isPhotoSessionRef = useRef(false);
@@ -1124,6 +1136,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
       visit_count: String(userProfile?.visitCount || 1),
       vision_enabled: isVisionActive ? 'true' : 'false',
+      photo_session_mode: isPhotoSession ? 'true' : 'false',
     };
 
     if (userProfile?.isReturningUser && userProfile?.name) {
@@ -1140,6 +1153,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     const timer = setTimeout(() => {
       try {
         sendSessionSettings({
+          type: 'session_settings',
           variables: contextVariables,
         });
         console.log('👤 Sent session variables to Hume AI:', contextVariables);
@@ -1150,7 +1164,49 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [isConnected, userProfile, sendSessionSettings]);
+  }, [isConnected, userProfile, sendSessionSettings, isPhotoSession]);
+
+  // Override system prompt during photo session, then restore afterward
+  useEffect(() => {
+    if (!isConnected || !sendSessionSettings || !sessionVariablesSentRef.current) return;
+
+    try {
+      const settings: {
+        type: 'session_settings';
+        systemPrompt?: string | null;
+        variables: Record<string, string>;
+      } = {
+        type: 'session_settings',
+        variables: {
+          user_name: userProfile?.name || '',
+          user_email: userProfile?.email || '',
+          is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
+          visit_count: String(userProfile?.visitCount || 1),
+          vision_enabled: isVisionActive ? 'true' : 'false',
+          photo_session_mode: isPhotoSession ? 'true' : 'false',
+        },
+      };
+
+      const systemPrompt = isPhotoSession ? PHOTO_SESSION_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT ?? null;
+      if (!isPhotoSession && !BASE_SYSTEM_PROMPT) {
+        console.warn(
+          '⚠️ NEXT_PUBLIC_HUME_SYSTEM_PROMPT is not set. Restoring to default prompt via null override.'
+        );
+      }
+      settings.systemPrompt = systemPrompt;
+
+      sendSessionSettings(settings);
+      console.log('📝 Updated system prompt for photo session:', isPhotoSession);
+    } catch (error) {
+      console.error('Failed to update system prompt:', error);
+    }
+  }, [
+    isPhotoSession,
+    isConnected,
+    sendSessionSettings,
+    userProfile,
+    isVisionActive,
+  ]);
 
   // Track if we've sent the initial greeting trigger
   const greetingSentRef = useRef(false);
@@ -1210,12 +1266,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     const timer = setTimeout(() => {
       try {
         sendSessionSettings({
+          type: 'session_settings',
           variables: {
             user_name: userProfile?.name || '',
             user_email: userProfile?.email || '',
             is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
             visit_count: String(userProfile?.visitCount || 1),
             vision_enabled: isVisionActive ? 'true' : 'false',
+            photo_session_mode: isPhotoSession ? 'true' : 'false',
           },
         });
         console.log('📹 Updated camera state in session:', {
@@ -1227,7 +1285,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [isVisionActive, isConnected, sendSessionSettings, userProfile]);
+  }, [isVisionActive, isConnected, sendSessionSettings, userProfile, isPhotoSession]);
 
   // Reset session tracking when disconnected
   useEffect(() => {
@@ -1254,18 +1312,20 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
     try {
       sendSessionSettings({
+        type: 'session_settings',
         variables: {
           user_name: userProfile?.name || '',
           user_email: userProfile?.email || '',
           is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
           visit_count: String(userProfile?.visitCount || 1),
           vision_enabled: isVisionActive ? 'true' : 'false',
+          photo_session_mode: isPhotoSession ? 'true' : 'false',
         },
       });
       console.log('👁️ Updated vision status:', isVisionActive ? 'ON' : 'OFF');
 
       // Only notify NoVo if vision state actually changed
-      if (visionStateChanged && sendAssistantInput) {
+      if (visionStateChanged && sendAssistantInput && !isPhotoSessionRef.current) {
         if (isVisionActive) {
           // Camera just turned ON - just notify NoVo, don't auto-analyze
           console.log('👁️ Camera turned ON - notifying NoVo');
@@ -1290,6 +1350,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     sendAssistantInput,
     userProfile,
     analyzeWithQuestion,
+    isPhotoSession,
   ]);
 
   // Background camera scanning - continuously analyze camera without speaking
@@ -1347,7 +1408,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
 
           // Send weather context to NoVo so she's aware (Celsius only)
-          if (sendAssistantInput && data.weather.forecast) {
+          if (sendAssistantInput && data.weather.forecast && !isPhotoSessionRef.current) {
             const forecastSummary = data.weather.forecast
               .slice(0, 2)
               .map(
@@ -1371,10 +1432,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   // Periodic system context updates - keep NoVo informed about camera, weather, etc.
   // This sends context to NoVo so she's aware, but she decides when to mention it naturally
   useEffect(() => {
-    if (!isConnected || !sendAssistantInput) return;
+    if (!isConnected || !sendAssistantInput || isPhotoSessionRef.current) return;
 
     // Update every 60 seconds with current context (camera, weather, etc.)
     const contextUpdateInterval = setInterval(async () => {
+      if (isPhotoSessionRef.current) return;
       let contextParts: string[] = [];
 
       // Add camera context if active
@@ -1910,17 +1972,18 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               setSessionPhotos([]);
               setShowPhotoGrid(false);
               photoSessionStartTimeRef.current = Date.now(); // Record start time
+              hasOfferedPhotoSessionRef.current = true;
 
               // Turn on camera if not already on
               if (!isVisionActive) {
                 toggleVision();
               }
 
-              // if (sendAssistantInput) {
-              //   sendAssistantInput(
-              //     '[Photo session starting! Camera enlarging. Say "shoot" for each photo.]'
-              //   );
-              // }
+              if (sendAssistantInput) {
+                sendAssistantInput(
+                  "Photo session mode is on. Just say 'shoot' when you want me to take your photo. I'll stay quiet until you say 'done'."
+                );
+              }
               processingCommandRef.current = false;
             }
 
@@ -1932,6 +1995,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               // End photo session and show grid
               setIsPhotoSession(false);
               setShowPhotoGrid(true);
+              setAutoOpenPhotoEmailModal(true);
 
               // NO message - let NoVo respond naturally
               processingCommandRef.current = false;
@@ -2668,7 +2732,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
   // Silence detection - offer photo session mode after 30 seconds of silence
   useEffect(() => {
-    if (!isConnected || isQuietMode || hasOfferedPhotoSessionRef.current) return;
+    if (
+      !isConnected ||
+      isQuietMode ||
+      hasOfferedPhotoSessionRef.current ||
+      isPhotoSessionRef.current
+    )
+      return;
 
     // Reset timer when user speaks
     const lastMessage = messages[messages.length - 1];
@@ -2842,72 +2912,67 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     setShowPhotoGrid(false);
     setIsPhotoSession(false);
     setSessionPhotos([]); // Clear photos when closing grid
+    setAutoOpenPhotoEmailModal(false);
   };
 
-  const handleEmailPhotos = async (selectedPhotoIds: string[]) => {
+  const handleEmailPhotos = async (selectedPhotoIds: string[], email: string, name: string) => {
     console.log('📧 Emailing selected photos:', selectedPhotoIds.length);
+
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
+
+    if (!trimmedEmail || !trimmedName) {
+      console.warn('📧 Missing email or name for photo session send');
+      return;
+    }
+
+    // Persist details for next time
+    saveUserProfile({ email: trimmedEmail, name: trimmedName });
 
     // Filter to only selected photos
     const photosToEmail = sessionPhotos.filter((photo) => selectedPhotoIds.includes(photo.id));
     console.log('📧 Selected photos to email:', photosToEmail.length);
 
-    // If we have email and name in profile, send directly
-    if (userProfile?.email && userProfile?.name) {
-      console.log('📧 Sending', photosToEmail.length, 'photos to', userProfile.email);
+    // Send each photo via email
+    let successCount = 0;
+    let failCount = 0;
 
-      // Send each photo via email
-      let successCount = 0;
-      let failCount = 0;
+    for (let i = 0; i < photosToEmail.length; i++) {
+      const photo = photosToEmail[i];
+      console.log(`📧 Sending photo ${i + 1}/${photosToEmail.length}...`);
 
-      for (let i = 0; i < photosToEmail.length; i++) {
-        const photo = photosToEmail[i];
-        console.log(`📧 Sending photo ${i + 1}/${photosToEmail.length}...`);
+      try {
+        const result = await fetch('/api/tools/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toolName: 'send_email_picture',
+            parameters: {
+              email: trimmedEmail,
+              user_name: trimmedName,
+              image_url: photo.url,
+              caption: `Photo ${i + 1} of ${photosToEmail.length} from your photo session`,
+            },
+          }),
+        }).then((res) => res.json());
 
-        try {
-          const result = await fetch('/api/tools/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              toolName: 'send_email_picture',
-              parameters: {
-                email: userProfile.email,
-                user_name: userProfile.name,
-                image_url: photo.url,
-                caption: `Photo ${i + 1} of ${photosToEmail.length} from your photo session`,
-              },
-            }),
-          }).then((res) => res.json());
-
-          if (result.success) {
-            console.log(`📧 Photo ${i + 1} sent successfully`);
-            successCount++;
-          } else {
-            console.error(`📧 Photo ${i + 1} failed:`, result.error);
-            failCount++;
-          }
-        } catch (error) {
-          console.error(`📧 Photo ${i + 1} error:`, error);
+        if (result.success) {
+          console.log(`📧 Photo ${i + 1} sent successfully`);
+          successCount++;
+        } else {
+          console.error(`📧 Photo ${i + 1} failed:`, result.error);
           failCount++;
         }
+      } catch (error) {
+        console.error(`📧 Photo ${i + 1} error:`, error);
+        failCount++;
       }
-
-      console.log(`📧 Email complete: ${successCount} sent, ${failCount} failed`);
-
-      // Close the grid after sending
-      handleClosePhotoGrid();
-    } else {
-      // Missing email or name - show confirmation modal so user can enter it
-      console.log('📧 Missing email or name, showing confirmation modal');
-      setEmailConfirmation({
-        email: userProfile?.email || '',
-        type: 'picture',
-        data: {
-          user_name: userProfile?.name || '',
-          photos: photosToEmail,
-          isMultiple: true,
-        },
-      });
     }
+
+    console.log(`📧 Email complete: ${successCount} sent, ${failCount} failed`);
+
+    // Close the grid after sending
+    handleClosePhotoGrid();
   };
 
   return (
@@ -3113,6 +3178,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               );
               setIsPhotoSession(false);
               setShowPhotoGrid(true);
+              setAutoOpenPhotoEmailModal(true);
               console.log('📸 Set showPhotoGrid to true and isPhotoSession to false');
               photoSessionStartTimeRef.current = null; // Clear the timer
             }}
@@ -3151,6 +3217,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             onPhotoDelete={handlePhotoDelete}
             onClose={handleClosePhotoGrid}
             onEmailPhotos={handleEmailPhotos}
+            defaultEmail={userProfile?.email}
+            defaultName={userProfile?.name}
+            autoOpenEmailModal={autoOpenPhotoEmailModal}
           />
         </>
       )}

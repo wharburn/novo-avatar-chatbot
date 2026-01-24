@@ -1,7 +1,7 @@
 'use client';
 
 import { Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Photo {
   url: string;
@@ -13,6 +13,9 @@ interface PhotoGridProps {
   onPhotoDelete: (id: string) => void;
   onClose: () => void;
   onEmailPhotos: (selectedPhotoIds: string[], email: string, name: string) => void;
+  defaultEmail?: string;
+  defaultName?: string;
+  autoOpenEmailModal?: boolean;
 }
 
 export default function PhotoGrid({
@@ -20,14 +23,31 @@ export default function PhotoGrid({
   onPhotoDelete,
   onClose,
   onEmailPhotos,
+  defaultEmail,
+  defaultName,
+  autoOpenEmailModal,
 }: PhotoGridProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedForEmail, setSelectedForEmail] = useState<Set<string>>(
     new Set(photos.map((p) => p.id))
   );
   const [showEmailModal, setShowEmailModal] = useState(false);
-  const [emailInput, setEmailInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
+  const [emailInput, setEmailInput] = useState(defaultEmail || '');
+  const [nameInput, setNameInput] = useState(defaultName || '');
+  const hasAutoOpenedRef = useRef(false);
+
+  useEffect(() => {
+    if (!autoOpenEmailModal || hasAutoOpenedRef.current) return;
+    hasAutoOpenedRef.current = true;
+    setShowEmailModal(true);
+  }, [autoOpenEmailModal]);
+
+  useEffect(() => {
+    if (showEmailModal) {
+      setEmailInput(defaultEmail || '');
+      setNameInput(defaultName || '');
+    }
+  }, [showEmailModal, defaultEmail, defaultName]);
 
   const handleDeletePhoto = (id: string) => {
     onPhotoDelete(id);
