@@ -1124,7 +1124,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
       visit_count: String(userProfile?.visitCount || 1),
       vision_enabled: isVisionActive ? 'true' : 'false',
-      weather_context: '',
     };
 
     if (userProfile?.isReturningUser && userProfile?.name) {
