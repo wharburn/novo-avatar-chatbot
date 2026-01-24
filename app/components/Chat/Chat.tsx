@@ -459,6 +459,31 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const isSpeaking = isPlaying;
   const isListening = isConnected && !isPlaying;
 
+  // Store the last captured image URL for emailing
+  const lastCapturedImageRef = useRef<string | null>(null);
+
+  // Track email intent and collected information
+  const emailIntentRef = useRef<{
+    wantsEmail: boolean;
+    email: string | null;
+    name: string | null;
+  }>({
+    wantsEmail: false,
+    email: null,
+    name: null,
+  });
+
+  // User profile state (loaded from Redis based on IP)
+  const [userProfile, setUserProfile] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    isReturningUser: boolean;
+    visitCount: number;
+  } | null>(null);
+  const userProfileLoadedRef = useRef(false);
+  const identityConfirmedRef = useRef(false);
+
   const sendBaseSessionSettings = useCallback(() => {
     if (!isConnected || !sendSessionSettings) return;
     try {
@@ -510,31 +535,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       sessionIdRef.current = null;
     }
   }, [isConnected]);
-
-  // Store the last captured image URL for emailing
-  const lastCapturedImageRef = useRef<string | null>(null);
-
-  // Track email intent and collected information
-  const emailIntentRef = useRef<{
-    wantsEmail: boolean;
-    email: string | null;
-    name: string | null;
-  }>({
-    wantsEmail: false,
-    email: null,
-    name: null,
-  });
-
-  // User profile state (loaded from Redis based on IP)
-  const [userProfile, setUserProfile] = useState<{
-    name?: string;
-    email?: string;
-    phone?: string;
-    isReturningUser: boolean;
-    visitCount: number;
-  } | null>(null);
-  const userProfileLoadedRef = useRef(false);
-  const identityConfirmedRef = useRef(false);
 
   // Helper function to save user profile to Redis
   const saveUserProfile = async (updates: { name?: string; email?: string; phone?: string }) => {
