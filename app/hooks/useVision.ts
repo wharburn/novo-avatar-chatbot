@@ -214,6 +214,9 @@ export function useVision(options: UseVisionOptions = {}) {
 
     try {
       const location = userLocationRef.current;
+      const wantsWeather = /weather|temperature|forecast|rain|snow|wind|humidity|hot|cold/i.test(
+        question
+      );
 
       const response = await fetch('/api/vision/analyze', {
         method: 'POST',
@@ -223,8 +226,8 @@ export function useVision(options: UseVisionOptions = {}) {
           analysisType: 'fashion',
           question,
           // Include location for weather-based recommendations
-          latitude: location?.latitude,
-          longitude: location?.longitude,
+          latitude: wantsWeather ? location?.latitude : undefined,
+          longitude: wantsWeather ? location?.longitude : undefined,
         }),
       });
 

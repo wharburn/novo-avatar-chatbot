@@ -1337,15 +1337,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         if (isVisionActive) {
           // Camera just turned ON - just notify NoVo, don't auto-analyze
           console.log('👁️ Camera turned ON - notifying NoVo');
-          if (sendAssistantInput) {
-            sendAssistantInput('[Camera ON. You can now see the user.]');
-          }
+          sendAssistantInput('I can see you now.');
         } else {
           // Camera just turned OFF
           console.log('👁️ Camera turned OFF - notifying NoVo');
-          if (sendAssistantInput) {
-            sendAssistantInput('[Camera OFF. You cannot see the user.]');
-          }
+          sendAssistantInput("I can't see you anymore.");
         }
       }
     } catch (error) {
