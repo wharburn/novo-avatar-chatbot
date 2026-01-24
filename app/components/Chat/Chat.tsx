@@ -478,8 +478,26 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     name?: string;
     email?: string;
     phone?: string;
+    location?: string;
+    lastSeen?: number;
     isReturningUser: boolean;
     visitCount: number;
+    appearanceHistory?: {
+      timestamp: number;
+      summary: string;
+      source?: string;
+      emotion?: string;
+    }[];
+    outfitHistory?: {
+      timestamp: number;
+      summary: string;
+      source?: string;
+    }[];
+    emotionHistory?: {
+      timestamp: number;
+      emotion: string;
+      source?: string;
+    }[];
   } | null>(null);
   const userProfileLoadedRef = useRef(false);
   const identityConfirmedRef = useRef(false);
@@ -581,6 +599,16 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'appendHistory', field, entry, maxItems }),
       });
+      setUserProfile((prev) => {
+        if (!prev) return prev;
+        const existing = (prev as any)[field] as Record<string, unknown>[] | undefined;
+        const next = Array.isArray(existing) ? [...existing, entry] : [entry];
+        return {
+          ...prev,
+          [field]: next.slice(-maxItems),
+          lastSeen: Date.now(),
+        } as any;
+      });
     } catch (error) {
       console.error('❌ Error appending user history:', error);
     }
@@ -600,8 +628,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             name: data.user.name,
             email: data.user.email,
             phone: data.user.phone,
+            location: data.user.location,
+            lastSeen: data.user.lastSeen,
             isReturningUser: data.isReturningUser,
             visitCount: data.user.visitCount,
+            appearanceHistory: data.user.appearanceHistory || [],
+            outfitHistory: data.user.outfitHistory || [],
+            emotionHistory: data.user.emotionHistory || [],
           });
 
           // Pre-fill email intent if we have stored email
@@ -3019,6 +3052,20 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     (msg) => msg.type === 'user_message' || msg.type === 'assistant_message'
   );
 
+  const formatTimestamp = (ts?: number) => {
+    if (!ts) return '';
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return '';
+    }
+  };
+
+  const getRecent = <T,>(items?: T[], count = 3): T[] => {
+    if (!items || items.length === 0) return [];
+    return items.slice(-count).reverse();
+  };
+
   // Photo grid handlers
   const handlePhotoDelete = (id: string) => {
     setSessionPhotos((prev) => prev.filter((photo) => photo.id !== id));
@@ -3238,7 +3285,66 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         </div>
 
         {/* Messages */}
-        <div className="h-[calc(100%-28px)] overflow-y-auto px-3 py-0.5">
+        <div className="h-[calc(100%-28px)] overflow-y-auto px-3 py-2">
+          {/* User card */}
+          {userProfile && (
+            <div className="mb-3 rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+                <div className="text-sm font-semibold text-gray-800">User Card</div>
+                <div className="text-[10px] text-gray-500">
+                  Last seen: {formatTimestamp(userProfile.lastSeen)}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-3 py-2 text-xs text-gray-700">
+                <div>
+                  <div className="font-medium text-gray-800">Profile</div>
+                  <div>Name: {userProfile.name || 'Unknown'}</div>
+                  <div>Email: {userProfile.email || 'Unknown'}</div>
+                  <div>Phone: {userProfile.phone || 'Unknown'}</div>
+                  <div>Location: {userProfile.location || 'Unknown'}</div>
+                  <div>Visits: {userProfile.visitCount}</div>
+                </div>
+                <div>
+                  <div className="font-medium text-gray-800">Latest Emotion</div>
+                  {getRecent(userProfile.emotionHistory, 1).map((entry, idx) => (
+                    <div key={`emotion-${idx}`}>
+                      {entry.emotion} {entry.source ? `(${entry.source})` : ''} ·{' '}
+                      {formatTimestamp(entry.timestamp)}
+                    </div>
+                  ))}
+                  {getRecent(userProfile.emotionHistory, 1).length === 0 && (
+                    <div className="text-gray-500">No emotion history yet</div>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-3 pb-3 text-xs text-gray-700">
+                <div>
+                  <div className="font-medium text-gray-800">Recent Appearance</div>
+                  {getRecent(userProfile.appearanceHistory).map((entry, idx) => (
+                    <div key={`appearance-${idx}`} className="mt-1">
+                      <div className="text-gray-600">{formatTimestamp(entry.timestamp)}</div>
+                      <div className="text-gray-800">{entry.summary}</div>
+                    </div>
+                  ))}
+                  {getRecent(userProfile.appearanceHistory).length === 0 && (
+                    <div className="text-gray-500">No appearance history yet</div>
+                  )}
+                </div>
+                <div>
+                  <div className="font-medium text-gray-800">Recent Outfit Notes</div>
+                  {getRecent(userProfile.outfitHistory).map((entry, idx) => (
+                    <div key={`outfit-${idx}`} className="mt-1">
+                      <div className="text-gray-600">{formatTimestamp(entry.timestamp)}</div>
+                      <div className="text-gray-800">{entry.summary}</div>
+                    </div>
+                  ))}
+                  {getRecent(userProfile.outfitHistory).length === 0 && (
+                    <div className="text-gray-500">No outfit history yet</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           <ChatMessages />
         </div>
       </div>
