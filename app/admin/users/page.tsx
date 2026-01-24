@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock, Mail, MapPin, Phone, Plus, RefreshCw } from 'lucide-react';
+import { Lock, Mail, MapPin, Merge2, Phone, Plus, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
