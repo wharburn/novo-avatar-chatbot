@@ -16,6 +16,7 @@ import VisionStream from '../Vision/VisionStream';
 import WeatherOverlay from '../Weather/WeatherOverlay';
 import ChatControls from './ChatControls';
 import ChatMessages from './ChatMessages';
+import EmailConfirmation from './EmailConfirmation';
 import ImageViewer from './ImageViewer';
 
 interface ChatProps {
@@ -219,7 +220,9 @@ const PHOTO_SESSION_SYSTEM_PROMPT = [
   "If the user says 'done' or 'finished', stop taking photos and wait for the app to handle emailing.",
 ].join(' ');
 
-const BASE_SYSTEM_PROMPT = process.env.NEXT_PUBLIC_HUME_SYSTEM_PROMPT || undefined;
+const DEFAULT_BASE_SYSTEM_PROMPT = 'You are NoVo, an emotionally intelligent AI companion.';
+const BASE_SYSTEM_PROMPT =
+  process.env.NEXT_PUBLIC_HUME_SYSTEM_PROMPT || DEFAULT_BASE_SYSTEM_PROMPT;
 
 // Get the dominant emotion from Hume's emotion scores
 function getDominantEmotion(scores: Record<string, number>): Emotion {
@@ -1153,7 +1156,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     const timer = setTimeout(() => {
       try {
         sendSessionSettings({
-          type: 'session_settings',
           variables: contextVariables,
         });
         console.log('👤 Sent session variables to Hume AI:', contextVariables);
@@ -1172,11 +1174,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
     try {
       const settings: {
-        type: 'session_settings';
-        systemPrompt?: string | null;
+        systemPrompt?: string;
         variables: Record<string, string>;
       } = {
-        type: 'session_settings',
         variables: {
           user_name: userProfile?.name || '',
           user_email: userProfile?.email || '',
@@ -1187,10 +1187,10 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         },
       };
 
-      const systemPrompt = isPhotoSession ? PHOTO_SESSION_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT ?? null;
-      if (!isPhotoSession && !BASE_SYSTEM_PROMPT) {
+      const systemPrompt = isPhotoSession ? PHOTO_SESSION_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT;
+      if (!isPhotoSession && !process.env.NEXT_PUBLIC_HUME_SYSTEM_PROMPT) {
         console.warn(
-          '⚠️ NEXT_PUBLIC_HUME_SYSTEM_PROMPT is not set. Restoring to default prompt via null override.'
+          '⚠️ NEXT_PUBLIC_HUME_SYSTEM_PROMPT is not set. Using fallback base prompt.'
         );
       }
       settings.systemPrompt = systemPrompt;
@@ -1266,7 +1266,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     const timer = setTimeout(() => {
       try {
         sendSessionSettings({
-          type: 'session_settings',
           variables: {
             user_name: userProfile?.name || '',
             user_email: userProfile?.email || '',
@@ -1312,7 +1311,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
     try {
       sendSessionSettings({
-        type: 'session_settings',
         variables: {
           user_name: userProfile?.name || '',
           user_email: userProfile?.email || '',
@@ -3229,7 +3227,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         <EmailConfirmation
           email={emailConfirmation.email}
           emailType={emailConfirmation.type}
-          onConfirm={(confirmedEmail) => {
+          onConfirm={(confirmedEmail: string) => {
             console.log('📧 Email confirmed:', confirmedEmail);
 
             // Handle multiple photos from photo grid

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import {
+  DEFAULT_MAX_IMAGE_BYTES,
+  resolveSafeUploadPath,
+  sanitizeFilename,
+  validateImagePayload,
+} from '@/app/lib/image-upload';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,21 +16,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No image data provided' }, { status: 400 });
     }
 
-    // Extract base64 data from data URL
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    let mimeType = 'image/jpeg';
+    let base64Data = '';
+
+    try {
+      const validated = validateImagePayload(imageData, DEFAULT_MAX_IMAGE_BYTES);
+      mimeType = validated.mimeType;
+      base64Data = validated.base64Data;
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : 'Invalid image payload',
+        },
+        { status: 400 }
+      );
+    }
+
     const buffer = Buffer.from(base64Data, 'base64');
 
     // Create uploads directory if it doesn't exist
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-    try {
-      await mkdir(uploadsDir, { recursive: true });
-    } catch (err) {
-      // Directory might already exist, that's fine
-    }
+    await mkdir(uploadsDir, { recursive: true });
 
-    // Generate filename if not provided
-    const imageFilename = filename || `photo-${Date.now()}.jpg`;
-    const filePath = path.join(uploadsDir, imageFilename);
+    // Sanitize filename and resolve safe path
+    const imageFilename = sanitizeFilename(filename, mimeType);
+    const filePath = resolveSafeUploadPath(uploadsDir, imageFilename);
 
     // Save the file
     await writeFile(filePath, buffer);
@@ -50,4 +67,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
