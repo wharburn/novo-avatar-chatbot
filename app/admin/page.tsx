@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Users,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 interface Message {
@@ -287,23 +288,44 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen max-h-screen overflow-hidden flex flex-col bg-gray-100">
       <header className="bg-white border-b px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between max-w-6xl mx-auto">
+        <div className="flex items-center justify-between max-w-6xl mx-auto mb-4">
           <div>
             <h1 className="text-xl font-bold text-gray-800">NoVo Admin</h1>
             <p className="text-sm text-gray-500">Interaction History</p>
           </div>
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => fetchSessions(pin)}
               disabled={loading}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <button onClick={handleLogout} className="text-sm text-gray-600 hover:text-gray-800">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-sm text-gray-600 hover:text-gray-800"
+            >
               Logout
             </button>
           </div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex gap-4 border-t pt-4">
+          <button
+            type="button"
+            className="px-4 py-2 text-sm font-medium text-gray-700 border-b-2 border-blue-600"
+          >
+            Sessions
+          </button>
+          <Link
+            href="/admin/users"
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 border-b-2 border-transparent hover:border-gray-300 transition-colors"
+          >
+            Users
+          </Link>
         </div>
       </header>
 
