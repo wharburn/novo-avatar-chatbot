@@ -816,19 +816,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
         console.log('🌤️ Sending cached weather report to NoVo');
 
-        // Send as bracketed context (not spoken) via sendAssistantInput
-        if (sendAssistantInput) {
-          sendAssistantInput(`[Weather context: ${weatherReport}]`);
-          console.log('🌤️ Weather context sent as bracketed message (not spoken)');
-        }
-
-        // Also send tool response to satisfy the tool call
         if (sendToolMessage && pendingToolCall.toolCallId) {
           sendToolMessage({
             type: 'tool_response',
             toolCallId: pendingToolCall.toolCallId,
-            content: 'Weather information has been provided in your context.',
+            content: weatherReport,
           } as any);
+          console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
         }
         return;
       }
@@ -899,18 +893,12 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('🌤️ Weather data from API:', w);
             console.log('🌤️ Sending weather report to NoVo:', weatherReport);
 
-            // Send as bracketed context (not spoken) via sendAssistantInput
-            if (sendAssistantInput) {
-              sendAssistantInput(`[Weather context: ${weatherReport}]`);
-              console.log('🌤️ Weather context sent as bracketed message (not spoken)');
-            }
-
-            // Also send tool response to satisfy the tool call
+            // Use sendToolMessage instead of pendingToolCall.send to avoid SDK bug
             if (sendToolMessage && pendingToolCall.toolCallId) {
               sendToolMessage({
                 type: 'tool_response',
                 toolCallId: pendingToolCall.toolCallId,
-                content: 'Weather information has been provided in your context.',
+                content: weatherReport,
               } as any);
               console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
             }
@@ -1536,6 +1524,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   // Auto-trigger email when we have all required info
   useEffect(() => {
     const intent = emailIntentRef.current;
+
+    console.log('📧 Email intent state:', {
+      wantsEmail: intent.wantsEmail,
+      email: intent.email,
+      name: intent.name,
+      hasImage: !!lastCapturedImageRef.current,
+    });
 
     if (intent.wantsEmail && intent.email && intent.name && lastCapturedImageRef.current) {
       console.log('📧 Auto-triggering email with collected info:', intent);
