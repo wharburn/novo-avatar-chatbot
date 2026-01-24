@@ -196,10 +196,15 @@ export async function getSessionsByIp(ipAddress: string): Promise<Session[]> {
  * Get user profile by IP address
  */
 export async function getUserByIp(ipAddress: string): Promise<UserProfile | null> {
-  const userData = await redis.get(`${USER_PREFIX}${ipAddress}`);
-  if (!userData) return null;
+  try {
+    const userData = await redis.get(`${USER_PREFIX}${ipAddress}`);
+    if (!userData) return null;
 
-  return typeof userData === 'string' ? JSON.parse(userData) : (userData as UserProfile);
+    return typeof userData === 'string' ? JSON.parse(userData) : (userData as UserProfile);
+  } catch (error) {
+    console.error(`Error parsing user data for IP ${ipAddress}:`, error);
+    return null;
+  }
 }
 
 /**
