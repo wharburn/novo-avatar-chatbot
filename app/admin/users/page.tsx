@@ -180,7 +180,7 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       {/* Header */}
-      <header className="bg-white border-b px-6 py-4 flex-shrink-0">
+      <header className="bg-white border-b px-6 py-4 shrink-0">
         <div className="flex items-center justify-between max-w-7xl mx-auto mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Users Dashboard</h1>
