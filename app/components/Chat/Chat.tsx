@@ -1260,7 +1260,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
           visit_count: String(userProfile?.visitCount || 1),
           vision_enabled: isVisionActive ? 'true' : 'false',
-          weather_context: '',
         },
       });
       console.log('👁️ Updated vision status:', isVisionActive ? 'ON' : 'OFF');
@@ -1332,7 +1331,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
   // Fetch weather automatically when user connects (using IP geolocation)
   useEffect(() => {
-    if (!isConnected || !userLocationRef.current || !sendSessionSettings) return;
+    if (!isConnected || !userLocationRef.current) return;
 
     // Fetch weather once on connection
     const fetchWeatherOnConnect = async () => {
@@ -1347,8 +1346,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           setWeatherData(data.weather);
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
 
-          // Send weather context to NoVo via session settings (not as spoken message)
-          if (data.weather.forecast) {
+          // Send weather context to NoVo so she's aware (Celsius only)
+          if (sendAssistantInput && data.weather.forecast) {
             const forecastSummary = data.weather.forecast
               .slice(0, 2)
               .map(
@@ -1356,23 +1355,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   `${day.date}: ${day.condition}, ${day.minTemp.celsius}°C-${day.maxTemp.celsius}°C`
               )
               .join('; ');
-            const weatherContext = `Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}`;
-
-            try {
-              sendSessionSettings({
-                variables: {
-                  user_name: userProfile?.name || '',
-                  user_email: userProfile?.email || '',
-                  is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
-                  visit_count: String(userProfile?.visitCount || 1),
-                  vision_enabled: isVisionActive ? 'true' : 'false',
-                  weather_context: weatherContext,
-                },
-              });
-              console.log('🌤️ Weather context sent via session settings (not as message)');
-            } catch (error) {
-              console.error('Failed to send weather context:', error);
-            }
+            sendAssistantInput(
+              `[Weather context: Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}]`
+            );
           }
         }
       } catch (error) {
@@ -1381,42 +1366,49 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     };
 
     fetchWeatherOnConnect();
-  }, [isConnected, sendSessionSettings, userProfile, isVisionActive]);
+  }, [isConnected, sendAssistantInput]);
 
-  // Periodic weather context updates - keep NoVo informed about weather
-  // Send weather via session settings so it's not spoken as a message
+  // Periodic system context updates - keep NoVo informed about camera, weather, etc.
+  // This sends context to NoVo so she's aware, but she decides when to mention it naturally
   useEffect(() => {
-    if (!isConnected || !sendSessionSettings || !weatherData) return;
+    if (!isConnected || !sendAssistantInput) return;
 
-    // Update weather context immediately and then every 60 seconds
-    const updateWeatherContext = () => {
-      try {
-        const weatherContext = `Current: ${weatherData.temperature.celsius}°C and ${weatherData.condition}, feels like ${weatherData.feelsLike?.celsius}°C`;
+    // Update every 60 seconds with current context (camera, weather, etc.)
+    const contextUpdateInterval = setInterval(async () => {
+      let contextParts: string[] = [];
 
-        sendSessionSettings({
-          variables: {
-            user_name: userProfile?.name || '',
-            user_email: userProfile?.email || '',
-            is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
-            visit_count: String(userProfile?.visitCount || 1),
-            vision_enabled: isVisionActive ? 'true' : 'false',
-            weather_context: weatherContext,
-          },
-        });
-        console.log('🌤️ Periodic weather context updated via session settings');
-      } catch (error) {
-        console.error('Failed to update weather context:', error);
+      // Add camera context if active
+      if (isVisionActive) {
+        try {
+          const analysis = await analyzeWithQuestion(
+            'Briefly describe what you see right now in one sentence.'
+          );
+          if (
+            !analysis.includes('Vision is not active') &&
+            !analysis.includes('Unable to capture')
+          ) {
+            contextParts.push(`Camera: ${analysis}`);
+          }
+        } catch (err) {
+          console.error('Camera context error:', err);
+        }
       }
-    };
 
-    // Update immediately
-    updateWeatherContext();
+      // Add weather context if available (Celsius only)
+      if (weatherData) {
+        const weatherContext = `Weather: ${weatherData.temperature.celsius}°C, ${weatherData.condition}, feels like ${weatherData.feelsLike?.celsius}°C`;
+        contextParts.push(weatherContext);
+      }
 
-    // Then update every 60 seconds
-    const contextUpdateInterval = setInterval(updateWeatherContext, 60000);
+      // Send combined context if we have any
+      if (contextParts.length > 0) {
+        console.log('📋 Sending system context to NoVo');
+        sendAssistantInput(`[System context: ${contextParts.join(' | ')}]`);
+      }
+    }, 60000); // Every 60 seconds
 
     return () => clearInterval(contextUpdateInterval);
-  }, [isVisionActive, isConnected, sendSessionSettings, weatherData, userProfile]);
+  }, [isVisionActive, isConnected, sendAssistantInput, analyzeWithQuestion, weatherData]);
 
   // Handle camera capture
   const handleCameraCapture = async (imageDataUrl: string) => {
@@ -2910,7 +2902,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-white">
+    <div className="h-screen flex flex-col overflow-hidden bg-linear-to-b from-blue-50 to-white">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b bg-white/80 backdrop-blur-sm">
         <div className="flex items-center">
@@ -2979,8 +2971,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           <>
             {/* Avatar with fade effect when weather is showing */}
             <div
-              className="w-full h-full transition-opacity duration-500 relative"
-              style={{ opacity: showWeatherOverlay ? 0.1 : 1 }}
+              className={`w-full h-full transition-opacity duration-500 relative ${
+                showWeatherOverlay ? 'opacity-10' : 'opacity-100'
+              }`}
             >
               <AvatarDisplay
                 isListening={isListening}
@@ -2995,7 +2988,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               />
 
               {/* Development in Progress Banner */}
-              <div className="absolute top-8 left-0 right-0 bg-gradient-to-r from-yellow-500/50 via-yellow-400/50 to-yellow-500/50 text-black py-3 px-6 transform -rotate-2 shadow-lg z-50">
+              <div className="absolute top-8 left-0 right-0 bg-linear-to-r from-yellow-500/50 via-yellow-400/50 to-yellow-500/50 text-black py-3 px-6 transform -rotate-2 shadow-lg z-50">
                 <p className="text-center text-xl font-bold tracking-wider">
                   🚧 DEVELOPMENT IN PROGRESS 🚧
                 </p>
@@ -3028,7 +3021,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       {/* Transcript Section - Collapsible */}
       <div
         className={`bg-white transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
-          transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
+          transcriptVisible ? 'min-h-50 opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
         {/* Header - Ultra-thin centered dropdown */}
@@ -3087,7 +3080,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Finish Session Button - shown during photo session */}
       {isPhotoSession && !showPhotoGrid && (
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col items-center gap-2">
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-100 flex flex-col items-center gap-2">
           <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm">
             {sessionPhotos.length} {sessionPhotos.length === 1 ? 'photo' : 'photos'} captured
           </div>
@@ -3124,7 +3117,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Flash effect for photo capture */}
       {showFlash && (
-        <div className="fixed inset-0 bg-white z-[9999] pointer-events-none animate-flash" />
+        <div className="fixed inset-0 bg-white z-9999 pointer-events-none animate-flash" />
       )}
 
       {/* Image Viewer Modal */}

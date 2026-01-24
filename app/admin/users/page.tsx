@@ -238,7 +238,7 @@ export default function UsersPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden flex gap-6 p-6 max-w-7xl mx-auto w-full">
+      <main className="flex-1 overflow-y-auto flex gap-6 p-6 max-w-7xl mx-auto w-full">
         {/* Users List */}
         <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="p-4 border-b">
