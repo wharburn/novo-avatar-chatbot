@@ -816,19 +816,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
         console.log('🌤️ Sending cached weather report to NoVo');
 
-        // Send weather as bracketed context (not spoken)
-        if (sendAssistantInput) {
-          sendAssistantInput(`[Weather: ${weatherReport}]`);
-        }
-
-        // Send generic tool response to satisfy the tool call
         if (sendToolMessage && pendingToolCall.toolCallId) {
           sendToolMessage({
             type: 'tool_response',
             toolCallId: pendingToolCall.toolCallId,
-            content: 'OK',
+            content: weatherReport,
           } as any);
-          console.log('🌤️ Weather tool response sent');
+          console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
         }
         return;
       }
@@ -899,19 +893,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('🌤️ Weather data from API:', w);
             console.log('🌤️ Sending weather report to NoVo:', weatherReport);
 
-            // Send weather as bracketed context (not spoken)
-            if (sendAssistantInput) {
-              sendAssistantInput(`[Weather: ${weatherReport}]`);
-            }
-
-            // Send generic tool response to satisfy the tool call
+            // Use sendToolMessage instead of pendingToolCall.send to avoid SDK bug
             if (sendToolMessage && pendingToolCall.toolCallId) {
               sendToolMessage({
                 type: 'tool_response',
                 toolCallId: pendingToolCall.toolCallId,
-                content: 'OK',
+                content: weatherReport,
               } as any);
-              console.log('🌤️ Weather tool response sent');
+              console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
             }
           } else {
             console.error('🌤️ Weather API returned error:', data);
@@ -1356,7 +1345,20 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         if (data.success && data.weather) {
           setWeatherData(data.weather);
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
-          // Don't send weather as a message on connection - it will be sent when NoVo calls get_weather tool
+
+          // Send weather context to NoVo so she's aware (Celsius only)
+          if (sendAssistantInput && data.weather.forecast) {
+            const forecastSummary = data.weather.forecast
+              .slice(0, 2)
+              .map(
+                (day: any) =>
+                  `${day.date}: ${day.condition}, ${day.minTemp.celsius}°C-${day.maxTemp.celsius}°C`
+              )
+              .join('; ');
+            sendAssistantInput(
+              `[Weather context: Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}]`
+            );
+          }
         }
       } catch (error) {
         console.error('Error fetching weather on connect:', error);
@@ -3142,6 +3144,72 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             onEmailPhotos={handleEmailPhotos}
           />
         </>
+      )}
+
+      {/* Email Confirmation Modal */}
+      {emailConfirmation && (
+        <EmailConfirmation
+          email={emailConfirmation.email}
+          emailType={emailConfirmation.type}
+          onConfirm={(confirmedEmail) => {
+            console.log('📧 Email confirmed:', confirmedEmail);
+
+            // Trigger the email send
+            if (emailConfirmation.type === 'picture' && emailConfirmation.data?.image_url) {
+              fetch('/api/tools/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  toolName: 'send_email_picture',
+                  parameters: {
+                    email: confirmedEmail,
+                    user_name: emailConfirmation.data.user_name || 'Friend',
+                    image_url: emailConfirmation.data.image_url,
+                    caption: emailConfirmation.data.caption || 'Picture from NoVo!',
+                  },
+                }),
+              })
+                .then((res) => res.json())
+                .then((data) => {
+                  console.log('📧 Email sent successfully:', data);
+                  sendAssistantInput('[Email sent successfully!]');
+                })
+                .catch((error) => {
+                  console.error('📧 Error sending email:', error);
+                  sendAssistantInput('[Error sending email. Please try again.]');
+                });
+            } else if (emailConfirmation.type === 'summary' && emailConfirmation.data?.messages) {
+              fetch('/api/tools/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  toolName: 'send_email_summary',
+                  parameters: {
+                    email: confirmedEmail,
+                    user_name: emailConfirmation.data.user_name || 'Friend',
+                    messages: emailConfirmation.data.messages,
+                  },
+                }),
+              })
+                .then((res) => res.json())
+                .then((data) => {
+                  console.log('📧 Summary email sent successfully:', data);
+                  sendAssistantInput('[Summary email sent successfully!]');
+                })
+                .catch((error) => {
+                  console.error('📧 Error sending summary email:', error);
+                  sendAssistantInput('[Error sending email. Please try again.]');
+                });
+            }
+
+            // Close the modal
+            setEmailConfirmation(null);
+          }}
+          onCancel={() => {
+            console.log('📧 Email confirmation cancelled');
+            setEmailConfirmation(null);
+          }}
+        />
       )}
     </div>
   );
