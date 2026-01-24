@@ -50,15 +50,20 @@ export default function UsersPage() {
       const response = await fetch(`/api/admin/users?pin=${pin}`);
       if (!response.ok) {
         setError('Invalid PIN');
+        setIsAuthenticated(false);
+        sessionStorage.removeItem('adminPin');
         setLoading(false);
         return;
       }
 
       sessionStorage.setItem('adminPin', pin);
       setIsAuthenticated(true);
+      setError('');
       await fetchUsers(pin);
     } catch (err) {
       setError('Failed to authenticate');
+      setIsAuthenticated(false);
+      sessionStorage.removeItem('adminPin');
     } finally {
       setLoading(false);
     }
@@ -68,12 +73,21 @@ export default function UsersPage() {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/users?pin=${adminPin}`);
-      if (!response.ok) throw new Error('Failed to fetch users');
+      if (!response.ok) {
+        setError('Failed to load users - Invalid PIN');
+        setIsAuthenticated(false);
+        sessionStorage.removeItem('adminPin');
+        return;
+      }
 
       const data = await response.json();
       setUsers(data.users || []);
+      setIsAuthenticated(true);
+      setError('');
     } catch (err) {
       setError('Failed to load users');
+      setIsAuthenticated(false);
+      sessionStorage.removeItem('adminPin');
     } finally {
       setLoading(false);
     }
