@@ -3014,6 +3014,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           configId={configId}
           isVisionActive={isVisionActive}
           onVisionToggle={toggleVision}
+          showBoundingBoxes={showBoundingBoxes}
+          onBoundingBoxToggle={() => setShowBoundingBoxes(!showBoundingBoxes)}
           userProfile={userProfile}
         />
       </div>
