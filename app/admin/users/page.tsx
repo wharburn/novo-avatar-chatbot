@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock, Mail, MapPin, Merge2, Phone, Plus, RefreshCw } from 'lucide-react';
+import { Lock, Mail, MapPin, Phone, Plus, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -252,7 +252,7 @@ export default function UsersPage() {
               aria-label="Merge duplicate users"
               title="Merge users with same name and email"
             >
-              <Merge2 className={`w-5 h-5 ${merging ? 'animate-spin' : ''}`} />
+              <Merge className={`w-5 h-5 ${merging ? 'animate-spin' : ''}`} />
             </button>
             <button
               type="button"
