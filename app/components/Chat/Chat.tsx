@@ -483,6 +483,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   } | null>(null);
   const userProfileLoadedRef = useRef(false);
   const identityConfirmedRef = useRef(false);
+  const namePromptedRef = useRef(false);
 
   const sendBaseSessionSettings = useCallback(() => {
     if (!isConnected || !sendSessionSettings) return;
@@ -566,6 +567,22 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       }
     } catch (error) {
       console.error('❌ Error saving user profile:', error);
+    }
+  };
+
+  const appendUserHistory = async (
+    field: 'appearanceHistory' | 'outfitHistory' | 'emotionHistory',
+    entry: Record<string, unknown>,
+    maxItems = 50
+  ) => {
+    try {
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'appendHistory', field, entry, maxItems }),
+      });
+    } catch (error) {
+      console.error('❌ Error appending user history:', error);
     }
   };
 
@@ -1303,6 +1320,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       identityConfirmedRef.current = false;
       greetingSentRef.current = false;
       greetingVideoFinishedRef.current = false;
+      namePromptedRef.current = false;
       processedMessageIdsRef.current.clear(); // Clear processed messages
     }
   }, [isConnected]);
@@ -1644,6 +1662,21 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     return [];
   }, []);
 
+  const handleBoundingBoxToggle = useCallback(() => {
+    if (!isVisionActive) {
+      toggleVision();
+    }
+    setShowBoundingBoxes((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => {
+          requestYoloDetections();
+        }, 300);
+      }
+      return next;
+    });
+  }, [isVisionActive, toggleVision, requestYoloDetections]);
+
   // Track processed messages to avoid duplicate processing
   const processedMessageIdsRef = useRef<Set<string>>(new Set());
 
@@ -1706,6 +1739,13 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         console.log('📸 Photo session active:', isPhotoSession);
         console.log('📹 Vision active:', isVisionActive);
         console.log('🔒 Processing command:', processingCommandRef.current);
+
+        if (!userProfile?.name && !namePromptedRef.current && !isPhotoSessionRef.current) {
+          namePromptedRef.current = true;
+          if (sendAssistantInput) {
+            sendAssistantInput("What's your name?");
+          }
+        }
 
         // === COMMAND DETECTION (Bypass Hume tool calls) ===
         if (!processingCommandRef.current) {
@@ -1798,6 +1838,23 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                       console.log('👁️ Sending fresh vision analysis to NoVo');
                       sendAssistantInput(analysis);
                     }
+
+                    appendUserHistory('appearanceHistory', {
+                      timestamp: Date.now(),
+                      summary: analysis,
+                      source: 'vision_request',
+                      emotion: currentEmotion,
+                    });
+                    appendUserHistory('outfitHistory', {
+                      timestamp: Date.now(),
+                      summary: analysis,
+                      source: 'vision_request',
+                    });
+                    appendUserHistory('emotionHistory', {
+                      timestamp: Date.now(),
+                      emotion: currentEmotion,
+                      source: 'vision_request',
+                    });
                   })
                   .catch((error) => {
                     console.error('👁️ Vision analysis error:', error);
@@ -2086,6 +2143,22 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                             // Send the analysis directly - NoVo will speak it
                             sendAssistantInput(data.analysis);
                           }
+                          appendUserHistory('appearanceHistory', {
+                            timestamp: Date.now(),
+                            summary: data.analysis,
+                            source: 'fashion_analysis',
+                            emotion: currentEmotion,
+                          });
+                          appendUserHistory('outfitHistory', {
+                            timestamp: Date.now(),
+                            summary: data.analysis,
+                            source: 'fashion_analysis',
+                          });
+                          appendUserHistory('emotionHistory', {
+                            timestamp: Date.now(),
+                            emotion: currentEmotion,
+                            source: 'fashion_analysis',
+                          });
                         }
                       })
                       .catch((error) => {

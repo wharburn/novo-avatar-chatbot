@@ -5,6 +5,7 @@ import {
   recordUserVisit, 
   updateUserField,
   addUserNote,
+  appendUserHistory,
   UserProfile 
 } from '@/app/lib/redis';
 
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
  * Body: { action: 'update', field: string, value: any }
  *    or { action: 'setProfile', name?, email?, phone? }
  *    or { action: 'addNote', note: string }
+ *    or { action: 'appendHistory', field: string, entry: object, maxItems?: number }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -97,6 +99,24 @@ export async function POST(request: NextRequest) {
         }
         user = await addUserNote(ip, note);
         break;
+        
+      case 'appendHistory': {
+        const { field, entry, maxItems } = body;
+        if (!field || !entry) {
+          return NextResponse.json(
+            { success: false, error: 'Field and entry are required' },
+            { status: 400 }
+          );
+        }
+        if (!['appearanceHistory', 'outfitHistory', 'emotionHistory'].includes(field)) {
+          return NextResponse.json(
+            { success: false, error: `Invalid history field: ${field}` },
+            { status: 400 }
+          );
+        }
+        user = await appendUserHistory(ip, field, entry, maxItems || 50);
+        break;
+      }
         
       case 'confirmIdentity':
         // User confirmed they are who we thought

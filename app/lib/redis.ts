@@ -27,12 +27,35 @@ export interface UserProfile {
   // Any other collected info
   additionalInfo?: Record<string, string>;
   notes?: string[];
+  // Appearance and emotion history
+  appearanceHistory?: AppearanceRecord[];
+  outfitHistory?: OutfitRecord[];
+  emotionHistory?: EmotionRecord[];
   // Metadata
   firstSeen: number;
   lastSeen: number;
   visitCount: number;
   // List of all IP addresses associated with this user (for merged profiles)
   linkedIpAddresses?: string[];
+}
+
+export interface AppearanceRecord {
+  timestamp: number;
+  summary: string;
+  source?: string;
+  emotion?: string;
+}
+
+export interface OutfitRecord {
+  timestamp: number;
+  summary: string;
+  source?: string;
+}
+
+export interface EmotionRecord {
+  timestamp: number;
+  emotion: string;
+  source?: string;
 }
 
 // Types for interaction tracking
@@ -287,6 +310,28 @@ export async function addUserNote(ipAddress: string, note: string): Promise<User
 
   if (!user.notes) user.notes = [];
   user.notes.push(`[${new Date().toISOString()}] ${note}`);
+  user.lastSeen = Date.now();
+
+  await redis.set(`${USER_PREFIX}${ipAddress}`, JSON.stringify(user));
+  return user;
+}
+
+/**
+ * Append a history entry to a user profile array field
+ */
+export async function appendUserHistory<T>(
+  ipAddress: string,
+  field: 'appearanceHistory' | 'outfitHistory' | 'emotionHistory',
+  entry: T,
+  maxItems = 50
+): Promise<UserProfile | null> {
+  const user = await getUserByIp(ipAddress);
+  if (!user) return null;
+
+  const existing = (user as any)[field] as T[] | undefined;
+  const next = Array.isArray(existing) ? [...existing, entry] : [entry];
+  // Keep most recent entries
+  (user as any)[field] = next.slice(-maxItems);
   user.lastSeen = Date.now();
 
   await redis.set(`${USER_PREFIX}${ipAddress}`, JSON.stringify(user));
