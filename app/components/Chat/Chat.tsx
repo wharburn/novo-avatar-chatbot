@@ -1632,6 +1632,22 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     }
   }, []);
 
+  const requestYoloDetections = useCallback(async (): Promise<any[]> => {
+    if (typeof window === 'undefined') return [];
+    const detect = (window as any).__visionDetectObjects;
+    if (typeof detect !== 'function') return [];
+    try {
+      const detections = await detect();
+      if (Array.isArray(detections)) {
+        setYoloDetections(detections);
+        return detections;
+      }
+    } catch (error) {
+      console.error('📦 YOLO refresh error:', error);
+    }
+    return [];
+  }, []);
+
   // Track processed messages to avoid duplicate processing
   const processedMessageIdsRef = useRef<Set<string>>(new Set());
 
@@ -1753,10 +1769,25 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 // Camera IS on - scan for fresh camera analysis
                 console.log('👁️ Camera is ON - scanning for latest information...');
 
-                // Scan for fresh camera analysis
-                analyzeWithQuestion(
-                  'Describe everything you see in detail - the person, their appearance, clothing, colors, style, and any other visual details.'
-                )
+                requestYoloDetections()
+                  .then((detections) => {
+                    const yoloSummary =
+                      detections.length > 0
+                        ? detections
+                            .map(
+                              (d: any) =>
+                                `${d.class}${d.score ? ` (${Math.round(d.score * 100)}%)` : ''}`
+                            )
+                            .join(', ')
+                        : '';
+
+                    // Scan for fresh camera analysis
+                    return analyzeWithQuestion(
+                      `Describe everything you see in detail - the person, their appearance, clothing, colors, style, and any other visual details.${
+                        yoloSummary ? `\n\nYOLO detections: ${yoloSummary}` : ''
+                      }`
+                    );
+                  })
                   .then((analysis) => {
                     console.log(
                       '👁️ Fresh vision analysis complete:',
@@ -1995,7 +2026,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             // Handle show bounding boxes request
             else if (command.type === 'show_boxes') {
               console.log('📦 Show bounding boxes request detected');
+              if (!isVisionActive) {
+                console.log('📦 Camera is OFF - enabling vision for bounding boxes');
+                toggleVision();
+              }
               setShowBoundingBoxes(true);
+              setTimeout(() => {
+                requestYoloDetections();
+              }, 300);
               if (sendAssistantInput) {
                 sendAssistantInput('Showing object detection boxes.');
               }
@@ -2017,32 +2055,50 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               console.log('👗 Fashion analysis request detected');
 
               if (isVisionActive) {
-                // Camera is on - capture frame and analyze
-                const frame = (window as any).__visionCaptureFrame?.();
-                if (frame) {
-                  // Call fashion analysis API
-                  fetch('/api/vision/fashion', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      imageData: frame,
-                      question: 'Analyze this outfit and provide detailed fashion advice.',
-                    }),
-                  })
-                    .then((res) => res.json())
-                    .then((data) => {
-                      if (data.success && data.analysis) {
-                        console.log('👗 Fashion analysis complete');
-                        if (sendAssistantInput) {
-                          // Send the analysis directly - NoVo will speak it
-                          sendAssistantInput(data.analysis);
-                        }
-                      }
+                requestYoloDetections()
+                  .then((detections) => {
+                    const yoloSummary =
+                      detections.length > 0
+                        ? detections
+                            .map(
+                              (d: any) =>
+                                `${d.class}${d.score ? ` (${Math.round(d.score * 100)}%)` : ''}`
+                            )
+                            .join(', ')
+                        : '';
+
+                    // Camera is on - capture frame and analyze
+                    const frame = (window as any).__visionCaptureFrame?.();
+                    if (!frame) return;
+
+                    // Call fashion analysis API
+                    fetch('/api/vision/fashion', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        imageData: frame,
+                        question: `Analyze this outfit and provide detailed fashion advice.${
+                          yoloSummary ? `\n\nYOLO detections: ${yoloSummary}` : ''
+                        }`,
+                      }),
                     })
-                    .catch((error) => {
-                      console.error('👗 Fashion analysis error:', error);
-                    });
-                }
+                      .then((res) => res.json())
+                      .then((data) => {
+                        if (data.success && data.analysis) {
+                          console.log('👗 Fashion analysis complete');
+                          if (sendAssistantInput) {
+                            // Send the analysis directly - NoVo will speak it
+                            sendAssistantInput(data.analysis);
+                          }
+                        }
+                      })
+                      .catch((error) => {
+                        console.error('👗 Fashion analysis error:', error);
+                      });
+                  })
+                  .catch((error) => {
+                    console.error('👗 YOLO refresh error:', error);
+                  });
               } else {
                 // Camera is off - ask user to turn it on
                 if (sendAssistantInput) {
@@ -2920,6 +2976,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
     // Persist details for next time
     saveUserProfile({ email: trimmedEmail, name: trimmedName });
+
+    // Ensure photo session is closed before emailing
+    setIsPhotoSession(false);
+    sendBaseSessionSettings();
+    photoSessionStartTimeRef.current = null;
 
     // Filter to only selected photos
     const photosToEmail = sessionPhotos.filter((photo) => selectedPhotoIds.includes(photo.id));

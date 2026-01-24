@@ -245,6 +245,24 @@ export default function VisionStream({
     return () => clearInterval(intervalId);
   }, [isActive, isStreaming, detectObjects, yoloLoading]);
 
+  // Expose on-demand object detection for fresh results
+  const detectObjectsNow = useCallback(async () => {
+    if (!videoRef.current || !isStreaming || yoloLoading) return [];
+    return detectObjects(videoRef.current);
+  }, [detectObjects, isStreaming, yoloLoading]);
+
+  useEffect(() => {
+    if (isActive && isStreaming) {
+      (window as any).__visionDetectObjects = detectObjectsNow;
+    } else {
+      delete (window as any).__visionDetectObjects;
+    }
+
+    return () => {
+      delete (window as any).__visionDetectObjects;
+    };
+  }, [isActive, isStreaming, detectObjectsNow]);
+
   // Expose capture function for on-demand analysis
   useEffect(() => {
     // Store capture function on window for external access

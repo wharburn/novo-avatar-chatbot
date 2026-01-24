@@ -74,8 +74,9 @@ export default function BoundingBoxOverlay({
       style={{
         width: '100%',
         height: '100%',
+        transform: 'scaleX(-1)',
+        transformOrigin: 'center',
       }}
     />
   );
 }
-

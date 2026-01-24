@@ -39,6 +39,8 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
     /how\s*do\s*i\s*look/i,
     /can\s*you\s*see\s*(me|what\s*i)/i,
     /look\s*at\s*me/i,
+    /look\s*at\s*(my|this)\s*(outfit|clothes|look)/i,
+    /check\s*out\s*(my|this)\s*(outfit|clothes|look)/i,
     /what\s*color\s*(is|are)\s*(my|the)/i,
     /what\s*do\s*you\s*think\?/i, // Generic "what do you think?" when camera is on
     /what('?s|\s*is)\s*your\s*opinion/i, // "what's your opinion?"
@@ -51,6 +53,9 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
   fashion_analysis: [
     /analyze\s*(my\s*)?(outfit|look|clothes|fashion|style)/i,
     /give\s*me\s*(some\s*)?(fashion|style)\s*advice/i,
+    /look\s*at\s*(my|this)\s*(outfit|clothes|look)\s*(and\s*)?(tell|say)\s*(me\s*)?what\s*you\s*think/i,
+    /just\s*have\s*a\s*look\s*at\s*(my|this)\s*(outfit|clothes|look)/i,
+    /tell\s*me\s*what\s*you\s*think\s*(about|of)\s*(my|this)\s*(outfit|clothes|look)/i,
     /what\s*do\s*you\s*think\s*(of|about)\s*(my|this|the)\s*(outfit|look|style|clothes|t[\s-]?shirt|shirt|wearing)/i,
     /how\s*do\s*these\s*clothes\s*look/i,
     /rate\s*my\s*(outfit|look|style)/i,
@@ -112,7 +117,9 @@ const COMMAND_PATTERNS: Record<Exclude<CommandType, null>, RegExp[]> = {
   ],
   show_boxes: [
     /show\s*(me\s*)?(the\s*)?(bounding\s*)?boxes/i,
+    /show\s*(me\s*)?(the\s*)?(bounding\s*)?box/i,
     /display\s*(the\s*)?(bounding\s*)?boxes/i,
+    /display\s*(the\s*)?(bounding\s*)?box/i,
     /turn\s*on\s*(the\s*)?(bounding\s*)?boxes/i,
     /enable\s*(the\s*)?(bounding\s*)?boxes/i,
     /show\s*(me\s*)?what\s*you\s*see/i,
