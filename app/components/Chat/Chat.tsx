@@ -816,13 +816,19 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
         console.log('🌤️ Sending cached weather report to NoVo');
 
+        // Send weather as bracketed context (not spoken)
+        if (sendAssistantInput) {
+          sendAssistantInput(`[Weather: ${weatherReport}]`);
+        }
+
+        // Send generic tool response to satisfy the tool call
         if (sendToolMessage && pendingToolCall.toolCallId) {
           sendToolMessage({
             type: 'tool_response',
             toolCallId: pendingToolCall.toolCallId,
-            content: weatherReport,
+            content: 'OK',
           } as any);
-          console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
+          console.log('🌤️ Weather tool response sent');
         }
         return;
       }
@@ -893,14 +899,19 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             console.log('🌤️ Weather data from API:', w);
             console.log('🌤️ Sending weather report to NoVo:', weatherReport);
 
-            // Use sendToolMessage instead of pendingToolCall.send to avoid SDK bug
+            // Send weather as bracketed context (not spoken)
+            if (sendAssistantInput) {
+              sendAssistantInput(`[Weather: ${weatherReport}]`);
+            }
+
+            // Send generic tool response to satisfy the tool call
             if (sendToolMessage && pendingToolCall.toolCallId) {
               sendToolMessage({
                 type: 'tool_response',
                 toolCallId: pendingToolCall.toolCallId,
-                content: weatherReport,
+                content: 'OK',
               } as any);
-              console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
+              console.log('🌤️ Weather tool response sent');
             }
           } else {
             console.error('🌤️ Weather API returned error:', data);
@@ -2902,7 +2913,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-linear-to-b from-blue-50 to-white">
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-b from-blue-50 to-white">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b bg-white/80 backdrop-blur-sm">
         <div className="flex items-center">
@@ -2987,7 +2998,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               />
 
               {/* Development in Progress Banner */}
-              <div className="absolute top-8 left-0 right-0 bg-linear-to-r from-yellow-500/50 via-yellow-400/50 to-yellow-500/50 text-black py-3 px-6 transform -rotate-2 shadow-lg z-50">
+              <div className="absolute top-8 left-0 right-0 bg-gradient-to-r from-yellow-500/50 via-yellow-400/50 to-yellow-500/50 text-black py-3 px-6 transform -rotate-2 shadow-lg z-50">
                 <p className="text-center text-xl font-bold tracking-wider">
                   🚧 DEVELOPMENT IN PROGRESS 🚧
                 </p>
@@ -3020,7 +3031,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
       {/* Transcript Section - Collapsible */}
       <div
         className={`bg-white transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
-          transcriptVisible ? 'min-h-50 opacity-100' : 'h-0 min-h-0 opacity-0'
+          transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
         {/* Header - Ultra-thin centered dropdown */}
@@ -3079,7 +3090,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Finish Session Button - shown during photo session */}
       {isPhotoSession && !showPhotoGrid && (
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-100 flex flex-col items-center gap-2">
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] flex flex-col items-center gap-2">
           <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm">
             {sessionPhotos.length} {sessionPhotos.length === 1 ? 'photo' : 'photos'} captured
           </div>
@@ -3116,7 +3127,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Flash effect for photo capture */}
       {showFlash && (
-        <div className="fixed inset-0 bg-white z-9999 pointer-events-none animate-flash" />
+        <div className="fixed inset-0 bg-white z-[9999] pointer-events-none animate-flash" />
       )}
 
       {/* Image Viewer Modal */}
