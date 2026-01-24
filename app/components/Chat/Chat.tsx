@@ -832,11 +832,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         setWeatherData(w);
         setShowWeatherOverlay(true);
 
-        // Auto-hide weather overlay after 4 seconds
-        setTimeout(() => {
-          setShowWeatherOverlay(false);
-        }, 4000);
-
         // Build weather report for NoVo with proper null checks (Celsius only)
         const location = w.location || 'your area';
         const tempC = w.temperature?.celsius || 'unknown';
@@ -858,6 +853,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           } as any);
           console.log('🌤️ Weather tool response sent successfully via sendToolMessage');
         }
+        onToolCallHandled?.();
         return;
       }
 
@@ -893,11 +889,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             setWeatherData(w);
             setShowWeatherOverlay(true);
             console.log('🌤️ Weather overlay displayed');
-
-            // Auto-hide weather overlay after 4 seconds
-            setTimeout(() => {
-              setShowWeatherOverlay(false);
-            }, 4000);
 
             // Build a natural weather report for NoVo to speak with proper null checks (Celsius only)
             const location = w.location || 'your area';

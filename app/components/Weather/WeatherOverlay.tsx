@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface WeatherData {
   temperature: {
@@ -37,6 +37,11 @@ export default function WeatherOverlay({
 }: WeatherOverlayProps) {
   const [opacity, setOpacity] = useState(0);
   const [shouldRender, setShouldRender] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
     if (isVisible && weather) {
@@ -52,7 +57,7 @@ export default function WeatherOverlay({
         // Wait for fade out animation before unmounting
         setTimeout(() => {
           setShouldRender(false);
-          onComplete?.();
+          onCompleteRef.current?.();
         }, 500);
       }, duration);
 
@@ -64,7 +69,7 @@ export default function WeatherOverlay({
       }, 500);
       return () => clearTimeout(unmountTimer);
     }
-  }, [isVisible, weather, duration, onComplete]);
+  }, [isVisible, weather, duration]);
 
   if (!shouldRender || !weather) return null;
 
@@ -104,7 +109,7 @@ export default function WeatherOverlay({
           setOpacity(0);
           setTimeout(() => {
             setShouldRender(false);
-            onComplete?.();
+            onCompleteRef.current?.();
           }, 500);
         }}
         className={`absolute top-4 right-4 ${textColor} opacity-50 hover:opacity-100 transition-opacity p-2 rounded-full hover:bg-white/10`}
