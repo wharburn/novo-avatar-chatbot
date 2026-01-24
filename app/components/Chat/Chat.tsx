@@ -16,6 +16,7 @@ import VisionStream from '../Vision/VisionStream';
 import WeatherOverlay from '../Weather/WeatherOverlay';
 import ChatControls from './ChatControls';
 import ChatMessages from './ChatMessages';
+import EmailConfirmation from './EmailConfirmation';
 import ImageViewer from './ImageViewer';
 
 interface ChatProps {
@@ -3151,6 +3152,107 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
             onEmailPhotos={handleEmailPhotos}
           />
         </>
+      )}
+
+      {/* Email Confirmation Modal */}
+      {emailConfirmation && (
+        <EmailConfirmation
+          email={emailConfirmation.email}
+          emailType={emailConfirmation.type}
+          onConfirm={(confirmedEmail) => {
+            console.log('📧 Email confirmed:', confirmedEmail);
+
+            // Set the email intent to trigger auto-send
+            emailIntentRef.current.wantsEmail = true;
+            emailIntentRef.current.email = confirmedEmail;
+
+            // If we have the name from the data, set it
+            if (emailConfirmation.data?.user_name) {
+              emailIntentRef.current.name = emailConfirmation.data.user_name;
+            }
+
+            // Close the modal
+            setEmailConfirmation(null);
+
+            // Trigger the email send
+            if (emailConfirmation.type === 'picture' && emailConfirmation.data?.image_url) {
+              fetch('/api/tools/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  toolName: 'send_email_picture',
+                  parameters: {
+                    email: confirmedEmail,
+                    user_name: emailConfirmation.data.user_name || 'Friend',
+                    image_url: emailConfirmation.data.image_url,
+                    caption: emailConfirmation.data.caption || 'Picture from NoVo!',
+                  },
+                }),
+              })
+                .then((res) => res.json())
+                .then((result) => {
+                  console.log('📧 Email send result:', result);
+                  if (result.success) {
+                    console.log('✅ Email sent successfully!');
+                    if (sendAssistantInput) {
+                      sendAssistantInput('[Email sent successfully!]');
+                    }
+                  } else {
+                    console.error('❌ Email failed:', result.error);
+                    if (sendAssistantInput) {
+                      sendAssistantInput(`[Email failed: ${result.error}]`);
+                    }
+                  }
+                })
+                .catch((error) => {
+                  console.error('📧 Email error:', error);
+                  if (sendAssistantInput) {
+                    sendAssistantInput('[Error sending email]');
+                  }
+                });
+            } else if (emailConfirmation.type === 'summary') {
+              // Handle summary email
+              fetch('/api/tools/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  toolName: 'send_email_summary',
+                  parameters: {
+                    email: confirmedEmail,
+                    user_name: emailConfirmation.data.user_name || 'Friend',
+                    messages: emailConfirmation.data.messages,
+                    userProfile: emailConfirmation.data.userProfile,
+                  },
+                }),
+              })
+                .then((res) => res.json())
+                .then((result) => {
+                  console.log('📧 Summary email result:', result);
+                  if (result.success) {
+                    console.log('✅ Summary email sent successfully!');
+                    if (sendAssistantInput) {
+                      sendAssistantInput('[Summary email sent successfully!]');
+                    }
+                  } else {
+                    console.error('❌ Summary email failed:', result.error);
+                    if (sendAssistantInput) {
+                      sendAssistantInput(`[Summary email failed: ${result.error}]`);
+                    }
+                  }
+                })
+                .catch((error) => {
+                  console.error('📧 Summary email error:', error);
+                  if (sendAssistantInput) {
+                    sendAssistantInput('[Error sending summary email]');
+                  }
+                });
+            }
+          }}
+          onCancel={() => {
+            console.log('📧 Email confirmation cancelled');
+            setEmailConfirmation(null);
+          }}
+        />
       )}
     </div>
   );
