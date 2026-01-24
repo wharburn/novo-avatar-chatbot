@@ -1,7 +1,7 @@
 'use client';
 
 import { useVoice, VoiceReadyState } from '@humeai/voice-react';
-import { Eye, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
+import { Eye, Mic, MicOff, Phone, PhoneOff, Square } from 'lucide-react';
 import { useState } from 'react';
 import AudioSettings from '../Settings/AudioSettings';
 import SettingsButton from '../Settings/SettingsButton';
@@ -11,6 +11,8 @@ interface ChatControlsProps {
   configId?: string;
   isVisionActive?: boolean;
   onVisionToggle?: () => void;
+  showBoundingBoxes?: boolean;
+  onBoundingBoxToggle?: () => void;
   userProfile?: {
     name?: string;
     email?: string;
@@ -24,6 +26,8 @@ export default function ChatControls({
   configId,
   isVisionActive,
   onVisionToggle,
+  showBoundingBoxes,
+  onBoundingBoxToggle,
   userProfile,
 }: ChatControlsProps) {
   const { connect, disconnect, readyState, isMuted, mute, unmute, error } = useVoice();
@@ -107,6 +111,28 @@ export default function ChatControls({
             }
           `}</style>
         </button>
+
+        {/* Bounding box toggle button - only show when vision is active */}
+        {isVisionActive && (
+          <button
+            onClick={onBoundingBoxToggle}
+            className={`p-3 rounded-full shadow-lg transition-all ${
+              showBoundingBoxes
+                ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-200'
+            }`}
+            aria-label={
+              showBoundingBoxes ? 'Hide object detection boxes' : 'Show object detection boxes'
+            }
+            title={
+              showBoundingBoxes
+                ? 'Object detection ON - tap to turn off'
+                : 'Tap to show object detection boxes'
+            }
+          >
+            <Square className={`w-6 h-6 ${showBoundingBoxes ? 'text-white' : 'text-gray-500'}`} />
+          </button>
+        )}
 
         {/* Connect/Disconnect button */}
         {isConnected ? (
