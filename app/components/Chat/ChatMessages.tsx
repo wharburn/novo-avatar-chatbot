@@ -68,7 +68,7 @@ export default function ChatMessages() {
           >
             {/* Avatar icon */}
             <div
-              className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+              className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                 isAssistant ? 'bg-blue-100' : 'bg-gray-100'
               }`}
             >
@@ -84,7 +84,7 @@ export default function ChatMessages() {
               className={`flex flex-col max-w-[75%] ${isAssistant ? 'items-start' : 'items-end'}`}
             >
               <div className="px-4 py-1">
-                <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
+                <p className="text-sm whitespace-pre-wrap overflow-wrap-break-word">{content}</p>
               </div>
 
               {/* Role label */}
