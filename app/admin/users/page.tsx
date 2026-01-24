@@ -133,7 +133,7 @@ export default function UsersPage() {
   // PIN Entry Screen
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-b from-gray-900 to-gray-800 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
           <div className="flex justify-center mb-6">
             <div className="bg-blue-100 p-4 rounded-full">
@@ -192,6 +192,7 @@ export default function UsersPage() {
               onClick={() => fetchUsers(pin)}
               disabled={loading}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Refresh users"
             >
               <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -244,6 +245,7 @@ export default function UsersPage() {
               <div className="divide-y">
                 {filteredUsers.map((user) => (
                   <button
+                    type="button"
                     key={user.ipAddress}
                     onClick={() => setSelectedUser(user)}
                     className={`w-full px-6 py-4 text-left hover:bg-gray-50 transition-colors ${
@@ -274,7 +276,7 @@ export default function UsersPage() {
         {/* User Details */}
         {selectedUser && (
           <div className="w-96 bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
-            <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-blue-100">
+            <div className="p-6 border-b bg-linear-to-r from-blue-50 to-blue-100">
               <h2 className="text-xl font-bold text-gray-800">
                 {selectedUser.name || 'Unknown User'}
               </h2>
@@ -334,8 +336,10 @@ export default function UsersPage() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-gray-700">Notes</h3>
                   <button
+                    type="button"
                     onClick={() => setShowNoteForm(!showNoteForm)}
                     className="text-blue-600 hover:text-blue-700"
+                    aria-label="Add note"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
@@ -352,12 +356,14 @@ export default function UsersPage() {
                     />
                     <div className="flex gap-2 mt-2">
                       <button
+                        type="button"
                         onClick={handleAddNote}
                         className="flex-1 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
                       >
                         Save
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           setShowNoteForm(false);
                           setNewNote('');

@@ -133,7 +133,7 @@ export default function AdminPage() {
   // PIN Entry Screen
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-b from-gray-900 to-gray-800 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
           <div className="flex justify-center mb-6">
             <div className="bg-blue-100 p-4 rounded-full">
@@ -147,10 +147,14 @@ export default function AdminPage() {
           </p>
 
           <form onSubmit={handlePinSubmit}>
+            <label htmlFor="pin-0" className="sr-only">
+              Admin PIN
+            </label>
             <div className="flex justify-center gap-2 mb-6">
               {[0, 1, 2, 3].map((index) => (
                 <input
                   key={index}
+                  id={`pin-${index}`}
                   type="text"
                   inputMode="numeric"
                   maxLength={1}
@@ -198,11 +202,13 @@ export default function AdminPage() {
   if (selectedSession) {
     return (
       <div className="min-h-screen max-h-screen overflow-hidden flex flex-col bg-gray-100">
-        <header className="bg-white border-b px-6 py-4 flex-shrink-0">
+        <header className="bg-white border-b px-6 py-4 shrink-0">
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={() => setSelectedSession(null)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Back to sessions"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -251,7 +257,7 @@ export default function AdminPage() {
           {/* Messages */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">Conversation</h2>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto">
+            <div className="space-y-4 max-h-150 overflow-y-auto">
               {selectedSession.messages.map((msg, index) => (
                 <div
                   key={index}
@@ -287,7 +293,7 @@ export default function AdminPage() {
   // Sessions List View
   return (
     <div className="min-h-screen max-h-screen overflow-hidden flex flex-col bg-gray-100">
-      <header className="bg-white border-b px-6 py-4 flex-shrink-0">
+      <header className="bg-white border-b px-6 py-4 shrink-0">
         <div className="flex items-center justify-between max-w-6xl mx-auto mb-4">
           <div>
             <h1 className="text-xl font-bold text-gray-800">NoVo Admin</h1>
@@ -299,6 +305,7 @@ export default function AdminPage() {
               onClick={() => fetchSessions(pin)}
               disabled={loading}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Refresh sessions"
             >
               <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -385,9 +392,10 @@ export default function AdminPage() {
               <p>No sessions recorded yet</p>
             </div>
           ) : (
-            <div className="divide-y max-h-[500px] overflow-y-auto">
+            <div className="divide-y max-h-125 overflow-y-auto">
               {sessions.map((session) => (
                 <button
+                  type="button"
                   key={session.id}
                   onClick={() => fetchSessionDetail(session.id)}
                   className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
