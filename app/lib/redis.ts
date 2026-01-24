@@ -31,6 +31,8 @@ export interface UserProfile {
   firstSeen: number;
   lastSeen: number;
   visitCount: number;
+  // List of all IP addresses associated with this user (for merged profiles)
+  linkedIpAddresses?: string[];
 }
 
 // Types for interaction tracking
@@ -317,6 +319,106 @@ export async function getAllUsers(): Promise<UserProfile[]> {
     return users.sort((a, b) => b.lastSeen - a.lastSeen);
   } catch (error) {
     console.error('Error in getAllUsers:', error);
+    throw error;
+  }
+}
+
+/**
+ * Merge duplicate users with same name and email
+ * Keeps the oldest user as primary and links all IP addresses
+ */
+export async function mergeDuplicateUsers(): Promise<{
+  mergedCount: number;
+  mergedGroups: Array<{
+    primaryIp: string;
+    linkedIps: string[];
+    name?: string;
+    email?: string;
+  }>;
+}> {
+  try {
+    const allUsers = await getAllUsers();
+    const mergedGroups: Array<{
+      primaryIp: string;
+      linkedIps: string[];
+      name?: string;
+      email?: string;
+    }> = [];
+    const processedIps = new Set<string>();
+
+    // Group users by name + email combination
+    const userGroups = new Map<string, UserProfile[]>();
+
+    for (const user of allUsers) {
+      // Skip if already processed (merged into another user)
+      if (processedIps.has(user.ipAddress)) continue;
+
+      // Create a key from name and email (case-insensitive)
+      const key = `${(user.name || '').toLowerCase().trim()}|${(user.email || '').toLowerCase().trim()}`;
+
+      // Only group if both name and email are present
+      if (user.name && user.email) {
+        if (!userGroups.has(key)) {
+          userGroups.set(key, []);
+        }
+        userGroups.get(key)!.push(user);
+      }
+    }
+
+    // Process each group with duplicates
+    for (const [key, users] of userGroups.entries()) {
+      if (users.length <= 1) continue; // No duplicates
+
+      // Sort by firstSeen to keep the oldest as primary
+      users.sort((a, b) => a.firstSeen - b.firstSeen);
+
+      const primaryUser = users[0];
+      const linkedIps = users.map((u) => u.ipAddress);
+
+      console.log(
+        `🔗 Merging ${users.length} users with name="${primaryUser.name}" email="${primaryUser.email}"`
+      );
+      console.log(`   Primary IP: ${primaryUser.ipAddress}`);
+      console.log(`   Linked IPs: ${linkedIps.slice(1).join(', ')}`);
+
+      // Update primary user with linked IPs
+      primaryUser.linkedIpAddresses = linkedIps;
+      primaryUser.lastSeen = Math.max(...users.map((u) => u.lastSeen));
+      primaryUser.visitCount = users.reduce((sum, u) => sum + u.visitCount, 0);
+
+      // Add merge notes
+      if (!primaryUser.notes) primaryUser.notes = [];
+      for (const user of users.slice(1)) {
+        primaryUser.notes.push(
+          `[${new Date().toISOString()}] Merged duplicate profile from IP ${user.ipAddress} (${user.visitCount} visits)`
+        );
+      }
+
+      // Save updated primary user
+      await redis.set(`${USER_PREFIX}${primaryUser.ipAddress}`, JSON.stringify(primaryUser));
+
+      // Remove duplicate users from Redis
+      for (const user of users.slice(1)) {
+        await redis.del(`${USER_PREFIX}${user.ipAddress}`);
+        await redis.srem(USERS_KEY, user.ipAddress);
+        processedIps.add(user.ipAddress);
+      }
+
+      mergedGroups.push({
+        primaryIp: primaryUser.ipAddress,
+        linkedIps: linkedIps.slice(1),
+        name: primaryUser.name,
+        email: primaryUser.email,
+      });
+    }
+
+    console.log(`✅ Merge complete: ${mergedGroups.length} groups merged`);
+    return {
+      mergedCount: mergedGroups.length,
+      mergedGroups,
+    };
+  } catch (error) {
+    console.error('Error merging duplicate users:', error);
     throw error;
   }
 }

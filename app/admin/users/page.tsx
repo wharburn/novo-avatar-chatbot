@@ -19,6 +19,7 @@ interface UserProfile {
   firstSeen: number;
   lastSeen: number;
   visitCount: number;
+  linkedIpAddresses?: string[];
 }
 
 export default function UsersPage() {
@@ -31,6 +32,8 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [newNote, setNewNote] = useState('');
+  const [merging, setMerging] = useState(false);
+  const [mergeResult, setMergeResult] = useState<any>(null);
 
   // Check if PIN is stored in sessionStorage
   useEffect(() => {
@@ -127,6 +130,45 @@ export default function UsersPage() {
     setSelectedUser(null);
   };
 
+  const handleMergeUsers = async () => {
+    if (
+      !window.confirm(
+        'Are you sure you want to merge duplicate users? This will combine users with the same name and email.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setMerging(true);
+      const response = await fetch(`/api/admin/merge-users?pin=${pin}`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        setError('Failed to merge users');
+        return;
+      }
+
+      const data = await response.json();
+      setMergeResult(data);
+      setError('');
+
+      // Refresh users list
+      await fetchUsers(pin);
+
+      // Show success message
+      setTimeout(() => {
+        setMergeResult(null);
+      }, 5000);
+    } catch (err) {
+      setError('Failed to merge users');
+      console.error(err);
+    } finally {
+      setMerging(false);
+    }
+  };
+
   const filteredUsers = users.filter(
     (user) =>
       user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -204,6 +246,16 @@ export default function UsersPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
+              onClick={handleMergeUsers}
+              disabled={merging || loading}
+              className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-blue-600 disabled:opacity-50"
+              aria-label="Merge duplicate users"
+              title="Merge users with same name and email"
+            >
+              <Merge2 className={`w-5 h-5 ${merging ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              type="button"
               onClick={() => fetchUsers(pin)}
               disabled={loading}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -237,6 +289,26 @@ export default function UsersPage() {
           </button>
         </div>
       </header>
+
+      {/* Merge Result Notification */}
+      {mergeResult && (
+        <div className="bg-green-50 border-b border-green-200 px-6 py-4">
+          <div className="max-w-7xl mx-auto">
+            <p className="text-green-800 font-medium">
+              ✅ Successfully merged {mergeResult.mergedCount} groups of duplicate users
+            </p>
+            {mergeResult.mergedGroups && mergeResult.mergedGroups.length > 0 && (
+              <div className="mt-2 text-sm text-green-700">
+                {mergeResult.mergedGroups.map((group: any, idx: number) => (
+                  <div key={idx}>
+                    • {group.name} ({group.email}) - Linked {group.linkedIps.length} IP(s)
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <main className="flex-1 overflow-y-auto flex gap-6 p-6 max-w-7xl mx-auto w-full">
         {/* Users List */}
@@ -345,6 +417,30 @@ export default function UsersPage() {
                   <p>Total Visits: {selectedUser.visitCount}</p>
                 </div>
               </div>
+
+              {/* Linked IP Addresses */}
+              {selectedUser.linkedIpAddresses && selectedUser.linkedIpAddresses.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-3">Linked IP Addresses</h3>
+                  <div className="space-y-2">
+                    {selectedUser.linkedIpAddresses.map((ip, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded text-sm font-mono ${
+                          ip === selectedUser.ipAddress
+                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                            : 'bg-gray-100 text-gray-700 border border-gray-300'
+                        }`}
+                      >
+                        {ip}
+                        {ip === selectedUser.ipAddress && (
+                          <span className="ml-2 text-xs">(Primary)</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Notes */}
               <div>
