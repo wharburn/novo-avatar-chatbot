@@ -459,6 +459,25 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
   const isSpeaking = isPlaying;
   const isListening = isConnected && !isPlaying;
 
+  const sendBaseSessionSettings = useCallback(() => {
+    if (!isConnected || !sendSessionSettings) return;
+    try {
+      sendSessionSettings({
+        variables: {
+          user_name: userProfile?.name || '',
+          user_email: userProfile?.email || '',
+          is_returning_user: userProfile?.isReturningUser ? 'true' : 'false',
+          visit_count: String(userProfile?.visitCount || 1),
+          vision_enabled: isVisionActive ? 'true' : 'false',
+          photo_session_mode: 'false',
+        },
+        systemPrompt: BASE_SYSTEM_PROMPT,
+      });
+    } catch (error) {
+      console.error('Failed to reset session settings after photo session:', error);
+    }
+  }, [isConnected, sendSessionSettings, userProfile, isVisionActive]);
+
   // Get user's microphone volume directly (independent of Hume SDK)
   const { volume: micVolume } = useMicrophoneVolume(isConnected);
 
@@ -1405,19 +1424,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           setWeatherData(data.weather);
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
 
-          // Send weather context to NoVo so she's aware (Celsius only)
-          if (sendAssistantInput && data.weather.forecast && !isPhotoSessionRef.current) {
-            const forecastSummary = data.weather.forecast
-              .slice(0, 2)
-              .map(
-                (day: any) =>
-                  `${day.date}: ${day.condition}, ${day.minTemp.celsius}°C-${day.maxTemp.celsius}°C`
-              )
-              .join('; ');
-            sendAssistantInput(
-              `[Weather context: Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}]`
-            );
-          }
+          // Do not proactively speak weather on connect.
         }
       } catch (error) {
         console.error('Error fetching weather on connect:', error);
@@ -1427,8 +1434,8 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     fetchWeatherOnConnect();
   }, [isConnected, sendAssistantInput]);
 
-  // Periodic system context updates - keep NoVo informed about camera, weather, etc.
-  // This sends context to NoVo so she's aware, but she decides when to mention it naturally
+  // Periodic system context updates - keep NoVo informed about camera, etc.
+  // Weather is intentionally excluded to avoid unsolicited weather commentary.
   useEffect(() => {
     if (!isConnected || !sendAssistantInput || isPhotoSessionRef.current) return;
 
@@ -1452,12 +1459,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         } catch (err) {
           console.error('Camera context error:', err);
         }
-      }
-
-      // Add weather context if available (Celsius only)
-      if (weatherData) {
-        const weatherContext = `Weather: ${weatherData.temperature.celsius}°C, ${weatherData.condition}, feels like ${weatherData.feelsLike?.celsius}°C`;
-        contextParts.push(weatherContext);
       }
 
       // Send combined context if we have any
@@ -1994,6 +1995,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               setIsPhotoSession(false);
               setShowPhotoGrid(true);
               setAutoOpenPhotoEmailModal(true);
+              sendBaseSessionSettings();
 
               // NO message - let NoVo respond naturally
               processingCommandRef.current = false;
@@ -2911,6 +2913,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     setIsPhotoSession(false);
     setSessionPhotos([]); // Clear photos when closing grid
     setAutoOpenPhotoEmailModal(false);
+    sendBaseSessionSettings();
   };
 
   const handleEmailPhotos = async (selectedPhotoIds: string[], email: string, name: string) => {
@@ -3177,6 +3180,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
               setIsPhotoSession(false);
               setShowPhotoGrid(true);
               setAutoOpenPhotoEmailModal(true);
+              sendBaseSessionSettings();
               console.log('📸 Set showPhotoGrid to true and isPhotoSession to false');
               photoSessionStartTimeRef.current = null; // Clear the timer
             }}

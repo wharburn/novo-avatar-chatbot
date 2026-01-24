@@ -42,14 +42,17 @@ export default function ChatControls({
       console.log('Access token present:', !!accessToken, 'length:', accessToken?.length || 0);
       console.log('Config ID:', configId);
 
-      if (!accessToken) {
+      const trimmedToken = typeof accessToken === 'string' ? accessToken.trim() : '';
+      const trimmedConfigId = typeof configId === 'string' ? configId.trim() : '';
+
+      if (!trimmedToken) {
         console.error(
           'No access token available - check HUME_API_KEY and HUME_SECRET_KEY env vars'
         );
         return;
       }
 
-      if (!configId) {
+      if (!trimmedConfigId) {
         console.error('No config ID available - check NEXT_PUBLIC_HUME_CONFIG_ID env var');
         return;
       }
@@ -58,8 +61,8 @@ export default function ChatControls({
 
       // Connect to Hume - session settings will be sent after connection
       await connect({
-        auth: { type: 'accessToken', value: accessToken },
-        configId: configId,
+        auth: { type: 'accessToken', value: trimmedToken },
+        configId: trimmedConfigId,
       });
       console.log('Connection initiated successfully');
     } catch (err) {
