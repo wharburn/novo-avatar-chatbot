@@ -16,6 +16,22 @@ interface UserProfile {
   employer?: string;
   interests?: string[];
   notes?: string[];
+  appearanceHistory?: {
+    timestamp: number;
+    summary: string;
+    source?: string;
+    emotion?: string;
+  }[];
+  outfitHistory?: {
+    timestamp: number;
+    summary: string;
+    source?: string;
+  }[];
+  emotionHistory?: {
+    timestamp: number;
+    emotion: string;
+    source?: string;
+  }[];
   firstSeen: number;
   lastSeen: number;
   visitCount: number;
@@ -415,6 +431,78 @@ export default function UsersPage() {
                   <p>First Seen: {formatDate(selectedUser.firstSeen)}</p>
                   <p>Last Seen: {formatDate(selectedUser.lastSeen)}</p>
                   <p>Total Visits: {selectedUser.visitCount}</p>
+                </div>
+              </div>
+
+              {/* Appearance History */}
+              <div>
+                <h3 className="font-semibold text-gray-700 mb-3">Appearance History</h3>
+                <div className="space-y-2 text-sm text-gray-600 max-h-48 overflow-y-auto">
+                  {selectedUser.appearanceHistory && selectedUser.appearanceHistory.length > 0 ? (
+                    selectedUser.appearanceHistory
+                      .slice(-5)
+                      .reverse()
+                      .map((entry, idx) => (
+                        <div key={idx} className="p-2 bg-gray-50 rounded">
+                          <div className="text-xs text-gray-500">{formatDate(entry.timestamp)}</div>
+                          <div className="text-gray-700">{entry.summary}</div>
+                          {entry.emotion && (
+                            <div className="text-xs text-gray-500">Emotion: {entry.emotion}</div>
+                          )}
+                          {entry.source && (
+                            <div className="text-xs text-gray-400">Source: {entry.source}</div>
+                          )}
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-xs text-gray-400">No appearance history yet</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Outfit History */}
+              <div>
+                <h3 className="font-semibold text-gray-700 mb-3">Outfit History</h3>
+                <div className="space-y-2 text-sm text-gray-600 max-h-48 overflow-y-auto">
+                  {selectedUser.outfitHistory && selectedUser.outfitHistory.length > 0 ? (
+                    selectedUser.outfitHistory
+                      .slice(-5)
+                      .reverse()
+                      .map((entry, idx) => (
+                        <div key={idx} className="p-2 bg-gray-50 rounded">
+                          <div className="text-xs text-gray-500">{formatDate(entry.timestamp)}</div>
+                          <div className="text-gray-700">{entry.summary}</div>
+                          {entry.source && (
+                            <div className="text-xs text-gray-400">Source: {entry.source}</div>
+                          )}
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-xs text-gray-400">No outfit history yet</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Emotion History */}
+              <div>
+                <h3 className="font-semibold text-gray-700 mb-3">Emotion History</h3>
+                <div className="space-y-2 text-sm text-gray-600 max-h-48 overflow-y-auto">
+                  {selectedUser.emotionHistory && selectedUser.emotionHistory.length > 0 ? (
+                    selectedUser.emotionHistory
+                      .slice(-5)
+                      .reverse()
+                      .map((entry, idx) => (
+                        <div key={idx} className="p-2 bg-gray-50 rounded">
+                          <div className="text-xs text-gray-500">{formatDate(entry.timestamp)}</div>
+                          <div className="text-gray-700">{entry.emotion}</div>
+                          {entry.source && (
+                            <div className="text-xs text-gray-400">Source: {entry.source}</div>
+                          )}
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-xs text-gray-400">No emotion history yet</p>
+                  )}
                 </div>
               </div>
 

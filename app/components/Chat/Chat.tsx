@@ -258,6 +258,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
   // Current spoken text for phrase video matching
   const [currentSpokenText, setCurrentSpokenText] = useState('');
+  const [textInput, setTextInput] = useState('');
 
   // Voice emotion tracking for display
   const [voiceEmotions, setVoiceEmotions] = useState<EmotionScore[]>([]);
@@ -3052,18 +3053,11 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     (msg) => msg.type === 'user_message' || msg.type === 'assistant_message'
   );
 
-  const formatTimestamp = (ts?: number) => {
-    if (!ts) return '';
-    try {
-      return new Date(ts).toLocaleString();
-    } catch {
-      return '';
-    }
-  };
-
-  const getRecent = <T,>(items?: T[], count = 3): T[] => {
-    if (!items || items.length === 0) return [];
-    return items.slice(-count).reverse();
+  const handleSendText = () => {
+    const trimmed = textInput.trim();
+    if (!trimmed || !sendUserInput) return;
+    sendUserInput(trimmed);
+    setTextInput('');
   };
 
   // Photo grid handlers
@@ -3177,6 +3171,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         videoEmotions={videoEmotions}
         isVisionActive={isVisionActive}
       />
+      <div className="text-center text-xs text-gray-600 py-1">
+        {isListening ? 'Listening' : isSpeaking ? 'Speaking' : 'Idle'}
+      </div>
 
       {/* Avatar Section - Dynamic Height */}
       <div
@@ -3262,7 +3259,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
 
       {/* Transcript Section - Collapsible */}
       <div
-        className={`bg-white transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 ${
+        className={`bg-white transition-all duration-300 ease-in-out overflow-hidden flex-1 relative z-40 flex flex-col ${
           transcriptVisible ? 'min-h-[200px] opacity-100' : 'h-0 min-h-0 opacity-0'
         }`}
       >
@@ -3285,67 +3282,34 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
         </div>
 
         {/* Messages */}
-        <div className="h-[calc(100%-28px)] overflow-y-auto px-3 py-2">
-          {/* User card */}
-          {userProfile && (
-            <div className="mb-3 rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                <div className="text-sm font-semibold text-gray-800">User Card</div>
-                <div className="text-[10px] text-gray-500">
-                  Last seen: {formatTimestamp(userProfile.lastSeen)}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-3 py-2 text-xs text-gray-700">
-                <div>
-                  <div className="font-medium text-gray-800">Profile</div>
-                  <div>Name: {userProfile.name || 'Unknown'}</div>
-                  <div>Email: {userProfile.email || 'Unknown'}</div>
-                  <div>Phone: {userProfile.phone || 'Unknown'}</div>
-                  <div>Location: {userProfile.location || 'Unknown'}</div>
-                  <div>Visits: {userProfile.visitCount}</div>
-                </div>
-                <div>
-                  <div className="font-medium text-gray-800">Latest Emotion</div>
-                  {getRecent(userProfile.emotionHistory, 1).map((entry, idx) => (
-                    <div key={`emotion-${idx}`}>
-                      {entry.emotion} {entry.source ? `(${entry.source})` : ''} ·{' '}
-                      {formatTimestamp(entry.timestamp)}
-                    </div>
-                  ))}
-                  {getRecent(userProfile.emotionHistory, 1).length === 0 && (
-                    <div className="text-gray-500">No emotion history yet</div>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-3 pb-3 text-xs text-gray-700">
-                <div>
-                  <div className="font-medium text-gray-800">Recent Appearance</div>
-                  {getRecent(userProfile.appearanceHistory).map((entry, idx) => (
-                    <div key={`appearance-${idx}`} className="mt-1">
-                      <div className="text-gray-600">{formatTimestamp(entry.timestamp)}</div>
-                      <div className="text-gray-800">{entry.summary}</div>
-                    </div>
-                  ))}
-                  {getRecent(userProfile.appearanceHistory).length === 0 && (
-                    <div className="text-gray-500">No appearance history yet</div>
-                  )}
-                </div>
-                <div>
-                  <div className="font-medium text-gray-800">Recent Outfit Notes</div>
-                  {getRecent(userProfile.outfitHistory).map((entry, idx) => (
-                    <div key={`outfit-${idx}`} className="mt-1">
-                      <div className="text-gray-600">{formatTimestamp(entry.timestamp)}</div>
-                      <div className="text-gray-800">{entry.summary}</div>
-                    </div>
-                  ))}
-                  {getRecent(userProfile.outfitHistory).length === 0 && (
-                    <div className="text-gray-500">No outfit history yet</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="flex-1 overflow-y-auto px-3 py-2">
           <ChatMessages />
+        </div>
+
+        {/* Text input */}
+        <div className="border-t bg-white px-3 py-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSendText();
+                }
+              }}
+              placeholder="Type a message…"
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={handleSendText}
+              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
 
