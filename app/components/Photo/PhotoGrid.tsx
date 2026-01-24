@@ -12,7 +12,7 @@ interface PhotoGridProps {
   photos: Photo[];
   onPhotoDelete: (id: string) => void;
   onClose: () => void;
-  onEmailPhotos: (selectedPhotoIds: string[]) => void;
+  onEmailPhotos: (selectedPhotoIds: string[], email: string, name: string) => void;
 }
 
 export default function PhotoGrid({
@@ -25,6 +25,9 @@ export default function PhotoGrid({
   const [selectedForEmail, setSelectedForEmail] = useState<Set<string>>(
     new Set(photos.map((p) => p.id))
   );
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [nameInput, setNameInput] = useState('');
 
   const handleDeletePhoto = (id: string) => {
     onPhotoDelete(id);
@@ -122,16 +125,7 @@ export default function PhotoGrid({
             </button>
             <button
               type="button"
-              onClick={() => {
-                // Delete unselected photos
-                photos.forEach((photo) => {
-                  if (!selectedForEmail.has(photo.id)) {
-                    onPhotoDelete(photo.id);
-                  }
-                });
-                // Then email the selected ones
-                onEmailPhotos(Array.from(selectedForEmail));
-              }}
+              onClick={() => setShowEmailModal(true)}
               disabled={selectedForEmail.size === 0}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
             >
@@ -166,6 +160,91 @@ export default function PhotoGrid({
             >
               <X className="w-6 h-6 text-white" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Email Input Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Send Photos via Email</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="name-input"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Your Name
+                </label>
+                <input
+                  id="name-input"
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email-input"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Email Address
+                </label>
+                <input
+                  id="email-input"
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="Enter your email"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEmailModal(false);
+                  setEmailInput('');
+                  setNameInput('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (emailInput.trim() && nameInput.trim()) {
+                    // Delete unselected photos
+                    photos.forEach((photo) => {
+                      if (!selectedForEmail.has(photo.id)) {
+                        onPhotoDelete(photo.id);
+                      }
+                    });
+                    // Send email with the provided details
+                    onEmailPhotos(
+                      Array.from(selectedForEmail),
+                      emailInput.trim(),
+                      nameInput.trim()
+                    );
+                    setShowEmailModal(false);
+                    setEmailInput('');
+                    setNameInput('');
+                  }
+                }}
+                disabled={!emailInput.trim() || !nameInput.trim()}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              >
+                Send
+              </button>
+            </div>
           </div>
         </div>
       )}
