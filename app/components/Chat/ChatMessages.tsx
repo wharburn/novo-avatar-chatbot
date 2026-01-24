@@ -2,6 +2,7 @@
 
 import { useVoice, VoiceReadyState } from '@humeai/voice-react';
 import { Bot, User } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 export default function ChatMessages() {
   const { messages, readyState } = useVoice();
@@ -38,6 +39,17 @@ export default function ChatMessages() {
     .slice()
     .reverse();
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    // Keep newest messages visible at the top
+    const scrollContainer = containerRef.current.parentElement;
+    if (scrollContainer) {
+      scrollContainer.scrollTop = 0;
+    }
+  }, [chatMessages.length]);
+
   if (chatMessages.length === 0 && !isConnected) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -49,7 +61,7 @@ export default function ChatMessages() {
   }
 
   return (
-    <div>
+    <div ref={containerRef}>
       {chatMessages.map((msg, index) => {
         if (msg.type !== 'user_message' && msg.type !== 'assistant_message') {
           return null;
