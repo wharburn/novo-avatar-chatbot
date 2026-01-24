@@ -496,31 +496,14 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     name?: string;
     email?: string;
     phone?: string;
-    location?: string;
     isReturningUser: boolean;
     visitCount: number;
   } | null>(null);
   const userProfileLoadedRef = useRef(false);
   const identityConfirmedRef = useRef(false);
 
-  // User matching state
-  const [potentialMatches, setPotentialMatches] = useState<any[]>([]);
-  const [showMatchConfirmation, setShowMatchConfirmation] = useState(false);
-  const [selectedMatchIp, setSelectedMatchIp] = useState<string | null>(null);
-  const collectedInfoForMatchingRef = useRef<{
-    email?: string;
-    name?: string;
-    location?: string;
-    phone?: string;
-  }>({});
-
   // Helper function to save user profile to Redis
-  const saveUserProfile = async (updates: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    location?: string;
-  }) => {
+  const saveUserProfile = async (updates: { name?: string; email?: string; phone?: string }) => {
     try {
       console.log('💾 Saving user profile:', updates);
       const response = await fetch('/api/users', {
@@ -544,11 +527,6 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                 visitCount: 1,
               }
         );
-        // Update matching info
-        collectedInfoForMatchingRef.current = {
-          ...collectedInfoForMatchingRef.current,
-          ...updates,
-        };
       } else {
         console.error('❌ Failed to save user profile:', result.error);
       }
@@ -1368,8 +1346,9 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
           setWeatherData(data.weather);
           console.log('🌤️ Weather fetched on connection:', data.weather.location);
 
-          // Send weather context to NoVo so she's aware (Celsius only)
-          if (sendAssistantInput && data.weather.forecast) {
+          // Send weather context to NoVo via session settings (not as a message)
+          // This keeps it as internal context, not spoken
+          if (sendSessionSettings && data.weather.forecast) {
             const forecastSummary = data.weather.forecast
               .slice(0, 2)
               .map(
@@ -1377,9 +1356,18 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
                   `${day.date}: ${day.condition}, ${day.minTemp.celsius}°C-${day.maxTemp.celsius}°C`
               )
               .join('; ');
-            sendAssistantInput(
-              `[Weather context: Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}]`
-            );
+            const weatherContext = `Current: ${data.weather.temperature.celsius}°C and ${data.weather.condition}. Forecast: ${forecastSummary}`;
+
+            try {
+              sendSessionSettings({
+                variables: {
+                  weather_context: weatherContext,
+                },
+              });
+              console.log('🌤️ Weather context sent via session settings (not as message)');
+            } catch (error) {
+              console.error('Failed to send weather context:', error);
+            }
           }
         }
       } catch (error) {
@@ -1388,7 +1376,7 @@ function ChatInner({ accessToken, configId, pendingToolCall, onToolCallHandled }
     };
 
     fetchWeatherOnConnect();
-  }, [isConnected, sendAssistantInput]);
+  }, [isConnected, sendSessionSettings]);
 
   // Periodic system context updates - keep NoVo informed about camera, weather, etc.
   // This sends context to NoVo so she's aware, but she decides when to mention it naturally

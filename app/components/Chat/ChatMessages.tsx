@@ -9,14 +9,21 @@ export default function ChatMessages() {
 
   // Filter to only show user and assistant messages with content
   // Hide the automatic greeting message sent for returning users
+  // Hide bracketed context messages (internal context only)
   // Reverse to show newest messages at the top
   const chatMessages = messages
     .filter((msg) => {
       if (msg.type !== 'user_message' && msg.type !== 'assistant_message') {
         return false;
       }
-      // Hide the automatic greeting trigger for returning users
       const content = (msg as { message?: { content?: string } }).message?.content || '';
+
+      // Hide bracketed context messages (e.g., [Weather context: ...], [Camera ON: ...])
+      if (content.startsWith('[') && content.endsWith(']')) {
+        return false;
+      }
+
+      // Hide the automatic greeting trigger for returning users
       if (
         msg.type === 'user_message' &&
         (content.match(/^Hi! My name is .+ and I'm back\.$/) ||
